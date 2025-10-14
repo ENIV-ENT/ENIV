@@ -76,6 +76,14 @@
             <h2>Paramètres</h2>
           </div>
 
+          <form id="admin-password-form" class="form-container">
+            <h3>Changer mon mot de passe</h3>
+            <input type="password" id="admin-old-password" placeholder="Mot de passe actuel" required>
+            <input type="password" id="admin-new-password" placeholder="Nouveau mot de passe" required>
+            <input type="password" id="admin-confirm-password" placeholder="Confirmer le nouveau mot de passe" required>
+            <button type="submit" class="btn-primary">Modifier le mot de passe</button>
+          </form>
+
           <form id="settings-form" class="form-container">
             <h3>Lien emploi du temps</h3>
             <input type="url" id="emploi-temps-lien" placeholder="URL de l'emploi du temps (laisser vide pour masquer le bouton)">
@@ -267,8 +275,7 @@
           <input type="hidden" id="edit-eleve-id">
           <div class="form-group">
             <label for="edit-eleve-username" class="form-label">Nom d'utilisateur</label>
-            <input type="text" id="edit-eleve-username" readonly style="background: var(--light); cursor: not-allowed;">
-            <small style="color: var(--secondary); font-size: 0.875rem;">Le nom d'utilisateur ne peut pas être modifié</small>
+            <input type="text" id="edit-eleve-username" placeholder="Nom d'utilisateur" required>
           </div>
           <div class="form-group">
             <label for="edit-eleve-password" class="form-label">Nouveau mot de passe</label>

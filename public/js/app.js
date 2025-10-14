@@ -163,7 +163,7 @@ function renderEleves() {
         <p>Créé le: ${formatDate(eleve.created_at)}</p>
       </div>
       <div class="list-item-actions">
-        <button class="btn-secondary" onclick="editEleve(${eleve.id})">Modifier mot de passe</button>
+        <button class="btn-secondary" onclick="editEleve(${eleve.id})">Modifier</button>
         <button class="btn-danger" onclick="deleteEleve(${eleve.id})">Supprimer</button>
       </div>
     `;
@@ -413,6 +413,7 @@ document.getElementById('edit-eleve-form')?.addEventListener('submit', async (e)
   e.preventDefault();
 
   const id = document.getElementById('edit-eleve-id').value;
+  const username = document.getElementById('edit-eleve-username').value;
   const password = document.getElementById('edit-eleve-password').value;
   const passwordConfirm = document.getElementById('edit-eleve-password-confirm').value;
 
@@ -422,20 +423,21 @@ document.getElementById('edit-eleve-form')?.addEventListener('submit', async (e)
       alert('Les mots de passe ne correspondent pas');
       return;
     }
+  }
 
-    const data = await apiCall(`/api/admin/eleves/${id}/password`, {
-      method: 'PUT',
-      body: JSON.stringify({ password })
-    });
+  const data = await apiCall(`/api/admin/eleves/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ username, password: password || undefined })
+  });
 
-    if (data.error) {
-      alert(data.error);
-      return;
-    }
+  if (data.error) {
+    alert(data.error);
+    return;
   }
 
   document.getElementById('edit-eleve-modal').classList.remove('active');
   alert('Modifications enregistrées');
+  loadEleves();
 });
 
 // Admin - Paramètres
@@ -445,6 +447,31 @@ async function loadSettings() {
     document.getElementById('emploi-temps-lien').value = data.lien || '';
   }
 }
+
+document.getElementById('admin-password-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const oldPassword = document.getElementById('admin-old-password').value;
+  const newPassword = document.getElementById('admin-new-password').value;
+  const confirmPassword = document.getElementById('admin-confirm-password').value;
+
+  if (newPassword !== confirmPassword) {
+    alert('Les nouveaux mots de passe ne correspondent pas');
+    return;
+  }
+
+  const data = await apiCall('/api/admin/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ oldPassword, newPassword }),
+  });
+
+  if (data.error) {
+    alert(data.error);
+  } else {
+    alert('Mot de passe modifié avec succès');
+    document.getElementById('admin-password-form').reset();
+  }
+});
 
 document.getElementById('settings-form').addEventListener('submit', async (e) => {
   e.preventDefault();

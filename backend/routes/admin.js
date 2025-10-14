@@ -35,6 +35,39 @@ function getUniqueColor() {
   }
 }
 
+// Changer le mot de passe de l'admin
+router.post('/change-password', requireAdmin, express.json(), (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+
+  if (!oldPassword || !newPassword) {
+    return res.status(400).json({ error: 'Ancien et nouveau mot de passe requis' });
+  }
+
+  try {
+    // Récupérer le mot de passe actuel de l'admin
+    const admin = db.prepare('SELECT * FROM users WHERE id = ? AND role = ?').get(req.session.userId, 'admin');
+
+    if (!admin) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    }
+
+    // Vérifier l'ancien mot de passe
+    const validPassword = bcrypt.compareSync(oldPassword, admin.password);
+    if (!validPassword) {
+      return res.status(400).json({ error: 'Mot de passe actuel incorrect' });
+    }
+
+    // Mettre à jour le mot de passe
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
+    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedPassword, req.session.userId);
+
+    res.json({ success: true, message: 'Mot de passe modifié avec succès' });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({ error: 'Erreur lors de la modification du mot de passe' });
+  }
+});
+
 // Créer un élève
 router.post('/eleves', requireAdmin, express.json(), (req, res) => {
   const { username, password } = req.body;
@@ -71,20 +104,29 @@ router.get('/eleves', requireAdmin, (req, res) => {
   }
 });
 
-// Modifier le mot de passe d'un élève
-router.put('/eleves/:id/password', requireAdmin, express.json(), (req, res) => {
-  const { password } = req.body;
+// Modifier un élève (username et/ou mot de passe)
+router.put('/eleves/:id', requireAdmin, express.json(), (req, res) => {
+  const { username, password } = req.body;
 
-  if (!password) {
-    return res.status(400).json({ error: 'Mot de passe requis' });
+  if (!username) {
+    return res.status(400).json({ error: 'Nom d\'utilisateur requis' });
   }
 
   try {
-    const hashedPassword = bcrypt.hashSync(password, 10);
-    db.prepare('UPDATE users SET password = ? WHERE id = ? AND role = ?').run(hashedPassword, req.params.id, 'eleve');
-    res.json({ success: true, message: 'Mot de passe modifié' });
+    // Si un mot de passe est fourni, le modifier aussi
+    if (password) {
+      const hashedPassword = bcrypt.hashSync(password, 10);
+      db.prepare('UPDATE users SET username = ?, password = ? WHERE id = ? AND role = ?').run(username, hashedPassword, req.params.id, 'eleve');
+    } else {
+      db.prepare('UPDATE users SET username = ? WHERE id = ? AND role = ?').run(username, req.params.id, 'eleve');
+    }
+    res.json({ success: true, message: 'Élève modifié avec succès' });
   } catch (error) {
-    res.status(500).json({ error: 'Erreur lors de la modification' });
+    if (error.message.includes('UNIQUE')) {
+      res.status(400).json({ error: 'Ce nom d\'utilisateur existe déjà' });
+    } else {
+      res.status(500).json({ error: 'Erreur lors de la modification de l\'élève' });
+    }
   }
 });
 
