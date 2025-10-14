@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ENT Léger</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Page de connexion -->
+    <div id="login-page" class="page">
+      <div class="login-container">
+        <h1>ENT Léger</h1>
+        <form id="login-form">
+          <input type="text" id="username" placeholder="Nom d'utilisateur" required>
+          <input type="password" id="password" placeholder="Mot de passe" required>
+          <button type="submit">Connexion</button>
+          <div id="login-error" class="error"></div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Page Admin -->
+    <div id="admin-page" class="page hidden">
+      <header>
+        <h1>Administration ENT</h1>
+        <div class="header-actions">
+          <span id="user-info"></span>
+          <button id="logout-btn" class="btn-secondary">Déconnexion</button>
+        </div>
+      </header>
+
+      <div class="container">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="eleves">Élèves</button>
+          <button class="tab-btn" data-tab="matieres">Matières</button>
+          <button class="tab-btn" data-tab="settings">Paramètres</button>
+        </div>
+
+        <!-- Onglet Élèves -->
+        <div id="tab-eleves" class="tab-content active">
+          <div class="section-header">
+            <h2>Gestion des élèves</h2>
+            <button id="add-eleve-btn" class="btn-primary">Ajouter un élève</button>
+          </div>
+
+          <div id="add-eleve-form" class="form-container hidden">
+            <h3>Nouvel élève</h3>
+            <form id="eleve-form">
+              <input type="text" id="eleve-username" placeholder="Nom d'utilisateur" required>
+              <input type="password" id="eleve-password" placeholder="Mot de passe" required>
+              <div class="form-actions">
+                <button type="submit" class="btn-primary">Créer</button>
+                <button type="button" id="cancel-eleve-btn" class="btn-secondary">Annuler</button>
+              </div>
+            </form>
+          </div>
+
+          <div id="eleves-list" class="list"></div>
+        </div>
+
+        <!-- Onglet Matières -->
+        <div id="tab-matieres" class="tab-content">
+          <div class="section-header">
+            <h2>Gestion des matières</h2>
+            <button id="add-matiere-btn" class="btn-primary">Ajouter une matière</button>
+          </div>
+
+          <div id="matieres-list" class="list"></div>
+        </div>
+
+        <!-- Onglet Paramètres -->
+        <div id="tab-settings" class="tab-content">
+          <div class="section-header">
+            <h2>Paramètres</h2>
+          </div>
+
+          <form id="settings-form" class="form-container">
+            <h3>Lien emploi du temps</h3>
+            <input type="url" id="emploi-temps-lien" placeholder="URL de l'emploi du temps (laisser vide pour masquer le bouton)">
+            <button type="submit" class="btn-primary">Enregistrer</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Page Élève -->
+    <div id="eleve-page" class="page hidden">
+      <header>
+        <h1>Mes Devoirs</h1>
+        <div class="header-actions">
+          <button id="emploi-temps-btn" class="btn-secondary hidden">Emploi du temps</button>
+          <span id="eleve-info"></span>
+          <button id="logout-eleve-btn" class="btn-secondary">Déconnexion</button>
+        </div>
+      </header>
+
+      <div class="container">
+        <div class="calendar-header">
+          <button id="prev-month" class="btn-secondary">&lt;</button>
+          <h2 id="current-month"></h2>
+          <button id="next-month" class="btn-secondary">&gt;</button>
+        </div>
+
+        <div id="calendar" class="calendar"></div>
+      </div>
+    </div>
+
+    <!-- Modal Devoir -->
+    <div id="devoir-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="modal-title">Détails du devoir</h2>
+          <button class="modal-close" id="close-modal">&times;</button>
+        </div>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+
+    <!-- Modal Ajouter Devoir -->
+    <div id="add-devoir-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Ajouter un devoir</h2>
+          <button class="modal-close" id="close-add-modal">&times;</button>
+        </div>
+        <form id="devoir-form">
+          <div class="form-group">
+            <label for="devoir-titre" class="form-label">Titre du devoir</label>
+            <input type="text" id="devoir-titre" placeholder="Ex: Exercices de mathématiques" required>
+          </div>
+          <div class="form-group">
+            <label for="devoir-matiere" class="form-label">Matière</label>
+            <select id="devoir-matiere" required>
+              <option value="">Sélectionner une matière</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="devoir-description" class="form-label">Description (optionnel)</label>
+            <textarea id="devoir-description" placeholder="Détails du devoir..." rows="3"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="devoir-date-limite" class="form-label">Date limite</label>
+            <input type="date" id="devoir-date-limite" required>
+          </div>
+          <div class="form-group">
+            <label class="file-label">
+              <input type="file" id="devoir-fichiers" multiple>
+              <span>Ajouter des fichiers</span>
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Créer le devoir</button>
+            <button type="button" id="cancel-devoir-btn" class="btn-secondary">Annuler</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal Ajouter Matière -->
+    <div id="add-matiere-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Nouvelle matière</h2>
+          <button class="modal-close" id="close-add-matiere-modal">&times;</button>
+        </div>
+        <form id="add-matiere-form">
+          <div class="form-group">
+            <label for="add-matiere-nom" class="form-label">Nom de la matière</label>
+            <input type="text" id="add-matiere-nom" placeholder="Ex: Mathématiques" required>
+          </div>
+          <div class="form-group">
+            <label for="add-matiere-lien" class="form-label">Lien (optionnel)</label>
+            <input type="url" id="add-matiere-lien" placeholder="https://...">
+          </div>
+          <div class="form-group">
+            <label for="add-matiere-couleur" class="form-label">Couleur de la matière</label>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <input type="color" id="add-matiere-couleur" required style="width: 80px; height: 50px; border: 2px solid var(--border); border-radius: 8px; cursor: pointer;">
+              <div style="flex: 1;">
+                <div id="add-matiere-couleur-preview" style="width: 60px; height: 60px; border-radius: 8px; border: 2px solid var(--border); display: inline-block; margin-right: 1rem;"></div>
+                <span id="add-matiere-couleur-code" style="font-family: monospace; color: var(--secondary);"></span>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="file-label">
+              <input type="file" id="add-matiere-image" accept="image/*">
+              <span>Choisir une image (optionnelle)</span>
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Créer</button>
+            <button type="button" id="cancel-add-matiere-btn" class="btn-secondary">Annuler</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal Modifier Matière -->
+    <div id="edit-matiere-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Modifier la matière</h2>
+          <button class="modal-close" id="close-edit-matiere-modal">&times;</button>
+        </div>
+        <form id="edit-matiere-form">
+          <input type="hidden" id="edit-matiere-id">
+          <div class="form-group">
+            <label for="edit-matiere-nom" class="form-label">Nom de la matière</label>
+            <input type="text" id="edit-matiere-nom" placeholder="Ex: Mathématiques" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-matiere-lien" class="form-label">Lien (optionnel)</label>
+            <input type="url" id="edit-matiere-lien" placeholder="https://...">
+          </div>
+          <div class="form-group">
+            <label for="edit-matiere-couleur" class="form-label">Couleur de la matière</label>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <input type="color" id="edit-matiere-couleur" style="width: 80px; height: 50px; border: 2px solid var(--border); border-radius: 8px; cursor: pointer;">
+              <div style="flex: 1;">
+                <div id="edit-matiere-couleur-preview" style="width: 60px; height: 60px; border-radius: 8px; border: 2px solid var(--border); display: inline-block; margin-right: 1rem;"></div>
+                <span id="edit-matiere-couleur-code" style="font-family: monospace; color: var(--secondary);"></span>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="file-label">
+              <input type="file" id="edit-matiere-image" accept="image/*">
+              <span>Changer l'image (optionnel)</span>
+            </label>
+            <div id="edit-matiere-current-image" style="margin-top: 0.5rem;"></div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Enregistrer</button>
+            <button type="button" id="cancel-edit-matiere-btn" class="btn-secondary">Annuler</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal Modifier Élève -->
+    <div id="edit-eleve-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Modifier l'élève</h2>
+          <button class="modal-close" id="close-edit-eleve-modal">&times;</button>
+        </div>
+        <form id="edit-eleve-form">
+          <input type="hidden" id="edit-eleve-id">
+          <div class="form-group">
+            <label for="edit-eleve-username" class="form-label">Nom d'utilisateur</label>
+            <input type="text" id="edit-eleve-username" readonly style="background: var(--light); cursor: not-allowed;">
+            <small style="color: var(--secondary); font-size: 0.875rem;">Le nom d'utilisateur ne peut pas être modifié</small>
+          </div>
+          <div class="form-group">
+            <label for="edit-eleve-password" class="form-label">Nouveau mot de passe</label>
+            <input type="password" id="edit-eleve-password" placeholder="Laisser vide pour ne pas changer">
+          </div>
+          <div class="form-group">
+            <label for="edit-eleve-password-confirm" class="form-label">Confirmer le mot de passe</label>
+            <input type="password" id="edit-eleve-password-confirm" placeholder="Retaper le mot de passe">
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Enregistrer</button>
+            <button type="button" id="cancel-edit-eleve-btn" class="btn-secondary">Annuler</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

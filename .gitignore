@@ -1,0 +1,8 @@
+node_modules/
+backend/ent.db
+backend/uploads/*
+!backend/uploads/.gitkeep
+public/images/*
+!public/images/.gitkeep
+.DS_Store
+npm-debug.log*
