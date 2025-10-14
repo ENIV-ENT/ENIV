@@ -1,45 +1,8 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const multer = require('multer');
-const path = require('path');
 const db = require('../models/database');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
-
-// Configuration multer pour upload d'images de matières
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../../public/images'));
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname);
-    cb(null, uniqueName);
-  }
-});
-
-const upload = multer({
-  storage,
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-
-    if (mimetype && extname) {
-      return cb(null, true);
-    }
-    cb(new Error('Seulement les images sont autorisées'));
-  }
-});
-
-// Middleware pour permettre optional file upload
-const optionalUpload = (req, res, next) => {
-  upload.single('image')(req, res, (err) => {
-    if (err) {
-      return res.status(400).json({ error: err.message });
-    }
-    next();
-  });
-};
 
 // Palette de couleurs prédéfinies
 const availableColors = [
@@ -73,7 +36,7 @@ function getUniqueColor() {
 }
 
 // Créer un élève
-router.post('/eleves', requireAdmin, (req, res) => {
+router.post('/eleves', requireAdmin, express.json(), (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
@@ -109,7 +72,7 @@ router.get('/eleves', requireAdmin, (req, res) => {
 });
 
 // Modifier le mot de passe d'un élève
-router.put('/eleves/:id/password', requireAdmin, (req, res) => {
+router.put('/eleves/:id/password', requireAdmin, express.json(), (req, res) => {
   const { password } = req.body;
 
   if (!password) {
@@ -136,10 +99,8 @@ router.delete('/eleves/:id', requireAdmin, (req, res) => {
 });
 
 // Créer une matière
-router.post('/matieres', requireAdmin, optionalUpload, (req, res) => {
+router.post('/matieres', requireAdmin, express.json(), (req, res) => {
   const { nom, lien, couleur } = req.body;
-
-  console.log('Données reçues:', { nom, lien, couleur, body: req.body, file: req.file });
 
   if (!nom) {
     return res.status(400).json({ error: 'Nom de matière requis' });
@@ -150,8 +111,7 @@ router.post('/matieres', requireAdmin, optionalUpload, (req, res) => {
   }
 
   try {
-    const imagePath = req.file ? `/images/${req.file.filename}` : null;
-    const result = db.prepare('INSERT INTO matieres (nom, image, lien, couleur) VALUES (?, ?, ?, ?)').run(nom, imagePath, lien || null, couleur);
+    const result = db.prepare('INSERT INTO matieres (nom, lien, couleur) VALUES (?, ?, ?)').run(nom, lien || null, couleur);
 
     res.json({
       success: true,
@@ -175,17 +135,11 @@ router.get('/matieres', requireAuth, (req, res) => {
 });
 
 // Modifier une matière
-router.put('/matieres/:id', requireAdmin, optionalUpload, (req, res) => {
+router.put('/matieres/:id', requireAdmin, express.json(), (req, res) => {
   const { nom, lien, couleur } = req.body;
 
   try {
-    if (req.file) {
-      const imagePath = `/images/${req.file.filename}`;
-      db.prepare('UPDATE matieres SET nom = ?, image = ?, lien = ?, couleur = ? WHERE id = ?').run(nom, imagePath, lien || null, couleur || null, req.params.id);
-    } else {
-      db.prepare('UPDATE matieres SET nom = ?, lien = ?, couleur = ? WHERE id = ?').run(nom, lien || null, couleur || null, req.params.id);
-    }
-
+    db.prepare('UPDATE matieres SET nom = ?, lien = ?, couleur = ? WHERE id = ?').run(nom, lien || null, couleur || null, req.params.id);
     res.json({ success: true, message: 'Matière mise à jour' });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la mise à jour de la matière' });
@@ -203,7 +157,7 @@ router.delete('/matieres/:id', requireAdmin, (req, res) => {
 });
 
 // Configurer le lien emploi du temps
-router.post('/settings/emploi-temps', requireAdmin, (req, res) => {
+router.post('/settings/emploi-temps', requireAdmin, express.json(), (req, res) => {
   const { lien } = req.body;
 
   try {

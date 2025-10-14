@@ -144,15 +144,44 @@
             <label for="devoir-date-limite" class="form-label">Date limite</label>
             <input type="date" id="devoir-date-limite" required>
           </div>
+          <div class="form-actions">
+            <button type="submit" id="add-devoir-submit-btn" class="btn-primary">Créer le devoir</button>
+            <button type="button" id="cancel-devoir-btn" class="btn-secondary">Annuler</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal Modifier Devoir -->
+    <div id="edit-devoir-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Modifier le devoir</h2>
+          <button class="modal-close" id="close-edit-devoir-modal">&times;</button>
+        </div>
+        <form id="edit-devoir-form">
+          <input type="hidden" id="edit-devoir-id">
           <div class="form-group">
-            <label class="file-label">
-              <input type="file" id="devoir-fichiers" multiple>
-              <span>Ajouter des fichiers</span>
-            </label>
+            <label for="edit-devoir-titre" class="form-label">Titre du devoir</label>
+            <input type="text" id="edit-devoir-titre" placeholder="Ex: Exercices de mathématiques" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-devoir-matiere" class="form-label">Matière</label>
+            <select id="edit-devoir-matiere" required>
+              <option value="">Sélectionner une matière</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="edit-devoir-description" class="form-label">Description (optionnel)</label>
+            <textarea id="edit-devoir-description" placeholder="Détails du devoir..." rows="3"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="edit-devoir-date-limite" class="form-label">Date limite</label>
+            <input type="date" id="edit-devoir-date-limite" required>
           </div>
           <div class="form-actions">
-            <button type="submit" class="btn-primary">Créer le devoir</button>
-            <button type="button" id="cancel-devoir-btn" class="btn-secondary">Annuler</button>
+            <button type="submit" id="edit-devoir-submit-btn" class="btn-primary">Enregistrer</button>
+            <button type="button" id="cancel-edit-devoir-btn" class="btn-secondary">Annuler</button>
           </div>
         </form>
       </div>
@@ -183,12 +212,6 @@
                 <span id="add-matiere-couleur-code" style="font-family: monospace; color: var(--secondary);"></span>
               </div>
             </div>
-          </div>
-          <div class="form-group">
-            <label class="file-label">
-              <input type="file" id="add-matiere-image" accept="image/*">
-              <span>Choisir une image (optionnelle)</span>
-            </label>
           </div>
           <div class="form-actions">
             <button type="submit" class="btn-primary">Créer</button>
@@ -224,13 +247,6 @@
                 <span id="edit-matiere-couleur-code" style="font-family: monospace; color: var(--secondary);"></span>
               </div>
             </div>
-          </div>
-          <div class="form-group">
-            <label class="file-label">
-              <input type="file" id="edit-matiere-image" accept="image/*">
-              <span>Changer l'image (optionnel)</span>
-            </label>
-            <div id="edit-matiere-current-image" style="margin-top: 0.5rem;"></div>
           </div>
           <div class="form-actions">
             <button type="submit" class="btn-primary">Enregistrer</button>

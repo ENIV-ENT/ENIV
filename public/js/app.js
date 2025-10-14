@@ -51,20 +51,6 @@ async function apiCall(url, options = {}) {
   }
 }
 
-async function uploadFile(url, formData) {
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      body: formData,
-    });
-
-    return await response.json();
-  } catch (error) {
-    console.error('Upload Error:', error);
-    return { error: error.message };
-  }
-}
-
 function showPage(pageId) {
   document.querySelectorAll('.page').forEach(page => {
     page.classList.remove('active');
@@ -259,7 +245,6 @@ function renderMatieres() {
     item.innerHTML = `
       <div class="list-item-info">
         <div class="matiere-color-indicator" style="background-color: ${matiere.couleur || '#999'}; width: 50px; height: 50px; border-radius: 8px; margin-right: 1rem; flex-shrink: 0;"></div>
-        ${matiere.image ? `<img src="${matiere.image}" alt="${matiere.nom}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 1rem;">` : ''}
         <div>
           <h3>${matiere.nom}</h3>
           ${matiere.lien ? `<p><a href="${matiere.lien}" target="_blank">Lien</a></p>` : ''}
@@ -335,19 +320,10 @@ document.getElementById('add-matiere-form')?.addEventListener('submit', async (e
   const lien = document.getElementById('add-matiere-lien').value;
   const couleur = document.getElementById('add-matiere-couleur').value;
 
-  console.log('Envoi des données:', { nom, lien, couleur });
-
-  const formData = new FormData();
-  formData.append('nom', nom);
-  formData.append('lien', lien);
-  formData.append('couleur', couleur);
-
-  const imageFile = document.getElementById('add-matiere-image').files[0];
-  if (imageFile) {
-    formData.append('image', imageFile);
-  }
-
-  const data = await uploadFile('/api/admin/matieres', formData);
+  const data = await apiCall('/api/admin/matieres', {
+    method: 'POST',
+    body: JSON.stringify({ nom, lien, couleur })
+  });
 
   if (data.error) {
     alert(data.error);
@@ -383,17 +359,6 @@ async function editMatiere(id) {
     couleurCode.textContent = this.value;
   };
 
-  // Afficher l'image actuelle si elle existe
-  const currentImageDiv = document.getElementById('edit-matiere-current-image');
-  if (matiere.image) {
-    currentImageDiv.innerHTML = `
-      <label style="color: var(--secondary); font-size: 0.875rem;">Image actuelle:</label>
-      <img src="${matiere.image}" alt="${matiere.nom}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; margin-top: 0.25rem;">
-    `;
-  } else {
-    currentImageDiv.innerHTML = '<p style="color: var(--secondary); font-size: 0.875rem;">Aucune image</p>';
-  }
-
   // Ouvrir le modal
   document.getElementById('edit-matiere-modal').classList.add('active');
 }
@@ -418,22 +383,14 @@ document.getElementById('edit-matiere-form')?.addEventListener('submit', async (
   e.preventDefault();
 
   const id = document.getElementById('edit-matiere-id').value;
-  const formData = new FormData();
-  formData.append('nom', document.getElementById('edit-matiere-nom').value);
-  formData.append('lien', document.getElementById('edit-matiere-lien').value);
-  formData.append('couleur', document.getElementById('edit-matiere-couleur').value);
+  const nom = document.getElementById('edit-matiere-nom').value;
+  const lien = document.getElementById('edit-matiere-lien').value;
+  const couleur = document.getElementById('edit-matiere-couleur').value;
 
-  const imageFile = document.getElementById('edit-matiere-image').files[0];
-  if (imageFile) {
-    formData.append('image', imageFile);
-  }
-
-  const response = await fetch(`/api/admin/matieres/${id}`, {
+  const data = await apiCall(`/api/admin/matieres/${id}`, {
     method: 'PUT',
-    body: formData
+    body: JSON.stringify({ nom, lien, couleur })
   });
-
-  const data = await response.json();
 
   if (data.error) {
     alert(data.error);
@@ -624,7 +581,7 @@ function renderMobileWeekView() {
       if (!d.date_limite) return false;
       const devoirDate = new Date(d.date_limite).toISOString().split('T')[0];
       return devoirDate === dateStr;
-    });
+    }).sort((a, b) => a.fait - b.fait);
 
     let cardClass = 'week-day-card';
     let headerClass = 'week-day-header';
@@ -712,7 +669,7 @@ function renderDateCell(date, otherMonth) {
     if (!d.date_limite) return false;
     const devoirDate = new Date(d.date_limite).toISOString().split('T')[0];
     return devoirDate === dateStr;
-  });
+  }).sort((a, b) => a.fait - b.fait);
 
   let classes = 'calendar-date';
   if (otherMonth) classes += ' other-month';
@@ -826,18 +783,6 @@ function showDevoirModal(devoirId) {
     ${devoir.description ? `<p><strong>Description:</strong> ${devoir.description}</p>` : ''}
     ${devoir.date_limite ? `<p><strong>Date limite:</strong> ${formatDate(devoir.date_limite)}</p>` : ''}
     <p><strong>Créé par:</strong> ${devoir.created_by_username}</p>
-    ${devoir.fichiers && devoir.fichiers.length > 0 ? `
-      <div>
-        <h3>Fichiers:</h3>
-        <div>
-          ${devoir.fichiers.map(f => `
-            <div style="margin: 0.5rem 0;">
-              <a href="/api/devoirs/fichiers/${f.filename}" download="${f.original_name}" style="color: var(--primary);">${f.original_name}</a>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    ` : ''}
     <div class="modal-actions">
       <label class="checkbox-container">
         <input type="checkbox" ${devoir.fait ? 'checked' : ''} onchange="toggleDevoirStatut(${devoir.id}, this.checked); document.getElementById('devoir-modal').classList.remove('active');">
@@ -880,6 +825,15 @@ document.getElementById('cancel-devoir-btn')?.addEventListener('click', () => {
   document.getElementById('devoir-form').reset();
 });
 
+document.getElementById('close-edit-devoir-modal')?.addEventListener('click', () => {
+  document.getElementById('edit-devoir-modal').classList.remove('active');
+});
+
+document.getElementById('cancel-edit-devoir-btn')?.addEventListener('click', () => {
+  document.getElementById('edit-devoir-modal').classList.remove('active');
+  document.getElementById('edit-devoir-form').reset();
+});
+
 // Fermer modal en cliquant en dehors
 document.querySelectorAll('.modal').forEach(modal => {
   modal.addEventListener('click', (e) => {
@@ -892,18 +846,15 @@ document.querySelectorAll('.modal').forEach(modal => {
 document.getElementById('devoir-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  const formData = new FormData();
-  formData.append('titre', document.getElementById('devoir-titre').value);
-  formData.append('description', document.getElementById('devoir-description').value);
-  formData.append('matiere_id', document.getElementById('devoir-matiere').value);
-  formData.append('date_limite', document.getElementById('devoir-date-limite').value);
-
-  const fichiers = document.getElementById('devoir-fichiers').files;
-  for (let i = 0; i < fichiers.length; i++) {
-    formData.append('fichiers', fichiers[i]);
-  }
-
-  const data = await uploadFile('/api/devoirs', formData);
+  const data = await apiCall('/api/devoirs', {
+    method: 'POST',
+    body: JSON.stringify({
+      titre: document.getElementById('devoir-titre').value,
+      description: document.getElementById('devoir-description').value,
+      matiere_id: document.getElementById('devoir-matiere').value,
+      date_limite: document.getElementById('devoir-date-limite').value
+    })
+  });
 
   if (data.error) {
     alert(data.error);
@@ -914,34 +865,58 @@ document.getElementById('devoir-form')?.addEventListener('submit', async (e) => 
   }
 });
 
-async function editDevoir(id) {
-  const devoir = devoirs.find(d => d.id === id);
-  if (!devoir) return;
+document.getElementById('edit-devoir-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
 
-  const titre = prompt('Nouveau titre:', devoir.titre);
-  if (!titre) return;
+  const id = document.getElementById('edit-devoir-id').value;
 
-  const description = prompt('Nouvelle description:', devoir.description || '');
-
-  const formData = new FormData();
-  formData.append('titre', titre);
-  formData.append('description', description);
-  formData.append('matiere_id', devoir.matiere_id);
-  formData.append('date_limite', devoir.date_limite || '');
-
-  const response = await fetch(`/api/devoirs/${id}`, {
+  const data = await apiCall(`/api/devoirs/${id}`, {
     method: 'PUT',
-    body: formData,
+    body: JSON.stringify({
+      titre: document.getElementById('edit-devoir-titre').value,
+      description: document.getElementById('edit-devoir-description').value,
+      matiere_id: document.getElementById('edit-devoir-matiere').value,
+      date_limite: document.getElementById('edit-devoir-date-limite').value
+    })
   });
-
-  const data = await response.json();
 
   if (data.error) {
     alert(data.error);
   } else {
-    document.getElementById('devoir-modal')?.classList.remove('active');
+    document.getElementById('edit-devoir-modal').classList.remove('active');
+    document.getElementById('edit-devoir-form').reset();
     loadDevoirs();
   }
+});
+
+async function editDevoir(id) {
+  const devoir = devoirs.find(d => d.id === id);
+  if (!devoir) return;
+
+  // Fermer le modal de détails
+  document.getElementById('devoir-modal')?.classList.remove('active');
+
+  // Pré-remplir le formulaire d'édition
+  document.getElementById('edit-devoir-id').value = devoir.id;
+  document.getElementById('edit-devoir-titre').value = devoir.titre;
+  document.getElementById('edit-devoir-description').value = devoir.description || '';
+  document.getElementById('edit-devoir-date-limite').value = devoir.date_limite || '';
+
+  // Remplir le select des matières
+  const select = document.getElementById('edit-devoir-matiere');
+  select.innerHTML = '<option value="">Sélectionner une matière</option>';
+  matieres.forEach(matiere => {
+    const option = document.createElement('option');
+    option.value = matiere.id;
+    option.textContent = matiere.nom;
+    if (matiere.id === devoir.matiere_id) {
+      option.selected = true;
+    }
+    select.appendChild(option);
+  });
+
+  // Ouvrir le modal d'édition
+  document.getElementById('edit-devoir-modal').classList.add('active');
 }
 
 async function deleteDevoir(id) {
