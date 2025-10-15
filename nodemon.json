@@ -1,0 +1,20 @@
+{
+  "watch": [
+    "server.js",
+    "deploy.js",
+    "backend/**/*.js",
+    "public/**/*.js",
+    "public/**/*.html",
+    "public/**/*.css"
+  ],
+  "ignore": [
+    "node_modules",
+    "backend/uploads/**",
+    "backend/ent.db",
+    "*.log"
+  ],
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "ext": "js,json,html,css"
+}

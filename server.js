@@ -35,6 +35,17 @@ app.use('/api/devoirs', require('./backend/routes/devoirs'));
 const { handleWebhook } = require('./deploy');
 app.post('/api/deploy', handleWebhook);
 
+// Servir les fichiers statiques
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'backend/uploads')));
+
+// Route fallback pour SPA - servir index.html pour toutes les routes non-API
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api') && !req.path.startsWith('/ws')) {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  }
+});
+
 // WebSocket pour rechargement automatique
 const clients = new Set();
 
@@ -65,7 +76,8 @@ app.use((req, res, next) => {
   next();
 });
 
-const PORT = 3650;
+const PORT = process.env.NODE_ENV === 'development' ? 3000 : 3650;
 server.listen(PORT, () => {
   console.log(`Serveur démarré sur http://localhost:${PORT}`);
+  console.log(`Mode: ${process.env.NODE_ENV || 'production'}`);
 });
