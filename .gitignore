@@ -6,3 +6,5 @@ public/images/*
 !public/images/.gitkeep
 .DS_Store
 npm-debug.log*
+deploy.sh
+*.env

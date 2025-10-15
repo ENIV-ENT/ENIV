@@ -9,7 +9,7 @@ let ws = null;
 
 function initWebSocket() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${protocol}//${window.location.host}`);
+  ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
@@ -24,7 +24,6 @@ function initWebSocket() {
   };
 
   ws.onclose = () => {
-    // Reconnecter après 3 secondes
     setTimeout(initWebSocket, 3000);
   };
 }

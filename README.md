@@ -27,25 +27,32 @@ Application web légère de gestion de devoirs pour établissements scolaires.
 ### Prérequis
 - Node.js (version 14 ou supérieure)
 - npm
+- Git (pour le déploiement automatique)
 
 ### Étapes
 
 1. Accéder au dossier du projet:
 ```bash
-cd ent-leger
+cd ENT
 ```
 
-2. Installer les dépendances:
+2. Copier le fichier d'environnement exemple et le configurer:
+```bash
+cp .env.exemple .env
+```
+Éditez `.env` et modifiez les valeurs selon vos besoins.
+
+3. Installer les dépendances:
 ```bash
 npm install
 ```
 
-3. Démarrer le serveur:
+4. Démarrer le serveur:
 ```bash
 npm start
 ```
 
-4. Ouvrir votre navigateur à l'adresse: `http://localhost:3000`
+5. Ouvrir votre navigateur à l'adresse: `http://localhost:3650`
 
 ## Compte administrateur par défaut
 
@@ -62,10 +69,66 @@ Pour démarrer le serveur en mode développement avec rechargement automatique:
 npm run dev
 ```
 
+## Déploiement automatique avec GitHub Webhooks
+
+Le projet inclut un système de déploiement automatique via GitHub Webhooks qui permet de mettre à jour automatiquement le serveur à chaque push sur la branche `main`.
+
+### Configuration du serveur
+
+1. Assurez-vous que votre fichier `.env` contient la variable `GITHUB_WEBHOOK_SECRET`:
+```bash
+GITHUB_WEBHOOK_SECRET=votre-secret-securise
+```
+
+2. Le serveur doit être démarré avec un gestionnaire de processus comme PM2, systemd ou supervisor pour redémarrer automatiquement après le déploiement:
+```bash
+# Avec PM2 (recommandé)
+npm install -g pm2
+pm2 start server.js --name ent
+pm2 save
+pm2 startup
+```
+
+### Configuration du webhook GitHub
+
+1. Sur GitHub, allez dans les paramètres de votre repository
+2. Allez dans **Settings** > **Webhooks** > **Add webhook**
+3. Configurez le webhook:
+   - **Payload URL**: `https://votre-domaine.com/api/deploy`
+   - **Content type**: `application/json`
+   - **Secret**: Le même secret que dans votre fichier `.env`
+   - **Events**: Sélectionnez "Just the push event"
+   - Activez le webhook
+
+### Fonctionnement
+
+Lorsqu'un push est effectué sur la branche `main`:
+1. GitHub envoie une requête POST à `/api/deploy`
+2. Le serveur vérifie la signature du webhook (sécurité)
+3. Si valide, le déploiement démarre:
+   - `git fetch origin`
+   - `git reset --hard origin/main`
+   - `npm install --production`
+4. Le serveur redémarre automatiquement
+5. La nouvelle version est en ligne
+
+### Sécurité
+
+- Le webhook vérifie la signature SHA-256 de GitHub pour s'assurer que la requête provient bien de GitHub
+- Seuls les événements push sur `main` ou `master` déclenchent un déploiement
+- Les autres branches et événements sont ignorés
+
+### Logs
+
+Les logs de déploiement sont préfixés par `[DEPLOY]` dans la console du serveur:
+```bash
+pm2 logs ent
+```
+
 ## Structure du projet
 
 ```
-ent-leger/
+ENT/
 ├── backend/
 │   ├── models/
 │   │   └── database.js       # Configuration BDD SQLite
@@ -83,6 +146,8 @@ ent-leger/
 │   │   └── app.js            # JavaScript frontend
 │   └── index.html            # Page principale
 ├── server.js                 # Serveur Express
+├── deploy.js                 # Gestion des webhooks GitHub
+├── .env.exemple              # Variables d'environnement exemple
 └── package.json
 ```
 
