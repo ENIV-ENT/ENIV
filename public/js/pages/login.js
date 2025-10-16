@@ -42,7 +42,7 @@ async function init() {
       loginError.textContent = data.error;
       boiteMotDePasse.style.borderColor = "red";
       boiteNomUtilisateur.style.borderColor = "red";
-    }  else {
+    } else {
       loginError.textContent = "";
       if (data.role === 'superadmin') {
         window.location.href = "/superadmin/dashboard";

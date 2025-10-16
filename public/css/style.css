@@ -43,28 +43,46 @@ body {
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  animation: ApparitionBouton 1s ease-in-out;
 }
 
 .login-container h1 {
   text-align: center;
   margin-bottom: 2rem;
   color: var(--primary);
+  animation: ApparitionBouton 1s ease-in-out;
 }
 .login-container h3 {
   text-align: center;
   margin-bottom: 1.5rem;
   color: var(--secondary);
   font-weight: 400;
+  animation: ApparitionBouton 1s ease-in-out;
 }
 #login-form input {
   width: 100%;
   padding: 0.75rem;
   margin-bottom: 1rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 18px;
   font-size: 1rem;
+  animation: ApparitionBouton 1s ease-in-out;
 }
-
+#Copyright {
+  text-align: center;
+  color: var(--secondary);
+  font-size: 0.875rem;
+  font-weight: 400;
+  animation: ApparitionBouton 1s ease-in-out;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: white;
+  padding: 0.5rem 0;
+  z-index: 999;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.05);
+}
 /* Style de base du bouton */
 #login-form button {
   width: 100%;
@@ -80,7 +98,7 @@ body {
     box-shadow ease-in-out 0.3s, scale 1.7s ease-in-out;
   text-transform: uppercase;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  animation: ApparitionBouton 1.6s ease-in-out;
+  animation: ApparitionBouton 2.7s ease-in-out;
 }
 /* Effet au survol */
 #login-form button:hover {
