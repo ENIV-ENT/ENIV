@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mes Devoirs - ENT</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>Mes Devoirs</h1>
+    <div class="header-actions">
+      <button id="emploi-temps-btn" class="btn-secondary hidden">Emploi du temps</button>
+      <button id="settings-btn" class="btn-secondary">Paramètres</button>
+      <span id="eleve-info"></span>
+      <button id="logout-btn" class="btn-secondary">Déconnexion</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="calendar-header">
+      <button id="prev-month" class="btn-secondary">&lt;</button>
+      <h2 id="current-month"></h2>
+      <button id="next-month" class="btn-secondary">&gt;</button>
+    </div>
+
+    <div id="calendar" class="calendar"></div>
+  </div>
+
+  <div id="devoir-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-title">Détails du devoir</h2>
+        <button class="modal-close" id="close-modal">&times;</button>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <div id="add-devoir-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Ajouter un devoir</h2>
+        <button class="modal-close" id="close-add-modal">&times;</button>
+      </div>
+      <form id="devoir-form">
+        <div class="form-group">
+          <label for="devoir-titre" class="form-label">Titre du devoir</label>
+          <input type="text" id="devoir-titre" placeholder="Ex: Exercices de mathématiques" required>
+        </div>
+        <div class="form-group">
+          <label for="devoir-matiere" class="form-label">Matière</label>
+          <select id="devoir-matiere" required>
+            <option value="">Sélectionner une matière</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="devoir-description" class="form-label">Description (optionnel)</label>
+          <textarea id="devoir-description" placeholder="Détails du devoir..." rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="devoir-date-limite" class="form-label">Date limite</label>
+          <input type="date" id="devoir-date-limite" required>
+        </div>
+        <div class="form-actions">
+          <button type="submit" id="add-devoir-submit-btn" class="btn-primary">Créer le devoir</button>
+          <button type="button" id="cancel-devoir-btn" class="btn-secondary">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="edit-devoir-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Modifier le devoir</h2>
+        <button class="modal-close" id="close-edit-devoir-modal">&times;</button>
+      </div>
+      <form id="edit-devoir-form">
+        <input type="hidden" id="edit-devoir-id">
+        <div class="form-group">
+          <label for="edit-devoir-titre" class="form-label">Titre du devoir</label>
+          <input type="text" id="edit-devoir-titre" placeholder="Ex: Exercices de mathématiques" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-devoir-matiere" class="form-label">Matière</label>
+          <select id="edit-devoir-matiere" required>
+            <option value="">Sélectionner une matière</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="edit-devoir-description" class="form-label">Description (optionnel)</label>
+          <textarea id="edit-devoir-description" placeholder="Détails du devoir..." rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="edit-devoir-date-limite" class="form-label">Date limite</label>
+          <input type="date" id="edit-devoir-date-limite" required>
+        </div>
+        <div class="form-actions">
+          <button type="submit" id="edit-devoir-submit-btn" class="btn-primary">Enregistrer</button>
+          <button type="button" id="cancel-edit-devoir-btn" class="btn-secondary">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="/js/pages/dashboard.js"></script>
+</body>
+</html>

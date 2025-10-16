@@ -35,14 +35,32 @@ app.use('/api/devoirs', require('./backend/routes/devoirs'));
 const { handleWebhook } = require('./deploy');
 app.post('/api/deploy', handleWebhook);
 
-// Servir les fichiers statiques
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'backend/uploads')));
 
-// Route fallback pour SPA - servir index.html pour toutes les routes non-API
+app.get('/', (req, res) => {
+  res.redirect('/login');
+});
+
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+app.get('/settings', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'settings.html'));
+});
+
+app.get('/admin/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin', 'dashboard.html'));
+});
+
 app.get('*', (req, res) => {
-  if (!req.path.startsWith('/api') && !req.path.startsWith('/ws')) {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  if (!req.path.startsWith('/api') && !req.path.startsWith('/ws') && !req.path.startsWith('/js') && !req.path.startsWith('/css') && !req.path.startsWith('/uploads')) {
+    res.redirect('/login');
   }
 });
 
