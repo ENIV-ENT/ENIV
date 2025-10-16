@@ -8,18 +8,8 @@ const boiteMotDePasse = document.getElementById("password");
 //console.log(boiteMotDePasse);
 
 async function init() {
-  const auth = await checkAuth();
+  await checkAuth();
 
-  if (auth.authenticated) {
-    if (auth.role === "superadmin") {
-      window.location.href = "/superadmin/dashboard";
-    } else if (auth.role === "admin") {
-      window.location.href = "/admin/dashboard";
-    } else {
-      window.location.href = "/dashboard";
-    }
-    return;
-  }
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const username = document.getElementById("username").value;
@@ -43,13 +33,16 @@ async function init() {
       boiteNomUtilisateur.style.borderColor = "red";
     } else {
       loginError.textContent = "";
-      if (data.role === "superadmin") {
-        window.location.href = "/superadmin/dashboard";
-      }
-      if (data.role === "admin") {
-        window.location.href = "/admin/dashboard";
-      } else {
-        window.location.href = "/dashboard";
+      switch (data.role) {
+        case 'superadmin':
+          window.location.href = "/superadmin/dashboard/";
+          break;
+        case "admin":
+          window.location.href = "/admin/dashboard/";
+          break;
+        default:
+          window.location.href = "/dashboard/";
+          break;
       }
     }
   });

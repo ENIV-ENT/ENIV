@@ -71,6 +71,15 @@
         <input type="url" id="emploi-temps-lien" placeholder="URL de l'emploi du temps (laisser vide pour masquer le bouton)">
         <button type="submit" class="btn-primary">Enregistrer</button>
       </form>
+
+      <form id="discord-webhook-form" class="form-container">
+        <h3>Webhook Discord</h3>
+        <p style="color: var(--secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+          Configurez un webhook Discord pour recevoir automatiquement un récapitulatif quotidien des devoirs à 18h.
+        </p>
+        <input type="url" id="discord-webhook-url" placeholder="https://discord.com/api/webhooks/..." pattern="https://discord\.com/api/webhooks/.*">
+        <button type="submit" class="btn-primary">Enregistrer le webhook</button>
+      </form>
     </div>
   </div>
 

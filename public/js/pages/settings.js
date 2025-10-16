@@ -3,16 +3,6 @@ import { apiCall, checkAuth, logout } from '../utils/api.js';
 async function init() {
   const auth = await checkAuth();
 
-  if (!auth.authenticated) {
-    window.location.href = '/login';
-    return;
-  }
-
-  if (auth.role === 'admin') {
-    window.location.href = '/admin/dashboard';
-    return;
-  }
-
   document.getElementById('user-info').textContent = auth.username;
 
   setupEventListeners();

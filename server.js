@@ -26,6 +26,10 @@ app.use(session({
 // Initialiser la base de données
 require('./backend/models/database');
 
+// Initialiser le planificateur Discord
+const { initScheduler } = require('./backend/services/scheduler');
+initScheduler();
+
 // Routes
 app.use('/api/auth', require('./backend/routes/auth'));
 app.use('/api/superadmin', require('./backend/routes/superadmin'));

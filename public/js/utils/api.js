@@ -22,20 +22,36 @@ export async function apiCall(url, options = {}) {
 
 export async function checkAuth() {
   const data = await apiCall('/api/auth/me');
+  let expectedPaths;
+  let returnData;
 
   if (data.authenticated) {
-    return {
+    if (data.role === 'superadmin') {
+      expectedPaths = ["/superadmin/dashboard/"];
+    } else if (data.role === "admin") {
+      expectedPaths = ["/admin/dashboard/"];
+    } else {
+      expectedPaths = ["/dashboard/", "/settings/"];
+    }
+
+    returnData = {
       authenticated: true,
       userId: data.userId,
       username: data.username,
       role: data.role
     };
+  } else {
+    expectedPaths = ["/"];
+    returnData = { authenticated: false };
+  }
+  if (!expectedPaths.includes(window.location.pathname)) {
+    window.location.href = expectedPaths[0];
   }
 
-  return { authenticated: false };
+  return returnData;
 }
 
 export async function logout() {
   await apiCall('/api/auth/logout', { method: 'POST' });
-  window.location.href = '/login';
+  window.location.href = '/';
 }

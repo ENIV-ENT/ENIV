@@ -17,16 +17,6 @@ const availableColors = [
 async function init() {
   const auth = await checkAuth();
 
-  if (!auth.authenticated) {
-    window.location.href = '/login';
-    return;
-  }
-
-  if (auth.role !== 'admin') {
-    window.location.href = '/dashboard';
-    return;
-  }
-
   document.getElementById('user-info').textContent = `Admin: ${auth.username}`;
 
   initWebSocket(loadAllData);
@@ -136,6 +126,11 @@ async function loadSettings() {
   if (!data.error) {
     document.getElementById('emploi-temps-lien').value = data.lien || '';
   }
+
+  const webhookData = await apiCall('/api/admin/settings/discord-webhook');
+  if (!webhookData.error) {
+    document.getElementById('discord-webhook-url').value = webhookData.webhook || '';
+  }
 }
 
 function setupEventListeners() {
@@ -187,6 +182,7 @@ function setupEventListeners() {
 
   document.getElementById('admin-password-form').addEventListener('submit', handleChangePassword);
   document.getElementById('settings-form').addEventListener('submit', handleSaveSettings);
+  document.getElementById('discord-webhook-form').addEventListener('submit', handleSaveDiscordWebhook);
 }
 
 async function handleAddEleve(e) {
@@ -401,6 +397,28 @@ async function handleSaveSettings(e) {
     alert(data.error);
   } else {
     alert('Paramètres enregistrés');
+  }
+}
+
+async function handleSaveDiscordWebhook(e) {
+  e.preventDefault();
+
+  const webhook = document.getElementById('discord-webhook-url').value;
+
+  if (webhook && !webhook.match(/^https:\/\/discord\.com\/api\/webhooks\/.+/)) {
+    alert('URL de webhook Discord invalide. Elle doit commencer par https://discord.com/api/webhooks/');
+    return;
+  }
+
+  const data = await apiCall('/api/admin/settings/discord-webhook', {
+    method: 'POST',
+    body: JSON.stringify({ webhook }),
+  });
+
+  if (data.error) {
+    alert(data.error);
+  } else {
+    alert('Webhook Discord enregistré avec succès');
   }
 }
 

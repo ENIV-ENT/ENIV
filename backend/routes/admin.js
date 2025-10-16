@@ -271,4 +271,45 @@ router.get('/settings/emploi-temps', requireAuth, (req, res) => {
   }
 });
 
+// Configurer le webhook Discord
+router.post('/settings/discord-webhook', requireAdmin, express.json(), (req, res) => {
+  const { webhook } = req.body;
+
+  try {
+    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    if (!admin || !admin.classe_id) {
+      return res.status(400).json({ error: 'Admin non associé à une classe' });
+    }
+
+    // Valider le format du webhook Discord
+    if (webhook && !webhook.match(/^https:\/\/discord\.com\/api\/webhooks\/.+/)) {
+      return res.status(400).json({ error: 'URL de webhook Discord invalide' });
+    }
+
+    const key = `discord_webhook_${admin.classe_id}`;
+    db.prepare('INSERT OR REPLACE INTO settings (key, value, classe_id) VALUES (?, ?, ?)').run(key, webhook || null, admin.classe_id);
+    res.json({ success: true, message: 'Webhook Discord configuré' });
+  } catch (error) {
+    console.error('Error configuring Discord webhook:', error);
+    res.status(500).json({ error: 'Erreur lors de la configuration du webhook' });
+  }
+});
+
+// Récupérer le webhook Discord
+router.get('/settings/discord-webhook', requireAdmin, (req, res) => {
+  try {
+    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    if (!admin || !admin.classe_id) {
+      return res.json({ webhook: null });
+    }
+
+    const key = `discord_webhook_${admin.classe_id}`;
+    const setting = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+    res.json({ webhook: setting ? setting.value : null });
+  } catch (error) {
+    console.error('Error retrieving Discord webhook:', error);
+    res.status(500).json({ error: 'Erreur lors de la récupération du webhook' });
+  }
+});
+
 module.exports = router;

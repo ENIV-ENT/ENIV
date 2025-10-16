@@ -13,16 +13,6 @@ let isMobileView = false;
 async function init() {
   const auth = await checkAuth();
 
-  if (!auth.authenticated) {
-    window.location.href = '/login';
-    return;
-  }
-
-  if (auth.role === 'admin') {
-    window.location.href = '/admin/dashboard';
-    return;
-  }
-
   document.getElementById('eleve-info').textContent = auth.username;
 
   initWebSocket(loadData);
@@ -198,8 +188,8 @@ function renderMobileWeekView() {
     const isToday = date.toDateString() === today.toDateString();
 
     const dayDevoirs = devoirs.filter(d => {
-      if (!d.date_limite) return false;
-      const devoirDate = new Date(d.date_limite).toISOString().split('T')[0];
+      if (!d.date) return false;
+      const devoirDate = new Date(d.date).toISOString().split('T')[0];
       return devoirDate === dateStr;
     }).sort((a, b) => a.fait - b.fait);
 
@@ -288,8 +278,8 @@ function renderDateCell(date, otherMonth) {
   const dateStr = date.toISOString().split('T')[0];
 
   const dayDevoirs = devoirs.filter(d => {
-    if (!d.date_limite) return false;
-    const devoirDate = new Date(d.date_limite).toISOString().split('T')[0];
+    if (!d.date) return false;
+    const devoirDate = new Date(d.date).toISOString().split('T')[0];
     return devoirDate === dateStr;
   }).sort((a, b) => a.fait - b.fait);
 
@@ -364,7 +354,7 @@ function showDevoirModal(devoirId) {
   }
   html += `</p>
     ${devoir.description ? `<p><strong>Description:</strong> ${escapeHTML(devoir.description)}</p>` : ''}
-    ${devoir.date_limite ? `<p><strong>Pour le:</strong> ${formatDate(devoir.date_limite)}</p>` : ''}
+    ${devoir.date ? `<p><strong>Pour le:</strong> ${formatDate(devoir.date)}</p>` : ''}
     <p><strong>Créé par:</strong> ${escapeHTML(devoir.created_by_username)}</p>
     <div class="modal-actions">
       <label class="checkbox-container">
@@ -409,7 +399,7 @@ async function handleAddDevoir(e) {
       titre: document.getElementById('devoir-titre').value,
       description: document.getElementById('devoir-description').value,
       matiere_id: document.getElementById('devoir-matiere').value,
-      date_limite: document.getElementById('devoir-date-limite').value
+      date: document.getElementById('devoir-date-limite').value
     })
   });
 
@@ -432,7 +422,7 @@ async function editDevoir(id) {
   document.getElementById('edit-devoir-id').value = devoir.id;
   document.getElementById('edit-devoir-titre').value = devoir.titre;
   document.getElementById('edit-devoir-description').value = devoir.description || '';
-  document.getElementById('edit-devoir-date-limite').value = devoir.date_limite || '';
+  document.getElementById('edit-devoir-date-limite').value = devoir.date || '';
 
   const select = document.getElementById('edit-devoir-matiere');
   select.innerHTML = '<option value="">Sélectionner une matière</option>';
@@ -460,7 +450,7 @@ async function handleEditDevoir(e) {
       titre: document.getElementById('edit-devoir-titre').value,
       description: document.getElementById('edit-devoir-description').value,
       matiere_id: document.getElementById('edit-devoir-matiere').value,
-      date_limite: document.getElementById('edit-devoir-date-limite').value
+      date: document.getElementById('edit-devoir-date-limite').value
     })
   });
 
