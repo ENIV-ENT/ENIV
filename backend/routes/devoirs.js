@@ -3,21 +3,24 @@ const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const router = express.Router();
 
-// Toutes les routes nécessitent authentification
 router.use(requireAuth);
 
-// Créer un devoir (tous les élèves peuvent créer)
 router.post('/', express.json(), (req, res) => {
-  const { titre, description, matiere_id, date_limite } = req.body;
+  const { titre, description, matiere_id, date } = req.body;
 
   if (!titre || !matiere_id) {
     return res.status(400).json({ error: 'Titre et matière requis' });
   }
 
   try {
+    const user = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    if (!user || !user.classe_id) {
+      return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
+    }
+
     const result = db.prepare(
-      'INSERT INTO devoirs (titre, description, matiere_id, date_limite, created_by) VALUES (?, ?, ?, ?, ?)'
-    ).run(titre, description || null, matiere_id, date_limite || null, req.session.userId);
+      'INSERT INTO devoirs (titre, description, matiere_id, date, classe_id, created_by) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(titre, description || null, matiere_id, date || null, user.classe_id, req.session.userId);
 
     res.json({
       success: true,
@@ -30,9 +33,13 @@ router.post('/', express.json(), (req, res) => {
   }
 });
 
-// Lister tous les devoirs avec leurs statuts
 router.get('/', (req, res) => {
   try {
+    const user = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    if (!user || !user.classe_id) {
+      return res.json([]);
+    }
+
     const devoirs = db.prepare(`
       SELECT
         d.*,
@@ -43,8 +50,9 @@ router.get('/', (req, res) => {
       LEFT JOIN matieres m ON d.matiere_id = m.id
       LEFT JOIN users u ON d.created_by = u.id
       LEFT JOIN devoir_statuts ds ON d.id = ds.devoir_id AND ds.user_id = ?
-      ORDER BY COALESCE(ds.fait, 0) ASC, d.date_limite ASC, d.created_at DESC
-    `).all(req.session.userId);
+      WHERE d.classe_id = ?
+      ORDER BY COALESCE(ds.fait, 0) ASC, d.date ASC, d.created_at DESC
+    `).all(req.session.userId, user.classe_id);
 
     res.json(devoirs);
   } catch (error) {
@@ -53,9 +61,13 @@ router.get('/', (req, res) => {
   }
 });
 
-// Récupérer un devoir spécifique
 router.get('/:id', (req, res) => {
   try {
+    const user = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    if (!user || !user.classe_id) {
+      return res.status(404).json({ error: 'Devoir non trouvé' });
+    }
+
     const devoir = db.prepare(`
       SELECT
         d.*,
@@ -66,8 +78,8 @@ router.get('/:id', (req, res) => {
       LEFT JOIN matieres m ON d.matiere_id = m.id
       LEFT JOIN users u ON d.created_by = u.id
       LEFT JOIN devoir_statuts ds ON d.id = ds.devoir_id AND ds.user_id = ?
-      WHERE d.id = ?
-    `).get(req.session.userId, req.params.id);
+      WHERE d.id = ? AND d.classe_id = ?
+    `).get(req.session.userId, req.params.id, user.classe_id);
 
     if (!devoir) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
@@ -79,14 +91,18 @@ router.get('/:id', (req, res) => {
   }
 });
 
-// Modifier un devoir (tous les élèves peuvent modifier)
 router.put('/:id', express.json(), (req, res) => {
-  const { titre, description, matiere_id, date_limite } = req.body;
+  const { titre, description, matiere_id, date } = req.body;
 
   try {
+    const user = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    if (!user || !user.classe_id) {
+      return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
+    }
+
     db.prepare(
-      'UPDATE devoirs SET titre = ?, description = ?, matiere_id = ?, date_limite = ? WHERE id = ?'
-    ).run(titre, description || null, matiere_id, date_limite || null, req.params.id);
+      'UPDATE devoirs SET titre = ?, description = ?, matiere_id = ?, date = ? WHERE id = ? AND classe_id = ?'
+    ).run(titre, description || null, matiere_id, date || null, req.params.id, user.classe_id);
 
     res.json({ success: true, message: 'Devoir mis à jour' });
   } catch (error) {
@@ -95,17 +111,20 @@ router.put('/:id', express.json(), (req, res) => {
   }
 });
 
-// Supprimer un devoir (tous les élèves peuvent supprimer)
 router.delete('/:id', (req, res) => {
   try {
-    db.prepare('DELETE FROM devoirs WHERE id = ?').run(req.params.id);
+    const user = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    if (!user || !user.classe_id) {
+      return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
+    }
+
+    db.prepare('DELETE FROM devoirs WHERE id = ? AND classe_id = ?').run(req.params.id, user.classe_id);
     res.json({ success: true, message: 'Devoir supprimé' });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la suppression du devoir' });
   }
 });
 
-// Marquer un devoir comme fait/non fait
 router.post('/:id/statut', express.json(), (req, res) => {
   const { fait } = req.body;
 
@@ -123,10 +142,15 @@ router.post('/:id/statut', express.json(), (req, res) => {
   }
 });
 
-// Récupérer le lien emploi du temps
 router.get('/settings/emploi-temps', (req, res) => {
   try {
-    const setting = db.prepare('SELECT value FROM settings WHERE key = ?').get('emploi_temps_lien');
+    const user = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    if (!user || !user.classe_id) {
+      return res.json({ lien: null });
+    }
+
+    const key = `emploi_temps_lien_${user.classe_id}`;
+    const setting = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
     res.json({ lien: setting ? setting.value : null });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la récupération' });

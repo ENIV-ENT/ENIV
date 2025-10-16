@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super Administration - ENT</title>
+  <link rel="icon" type="image/x-icon" href="/images/logo.ico">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>Super Administration ENT</h1>
+    <div class="header-actions">
+      <span id="user-info"></span>
+      <button id="logout-btn" class="btn-secondary">Déconnexion</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="classes">Classes</button>
+      <button class="tab-btn" data-tab="admins">Administrateurs</button>
+    </div>
+
+    <div id="tab-classes" class="tab-content active">
+      <div class="section-header">
+        <h2>Gestion des classes</h2>
+        <button id="add-classe-btn" class="btn-primary">Ajouter une classe</button>
+      </div>
+
+      <div id="classes-list" class="list"></div>
+    </div>
+
+    <div id="tab-admins" class="tab-content">
+      <div class="section-header">
+        <h2>Gestion des administrateurs</h2>
+        <button id="add-admin-btn" class="btn-primary">Ajouter un administrateur</button>
+      </div>
+
+      <div id="admins-list" class="list"></div>
+    </div>
+  </div>
+
+  <div id="add-classe-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Nouvelle classe</h2>
+        <button class="modal-close" id="close-add-classe-modal">&times;</button>
+      </div>
+      <form id="add-classe-form">
+        <div class="form-group">
+          <label for="add-classe-nom" class="form-label">Nom de la classe</label>
+          <input type="text" id="add-classe-nom" placeholder="Ex: Terminale S1" required>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Créer</button>
+          <button type="button" id="cancel-add-classe-btn" class="btn-secondary">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="edit-classe-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Modifier la classe</h2>
+        <button class="modal-close" id="close-edit-classe-modal">&times;</button>
+      </div>
+      <form id="edit-classe-form">
+        <input type="hidden" id="edit-classe-id">
+        <div class="form-group">
+          <label for="edit-classe-nom" class="form-label">Nom de la classe</label>
+          <input type="text" id="edit-classe-nom" placeholder="Ex: Terminale S1" required>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Enregistrer</button>
+          <button type="button" id="cancel-edit-classe-btn" class="btn-secondary">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="add-admin-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Nouvel administrateur</h2>
+        <button class="modal-close" id="close-add-admin-modal">&times;</button>
+      </div>
+      <form id="add-admin-form">
+        <div class="form-group">
+          <label for="add-admin-username" class="form-label">Nom d'utilisateur</label>
+          <input type="text" id="add-admin-username" placeholder="Nom d'utilisateur" required>
+        </div>
+        <div class="form-group">
+          <label for="add-admin-password" class="form-label">Mot de passe</label>
+          <input type="password" id="add-admin-password" placeholder="Mot de passe" required>
+        </div>
+        <div class="form-group">
+          <label for="add-admin-classe" class="form-label">Classe</label>
+          <select id="add-admin-classe" required>
+            <option value="">Sélectionner une classe</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Créer</button>
+          <button type="button" id="cancel-add-admin-btn" class="btn-secondary">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="edit-admin-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Modifier l'administrateur</h2>
+        <button class="modal-close" id="close-edit-admin-modal">&times;</button>
+      </div>
+      <form id="edit-admin-form">
+        <input type="hidden" id="edit-admin-id">
+        <div class="form-group">
+          <label for="edit-admin-username" class="form-label">Nom d'utilisateur</label>
+          <input type="text" id="edit-admin-username" placeholder="Nom d'utilisateur" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-admin-password" class="form-label">Nouveau mot de passe</label>
+          <input type="password" id="edit-admin-password" placeholder="Laisser vide pour ne pas changer">
+        </div>
+        <div class="form-group">
+          <label for="edit-admin-classe" class="form-label">Classe</label>
+          <select id="edit-admin-classe" required>
+            <option value="">Sélectionner une classe</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Enregistrer</button>
+          <button type="button" id="cancel-edit-admin-btn" class="btn-secondary">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="/js/pages/superadmin.js"></script>
+</body>
+</html>

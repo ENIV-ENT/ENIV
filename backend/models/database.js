@@ -6,12 +6,20 @@ const db = new Database(path.join(__dirname, '../ent.db'));
 
 // Créer les tables
 db.exec(`
+  CREATE TABLE IF NOT EXISTS classes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nom TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
-    role TEXT NOT NULL CHECK(role IN ('admin', 'eleve')),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    role TEXT NOT NULL CHECK(role IN ('superadmin', 'admin', 'eleve')),
+    classe_id INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (classe_id) REFERENCES classes(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS matieres (
@@ -20,7 +28,9 @@ db.exec(`
     image TEXT,
     lien TEXT,
     couleur TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    classe_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (classe_id) REFERENCES classes(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS devoirs (
@@ -28,10 +38,12 @@ db.exec(`
     titre TEXT NOT NULL,
     description TEXT,
     matiere_id INTEGER NOT NULL,
-    date_limite DATETIME,
+    date DATETIME,
+    classe_id INTEGER NOT NULL,
     created_by INTEGER NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (matiere_id) REFERENCES matieres(id) ON DELETE CASCADE,
+    FOREIGN KEY (classe_id) REFERENCES classes(id) ON DELETE CASCADE,
     FOREIGN KEY (created_by) REFERENCES users(id)
   );
 
@@ -56,16 +68,18 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
-    value TEXT
+    value TEXT,
+    classe_id INTEGER,
+    FOREIGN KEY (classe_id) REFERENCES classes(id) ON DELETE CASCADE
   );
 `);
 
-// Créer un admin par défaut si aucun n'existe
-const adminExists = db.prepare('SELECT COUNT(*) as count FROM users WHERE role = ?').get('admin');
-if (adminExists.count === 0) {
-  const hashedPassword = bcrypt.hashSync('admin123', 10);
-  db.prepare('INSERT INTO users (username, password, role) VALUES (?, ?, ?)').run('admin', hashedPassword, 'admin');
-  console.log('Admin par défaut créé: username=admin, password=admin123');
+// Créer un superadmin par défaut si aucun n'existe
+const superadminExists = db.prepare('SELECT COUNT(*) as count FROM users WHERE role = ?').get('superadmin');
+if (superadminExists.count === 0) {
+  const hashedPassword = bcrypt.hashSync('superadmin123', 10);
+  db.prepare('INSERT INTO users (username, password, role) VALUES (?, ?, ?)').run('superadmin', hashedPassword, 'superadmin');
+  console.log('Superadmin par défaut créé: username=superadmin, password=superadmin123');
 }
 
 module.exports = db;

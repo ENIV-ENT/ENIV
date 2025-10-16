@@ -4,6 +4,7 @@ export async function apiCall(url, options = {}) {
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
         ...options.headers,
       },
     });

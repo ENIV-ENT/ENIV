@@ -8,7 +8,7 @@ router.post('/login', (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+    const user = db.prepare('SELECT * FROM users WHERE LOWER(username) = LOWER(?)').get(username);
 
     if (!user) {
       return res.status(401).json({ error: 'Identifiants invalides' });

@@ -28,6 +28,7 @@ require('./backend/models/database');
 
 // Routes
 app.use('/api/auth', require('./backend/routes/auth'));
+app.use('/api/superadmin', require('./backend/routes/superadmin'));
 app.use('/api/admin', require('./backend/routes/admin'));
 app.use('/api/devoirs', require('./backend/routes/devoirs'));
 
@@ -52,6 +53,10 @@ app.get('/settings', (req, res) => {
 
 app.get('/admin/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin', 'dashboard', 'index.html'));
+});
+
+app.get('/superadmin/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'superadmin', 'dashboard', 'index.html'));
 });
 
 app.get('*', (req, res) => {

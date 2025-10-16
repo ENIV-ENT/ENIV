@@ -770,6 +770,7 @@ header h1 {
 .modal-content input[type="text"],
 .modal-content input[type="url"],
 .modal-content input[type="date"],
+.modal-content input[type="password"],
 .modal-content textarea,
 .modal-content select {
   width: 100%;
@@ -784,6 +785,7 @@ header h1 {
 .modal-content input[type="text"]:focus,
 .modal-content input[type="url"]:focus,
 .modal-content input[type="date"]:focus,
+.modal-content input[type="password"]:focus,
 .modal-content textarea:focus,
 .modal-content select:focus {
   outline: none;

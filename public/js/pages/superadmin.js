@@ -1,0 +1,320 @@
+import { apiCall, checkAuth, logout } from '../utils/api.js';
+import { escapeHTML, toggleModal, setupModalClose } from '../utils/dom.js';
+
+let classes = [];
+let admins = [];
+
+async function init() {
+  const auth = await checkAuth();
+
+  if (!auth.authenticated || auth.role !== 'superadmin') {
+    window.location.href = '/';
+    return;
+  }
+
+  document.getElementById('user-info').textContent = `SuperAdmin: ${auth.username}`;
+
+  document.getElementById('logout-btn').addEventListener('click', logout);
+
+  setupTabs();
+  setupClasseModal();
+  setupAdminModal();
+
+  await loadClasses();
+  await loadAdmins();
+}
+
+function setupTabs() {
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  const tabContents = document.querySelectorAll('.tab-content');
+
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabName = btn.dataset.tab;
+
+      tabBtns.forEach(b => b.classList.remove('active'));
+      tabContents.forEach(c => c.classList.remove('active'));
+
+      btn.classList.add('active');
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+    });
+  });
+}
+
+function setupClasseModal() {
+  const addBtn = document.getElementById('add-classe-btn');
+  const addForm = document.getElementById('add-classe-form');
+  const editForm = document.getElementById('edit-classe-form');
+
+  addBtn.addEventListener('click', () => {
+    toggleModal('add-classe-modal', true);
+  });
+
+  setupModalClose('add-classe-modal', 'close-add-classe-modal');
+  setupModalClose('edit-classe-modal', 'close-edit-classe-modal');
+
+  document.getElementById('cancel-add-classe-btn').addEventListener('click', () => {
+    toggleModal('add-classe-modal', false);
+  });
+
+  document.getElementById('cancel-edit-classe-btn').addEventListener('click', () => {
+    toggleModal('edit-classe-modal', false);
+  });
+
+  addForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const nom = document.getElementById('add-classe-nom').value;
+
+    const data = await apiCall('/api/superadmin/classes', {
+      method: 'POST',
+      body: JSON.stringify({ nom }),
+    });
+
+    if (data.success) {
+      toggleModal('add-classe-modal', false);
+      addForm.reset();
+      await loadClasses();
+    } else if (data.error) {
+      alert(data.error);
+    }
+  });
+
+  editForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('edit-classe-id').value;
+    const nom = document.getElementById('edit-classe-nom').value;
+
+    const data = await apiCall(`/api/superadmin/classes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ nom }),
+    });
+
+    if (data.success) {
+      toggleModal('edit-classe-modal', false);
+      await loadClasses();
+      await loadAdmins();
+    } else if (data.error) {
+      alert(data.error);
+    }
+  });
+}
+
+function setupAdminModal() {
+  const addBtn = document.getElementById('add-admin-btn');
+  const addForm = document.getElementById('add-admin-form');
+  const editForm = document.getElementById('edit-admin-form');
+
+  addBtn.addEventListener('click', () => {
+    populateClasseSelects();
+    toggleModal('add-admin-modal', true);
+  });
+
+  setupModalClose('add-admin-modal', 'close-add-admin-modal');
+  setupModalClose('edit-admin-modal', 'close-edit-admin-modal');
+
+  document.getElementById('cancel-add-admin-btn').addEventListener('click', () => {
+    toggleModal('add-admin-modal', false);
+  });
+
+  document.getElementById('cancel-edit-admin-btn').addEventListener('click', () => {
+    toggleModal('edit-admin-modal', false);
+  });
+
+  addForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('add-admin-username').value;
+    const password = document.getElementById('add-admin-password').value;
+    const classe_id = document.getElementById('add-admin-classe').value;
+
+    const data = await apiCall('/api/superadmin/admins', {
+      method: 'POST',
+      body: JSON.stringify({ username, password, classe_id }),
+    });
+
+    if (data.success) {
+      toggleModal('add-admin-modal', false);
+      addForm.reset();
+      await loadAdmins();
+    } else if (data.error) {
+      alert(data.error);
+    }
+  });
+
+  editForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('edit-admin-id').value;
+    const username = document.getElementById('edit-admin-username').value;
+    const password = document.getElementById('edit-admin-password').value;
+    const classe_id = document.getElementById('edit-admin-classe').value;
+
+    const body = { username, classe_id };
+    if (password) {
+      body.password = password;
+    }
+
+    const data = await apiCall(`/api/superadmin/admins/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+
+    if (data.success) {
+      toggleModal('edit-admin-modal', false);
+      await loadAdmins();
+    } else if (data.error) {
+      alert(data.error);
+    }
+  });
+}
+
+function populateClasseSelects() {
+  const addSelect = document.getElementById('add-admin-classe');
+  const editSelect = document.getElementById('edit-admin-classe');
+
+  [addSelect, editSelect].forEach(select => {
+    while (select.children.length > 1) {
+      select.removeChild(select.lastChild);
+    }
+
+    classes.forEach(classe => {
+      const option = document.createElement('option');
+      option.value = classe.id;
+      option.textContent = classe.nom;
+      select.appendChild(option);
+    });
+  });
+}
+
+async function loadClasses() {
+  const data = await apiCall('/api/superadmin/classes');
+  if (data.classes) {
+    classes = data.classes;
+    renderClasses();
+  }
+}
+
+function renderClasses() {
+  const container = document.getElementById('classes-list');
+  container.innerHTML = '';
+
+  if (classes.length === 0) {
+    container.innerHTML = '<p>Aucune classe pour le moment.</p>';
+    return;
+  }
+
+  classes.forEach(classe => {
+    const item = document.createElement('div');
+    item.className = 'list-item';
+    item.innerHTML = `
+      <div class="list-item-info">
+        <h3>${escapeHTML(classe.nom)}</h3>
+      </div>
+      <div class="list-item-actions">
+        <button class="btn-secondary edit-classe-btn" data-id="${classe.id}">Modifier</button>
+        <button class="btn-danger delete-classe-btn" data-id="${classe.id}">Supprimer</button>
+      </div>
+    `;
+    container.appendChild(item);
+  });
+
+  document.querySelectorAll('.edit-classe-btn').forEach(btn => {
+    btn.addEventListener('click', () => openEditClasseModal(parseInt(btn.dataset.id)));
+  });
+
+  document.querySelectorAll('.delete-classe-btn').forEach(btn => {
+    btn.addEventListener('click', () => deleteClasse(parseInt(btn.dataset.id)));
+  });
+}
+
+function openEditClasseModal(id) {
+  const classe = classes.find(c => c.id === id);
+  if (!classe) return;
+
+  document.getElementById('edit-classe-id').value = classe.id;
+  document.getElementById('edit-classe-nom').value = classe.nom;
+  toggleModal('edit-classe-modal', true);
+}
+
+async function deleteClasse(id) {
+  if (!confirm('Êtes-vous sûr de vouloir supprimer cette classe ? Tous les utilisateurs, matières et devoirs associés seront également supprimés.')) {
+    return;
+  }
+
+  const data = await apiCall(`/api/superadmin/classes/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (data.success) {
+    await loadClasses();
+    await loadAdmins();
+  }
+}
+
+async function loadAdmins() {
+  const data = await apiCall('/api/superadmin/admins');
+  if (data.admins) {
+    admins = data.admins;
+    renderAdmins();
+  }
+}
+
+function renderAdmins() {
+  const container = document.getElementById('admins-list');
+  container.innerHTML = '';
+
+  if (admins.length === 0) {
+    container.innerHTML = '<p>Aucun administrateur pour le moment.</p>';
+    return;
+  }
+
+  admins.forEach(admin => {
+    const item = document.createElement('div');
+    item.className = 'list-item';
+    item.innerHTML = `
+      <div class="list-item-info">
+        <h3>${escapeHTML(admin.username)}</h3>
+        <p>${escapeHTML(admin.classe_nom || 'Aucune classe')}</p>
+      </div>
+      <div class="list-item-actions">
+        <button class="btn-secondary edit-admin-btn" data-id="${admin.id}">Modifier</button>
+        <button class="btn-danger delete-admin-btn" data-id="${admin.id}">Supprimer</button>
+      </div>
+    `;
+    container.appendChild(item);
+  });
+
+  document.querySelectorAll('.edit-admin-btn').forEach(btn => {
+    btn.addEventListener('click', () => openEditAdminModal(parseInt(btn.dataset.id)));
+  });
+
+  document.querySelectorAll('.delete-admin-btn').forEach(btn => {
+    btn.addEventListener('click', () => deleteAdmin(parseInt(btn.dataset.id)));
+  });
+}
+
+function openEditAdminModal(id) {
+  const admin = admins.find(a => a.id === id);
+  if (!admin) return;
+
+  populateClasseSelects();
+  document.getElementById('edit-admin-id').value = admin.id;
+  document.getElementById('edit-admin-username').value = admin.username;
+  document.getElementById('edit-admin-password').value = '';
+  document.getElementById('edit-admin-classe').value = admin.classe_id || '';
+  toggleModal('edit-admin-modal', true);
+}
+
+async function deleteAdmin(id) {
+  if (!confirm('Êtes-vous sûr de vouloir supprimer cet administrateur ?')) {
+    return;
+  }
+
+  const data = await apiCall(`/api/superadmin/admins/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (data.success) {
+    await loadAdmins();
+  }
+}
+
+init();

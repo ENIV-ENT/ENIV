@@ -19,4 +19,11 @@ const requireEleve = (req, res, next) => {
   next();
 };
 
-module.exports = { requireAuth, requireAdmin, requireEleve };
+const requireSuperAdmin = (req, res, next) => {
+  if (!req.session.userId || req.session.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Accès refusé - SuperAdmin requis' });
+  }
+  next();
+};
+
+module.exports = { requireAuth, requireAdmin, requireEleve, requireSuperAdmin };

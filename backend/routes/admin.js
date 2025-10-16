@@ -77,8 +77,13 @@ router.post('/eleves', requireAdmin, express.json(), (req, res) => {
   }
 
   try {
+    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    if (!admin || !admin.classe_id) {
+      return res.status(400).json({ error: 'Admin non associé à une classe' });
+    }
+
     const hashedPassword = bcrypt.hashSync(password, 10);
-    const result = db.prepare('INSERT INTO users (username, password, role) VALUES (?, ?, ?)').run(username, hashedPassword, 'eleve');
+    const result = db.prepare('INSERT INTO users (username, password, role, classe_id) VALUES (?, ?, ?, ?)').run(username, hashedPassword, 'eleve', admin.classe_id);
 
     res.json({
       success: true,
@@ -97,7 +102,12 @@ router.post('/eleves', requireAdmin, express.json(), (req, res) => {
 // Lister tous les élèves
 router.get('/eleves', requireAdmin, (req, res) => {
   try {
-    const eleves = db.prepare('SELECT id, username, created_at FROM users WHERE role = ?').all('eleve');
+    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    if (!admin || !admin.classe_id) {
+      return res.status(400).json({ error: 'Admin non associé à une classe' });
+    }
+
+    const eleves = db.prepare('SELECT id, username, created_at FROM users WHERE role = ? AND classe_id = ?').all('eleve', admin.classe_id);
     res.json(eleves);
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la récupération des élèves' });
@@ -113,12 +123,16 @@ router.put('/eleves/:id', requireAdmin, express.json(), (req, res) => {
   }
 
   try {
-    // Si un mot de passe est fourni, le modifier aussi
+    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    if (!admin || !admin.classe_id) {
+      return res.status(400).json({ error: 'Admin non associé à une classe' });
+    }
+
     if (password) {
       const hashedPassword = bcrypt.hashSync(password, 10);
-      db.prepare('UPDATE users SET username = ?, password = ? WHERE id = ? AND role = ?').run(username, hashedPassword, req.params.id, 'eleve');
+      db.prepare('UPDATE users SET username = ?, password = ? WHERE id = ? AND role = ? AND classe_id = ?').run(username, hashedPassword, req.params.id, 'eleve', admin.classe_id);
     } else {
-      db.prepare('UPDATE users SET username = ? WHERE id = ? AND role = ?').run(username, req.params.id, 'eleve');
+      db.prepare('UPDATE users SET username = ? WHERE id = ? AND role = ? AND classe_id = ?').run(username, req.params.id, 'eleve', admin.classe_id);
     }
     res.json({ success: true, message: 'Élève modifié avec succès' });
   } catch (error) {
@@ -133,7 +147,12 @@ router.put('/eleves/:id', requireAdmin, express.json(), (req, res) => {
 // Supprimer un élève
 router.delete('/eleves/:id', requireAdmin, (req, res) => {
   try {
-    db.prepare('DELETE FROM users WHERE id = ? AND role = ?').run(req.params.id, 'eleve');
+    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    if (!admin || !admin.classe_id) {
+      return res.status(400).json({ error: 'Admin non associé à une classe' });
+    }
+
+    db.prepare('DELETE FROM users WHERE id = ? AND role = ? AND classe_id = ?').run(req.params.id, 'eleve', admin.classe_id);
     res.json({ success: true, message: 'Élève supprimé' });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la suppression de l\'élève' });
@@ -153,7 +172,12 @@ router.post('/matieres', requireAdmin, express.json(), (req, res) => {
   }
 
   try {
-    const result = db.prepare('INSERT INTO matieres (nom, lien, couleur) VALUES (?, ?, ?)').run(nom, lien || null, couleur);
+    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    if (!admin || !admin.classe_id) {
+      return res.status(400).json({ error: 'Admin non associé à une classe' });
+    }
+
+    const result = db.prepare('INSERT INTO matieres (nom, lien, couleur, classe_id) VALUES (?, ?, ?, ?)').run(nom, lien || null, couleur, admin.classe_id);
 
     res.json({
       success: true,
@@ -169,7 +193,12 @@ router.post('/matieres', requireAdmin, express.json(), (req, res) => {
 // Lister toutes les matières (accessible à tous les utilisateurs authentifiés)
 router.get('/matieres', requireAuth, (req, res) => {
   try {
-    const matieres = db.prepare('SELECT * FROM matieres ORDER BY nom').all();
+    const user = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    if (!user || !user.classe_id) {
+      return res.json([]);
+    }
+
+    const matieres = db.prepare('SELECT * FROM matieres WHERE classe_id = ? ORDER BY nom').all(user.classe_id);
     res.json(matieres);
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la récupération des matières' });
@@ -181,7 +210,12 @@ router.put('/matieres/:id', requireAdmin, express.json(), (req, res) => {
   const { nom, lien, couleur } = req.body;
 
   try {
-    db.prepare('UPDATE matieres SET nom = ?, lien = ?, couleur = ? WHERE id = ?').run(nom, lien || null, couleur || null, req.params.id);
+    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    if (!admin || !admin.classe_id) {
+      return res.status(400).json({ error: 'Admin non associé à une classe' });
+    }
+
+    db.prepare('UPDATE matieres SET nom = ?, lien = ?, couleur = ? WHERE id = ? AND classe_id = ?').run(nom, lien || null, couleur || null, req.params.id, admin.classe_id);
     res.json({ success: true, message: 'Matière mise à jour' });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la mise à jour de la matière' });
@@ -191,7 +225,12 @@ router.put('/matieres/:id', requireAdmin, express.json(), (req, res) => {
 // Supprimer une matière
 router.delete('/matieres/:id', requireAdmin, (req, res) => {
   try {
-    db.prepare('DELETE FROM matieres WHERE id = ?').run(req.params.id);
+    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    if (!admin || !admin.classe_id) {
+      return res.status(400).json({ error: 'Admin non associé à une classe' });
+    }
+
+    db.prepare('DELETE FROM matieres WHERE id = ? AND classe_id = ?').run(req.params.id, admin.classe_id);
     res.json({ success: true, message: 'Matière supprimée' });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la suppression de la matière' });
@@ -203,7 +242,13 @@ router.post('/settings/emploi-temps', requireAdmin, express.json(), (req, res) =
   const { lien } = req.body;
 
   try {
-    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('emploi_temps_lien', lien || null);
+    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    if (!admin || !admin.classe_id) {
+      return res.status(400).json({ error: 'Admin non associé à une classe' });
+    }
+
+    const key = `emploi_temps_lien_${admin.classe_id}`;
+    db.prepare('INSERT OR REPLACE INTO settings (key, value, classe_id) VALUES (?, ?, ?)').run(key, lien || null, admin.classe_id);
     res.json({ success: true, message: 'Lien emploi du temps configuré' });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la configuration' });
@@ -213,7 +258,13 @@ router.post('/settings/emploi-temps', requireAdmin, express.json(), (req, res) =
 // Récupérer le lien emploi du temps
 router.get('/settings/emploi-temps', requireAuth, (req, res) => {
   try {
-    const setting = db.prepare('SELECT value FROM settings WHERE key = ?').get('emploi_temps_lien');
+    const user = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    if (!user || !user.classe_id) {
+      return res.json({ lien: null });
+    }
+
+    const key = `emploi_temps_lien_${user.classe_id}`;
+    const setting = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
     res.json({ lien: setting ? setting.value : null });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la récupération' });

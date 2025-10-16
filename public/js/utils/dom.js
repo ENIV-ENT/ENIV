@@ -38,10 +38,17 @@ export function setupModalClose(modalId, closeButtonId) {
   }
 
   if (modal) {
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
+    let clickStartTarget = null;
+
+    modal.addEventListener('mousedown', (e) => {
+      clickStartTarget = e.target;
+    });
+
+    modal.addEventListener('mouseup', (e) => {
+      if (e.target === modal && clickStartTarget === modal) {
         toggleModal(modalId, false);
       }
+      clickStartTarget = null;
     });
   }
 }

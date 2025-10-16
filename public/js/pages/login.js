@@ -11,7 +11,9 @@ async function init() {
   const auth = await checkAuth();
 
   if (auth.authenticated) {
-    if (auth.role === "admin") {
+    if (auth.role === 'superadmin') {
+      window.location.href = "/superadmin/dashboard";
+    } else if (auth.role === "admin") {
       window.location.href = "/admin/dashboard";
     } else {
       window.location.href = "/dashboard";
@@ -42,7 +44,9 @@ async function init() {
       boiteNomUtilisateur.style.borderColor = "red";
     }  else {
       loginError.textContent = "";
-      if (data.role === "admin") {
+      if (data.role === 'superadmin') {
+        window.location.href = "/superadmin/dashboard";
+      } if (data.role === "admin") {
         window.location.href = "/admin/dashboard";
       } else {
         window.location.href = "/dashboard";
