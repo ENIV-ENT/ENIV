@@ -17,16 +17,6 @@ const availableColors = [
 async function init() {
   const auth = await checkAuth();
 
-  if (!auth.authenticated) {
-    window.location.href = '/login';
-    return;
-  }
-
-  if (auth.role !== 'admin') {
-    window.location.href = '/dashboard';
-    return;
-  }
-
   document.getElementById('user-info').textContent = `Admin: ${auth.username}`;
 
   initWebSocket(loadAllData);

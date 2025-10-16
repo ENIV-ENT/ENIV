@@ -7,11 +7,6 @@ let admins = [];
 async function init() {
   const auth = await checkAuth();
 
-  if (!auth.authenticated || auth.role !== 'superadmin') {
-    window.location.href = '/';
-    return;
-  }
-
   document.getElementById('user-info').textContent = `SuperAdmin: ${auth.username}`;
 
   document.getElementById('logout-btn').addEventListener('click', logout);

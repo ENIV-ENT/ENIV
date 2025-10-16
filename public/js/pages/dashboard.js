@@ -13,16 +13,6 @@ let isMobileView = false;
 async function init() {
   const auth = await checkAuth();
 
-  if (!auth.authenticated) {
-    window.location.href = '/login';
-    return;
-  }
-
-  if (auth.role === 'admin') {
-    window.location.href = '/admin/dashboard';
-    return;
-  }
-
   document.getElementById('eleve-info').textContent = auth.username;
 
   initWebSocket(loadData);
