@@ -72,6 +72,12 @@ function formatDate(dateString) {
   });
 }
 
+function escapeHTML(string) {
+  const container = document.createElement('div');
+  container.textContent = string;
+  return container.innerHTML;
+}
+
 // Authentification
 async function checkAuth() {
   const data = await apiCall('/api/auth/me');
@@ -158,7 +164,7 @@ function renderEleves() {
     item.className = 'list-item';
     item.innerHTML = `
       <div class="list-item-info">
-        <h3>${eleve.username}</h3>
+        <h3>${escapeHTML(eleve.username)}</h3>
         <p>Créé le: ${formatDate(eleve.created_at)}</p>
       </div>
       <div class="list-item-actions">
@@ -245,7 +251,7 @@ function renderMatieres() {
       <div class="list-item-info">
         <div class="matiere-color-indicator" style="background-color: ${matiere.couleur || '#999'}; width: 50px; height: 50px; border-radius: 8px; margin-right: 1rem; flex-shrink: 0;"></div>
         <div>
-          <h3>${matiere.nom}</h3>
+          <h3>${escapeHTML(matiere.nom)}</h3>
           ${matiere.lien ? `<p><a href="${matiere.lien}" target="_blank">Lien</a></p>` : ''}
           <p style="color: #666; font-size: 0.9rem;">Couleur: ${matiere.couleur || 'Non définie'}</p>
         </div>
@@ -625,8 +631,8 @@ function renderMobileWeekView() {
         const matiere = matieres.find(m => m.id === devoir.matiere_id);
         const couleur = matiere?.couleur || '#999';
         html += `<div class="mobile-devoir-item ${devoir.fait ? 'fait' : ''}" data-devoir-id="${devoir.id}" style="border-left: 4px solid ${couleur};">`;
-        html += `<div class="mobile-devoir-title">${devoir.titre}</div>`;
-        html += `<div class="mobile-devoir-matiere" style="color: ${couleur};">${devoir.matiere_nom || 'Sans matière'}</div>`;
+        html += `<div class="mobile-devoir-title">${escapeHTML(devoir.titre)}</div>`;
+        html += `<div class="mobile-devoir-matiere" style="color: ${couleur};">${escapeHTML(devoir.matiere_nom || 'Sans matière')}</div>`;
         html += `</div>`;
       });
       html += '</div>';
@@ -709,7 +715,7 @@ function renderDateCell(date, otherMonth) {
     const matiere = matieres.find(m => m.id === devoir.matiere_id);
     const couleur = matiere?.couleur || '#999';
     html += `<div class="devoir-item ${devoir.fait ? 'fait' : ''}" data-devoir-id="${devoir.id}" style="background-color: ${couleur};">`;
-    html += `${devoir.titre}`;
+    html += `${escapeHTML(devoir.titre)}`;
     html += '</div>';
   });
 
@@ -804,11 +810,11 @@ function showDevoirModal(devoirId) {
   const modalBody = document.getElementById('modal-body');
 
   let html = `
-    <h3>${devoir.titre}</h3>
-    <p><strong>Matière:</strong> ${devoir.matiere_nom || 'Non définie'}</p>
-    ${devoir.description ? `<p><strong>Description:</strong> ${devoir.description}</p>` : ''}
+    <h3>${escapeHTML(devoir.titre)}</h3>
+    <p><strong>Matière:</strong> ${escapeHTML(devoir.matiere_nom || 'Non définie')}</p>
+    ${devoir.description ? `<p><strong>Description:</strong> ${escapeHTML(devoir.description)}</p>` : ''}
     ${devoir.date_limite ? `<p><strong>Date limite:</strong> ${formatDate(devoir.date_limite)}</p>` : ''}
-    <p><strong>Créé par:</strong> ${devoir.created_by_username}</p>
+    <p><strong>Créé par:</strong> ${escapeHTML(devoir.created_by_username)}</p>
     <div class="modal-actions">
       <label class="checkbox-container">
         <input type="checkbox" ${devoir.fait ? 'checked' : ''} onchange="toggleDevoirStatut(${devoir.id}, this.checked); document.getElementById('devoir-modal').classList.remove('active');">
