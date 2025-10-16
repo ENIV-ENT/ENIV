@@ -1,6 +1,6 @@
 export function escapeHTML(string) {
   const container = document.createElement('div');
-  container.textContent = string;
+  container.innerText = string;
   return container.innerHTML;
 }
 
