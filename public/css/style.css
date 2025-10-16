@@ -16,7 +16,8 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, sans-serif;
   background: var(--light);
   color: var(--dark);
   line-height: 1.6;
@@ -41,7 +42,7 @@ body {
   padding: 2rem;
   background: white;
   border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .login-container h1 {
@@ -49,7 +50,12 @@ body {
   margin-bottom: 2rem;
   color: var(--primary);
 }
-
+.login-container h3 {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: var(--secondary);
+  font-weight: 400;
+}
 #login-form input {
   width: 100%;
   padding: 0.75rem;
@@ -114,7 +120,7 @@ body {
 header {
   background: white;
   padding: 1rem 2rem;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -132,7 +138,8 @@ header h1 {
   align-items: center;
 }
 
-#user-info, #eleve-info {
+#user-info,
+#eleve-info {
   font-weight: 500;
 }
 
@@ -179,7 +186,8 @@ header h1 {
 }
 
 /* Buttons */
-.btn-primary, .btn-secondary {
+.btn-primary,
+.btn-secondary {
   padding: 0.5rem 1rem;
   border: none;
   border-radius: 4px;
@@ -240,7 +248,7 @@ header h1 {
   background: white;
   padding: 1.5rem;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   margin-bottom: 2rem;
 }
 
@@ -299,7 +307,7 @@ header h1 {
   background: white;
   padding: 1rem;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -338,7 +346,7 @@ header h1 {
 .devoir-card {
   background: white;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   transition: transform 0.3s, box-shadow 0.3s;
   display: flex;
@@ -347,7 +355,7 @@ header h1 {
 
 .devoir-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .devoir-card.fait {
@@ -485,7 +493,7 @@ header h1 {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   z-index: 1000;
   overflow-y: auto;
 }
@@ -531,7 +539,7 @@ header h1 {
   padding: 1rem;
   background: white;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .calendar-header h2 {
@@ -543,7 +551,7 @@ header h1 {
 .calendar {
   background: white;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   padding: 1rem;
 }
 
@@ -623,7 +631,7 @@ header h1 {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 500;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .devoir-item:hover {
@@ -643,7 +651,7 @@ header h1 {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   z-index: 1000;
   overflow-y: auto;
 }
@@ -938,7 +946,7 @@ header h1 {
     margin-bottom: 0.75rem;
     border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
   .week-day-header {
@@ -968,7 +976,7 @@ header h1 {
   .week-day-number {
     font-size: 1.5rem;
     font-weight: 700;
-    background: rgba(255,255,255,0.2);
+    background: rgba(255, 255, 255, 0.2);
     width: 40px;
     height: 40px;
     border-radius: 50%;
