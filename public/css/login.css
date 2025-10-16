@@ -1,0 +1,197 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary: #4a90e2;
+  --primary-dark: #357abd;
+  --secondary: #6c757d;
+  --success: #28a745;
+  --danger: #dc3545;
+  --light: #f8f9fa;
+  --dark: #343a40;
+  --border: #dee2e6;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: url("/images/sophidef.gif");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  z-index: 0;
+
+  /* laisser de l'espace en bas pour le footer fixe */
+  padding-bottom: 3.5rem;
+}
+
+/* adapter le formulaire sur petits écrans (téléphone) */
+@media (max-width: 480px) {
+  .login-container {
+    max-width: 340px !important;
+    margin: 40px 16px !important;
+    padding: 1rem !important;
+    border-radius: 12px !important;
+  }
+
+  .login-container h1 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .login-container h3 {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  #login-form input {
+    padding: 0.6rem;
+    font-size: 0.95rem;
+    border-radius: 14px;
+  }
+
+  #login-form button {
+    padding: 0.65rem;
+    font-size: 0.95rem;
+    border-radius: 36px;
+  }
+}
+.login-container {
+  margin: 0 !important;
+}
+
+.page {
+  display: none;
+}
+
+.page.active {
+  display: block;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Login Page */
+.login-container {
+  max-width: 400px;
+  margin: 100px auto;
+  padding: 2rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  animation: ApparitionBouton 1s ease-in-out;
+}
+
+.login-container h1 {
+  text-align: center;
+  margin-bottom: 2rem;
+  color: var(--primary);
+  animation: ApparitionBouton 1s ease-in-out;
+}
+.login-container h3 {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: var(--secondary);
+  font-weight: 400;
+  animation: ApparitionBouton 1s ease-in-out;
+}
+#login-form input {
+  width: 100%;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  font-size: 1rem;
+  animation: ApparitionBouton 1s ease-in-out;
+}
+#Copyright {
+  text-align: center;
+  color: var(--secondary);
+  font-size: 0.875rem;
+  font-weight: 400;
+  animation: ApparitionBouton 1s ease-in-out;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: white;
+  padding: 0.5rem 0;
+  z-index: 999;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+}
+/* Style de base du bouton */
+#login-form button {
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--primary, #3498db);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color ease-in-out 0.3s, transform ease-in-out 0.2s,
+    box-shadow ease-in-out 0.3s, scale 1.7s ease-in-out;
+  text-transform: uppercase;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  animation: ApparitionBouton 2.7s ease-in-out;
+}
+/* Effet au survol */
+#login-form button:hover {
+  background-color: #1e9e69;
+  transform: scale(1.1);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  filter: brightness(1.2);
+}
+
+/* Effet au clic */
+#login-form button:active {
+  transform: scale(0.95);
+  background-color: #5a6b68;
+  box-shadow: 0 4px 8px rgba(107, 92, 92, 0.1);
+  filter: brightness(1);
+}
+
+/* animation du bouton */
+@keyframes ApparitionBouton {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.error {
+  color: var(--danger);
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+}
+
+/* Header */
+header {
+  background: white;
+  padding: 1rem 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+header h1 {
+  color: var(--primary);
+  font-size: 1.5rem;
+}

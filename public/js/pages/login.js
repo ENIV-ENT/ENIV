@@ -11,7 +11,7 @@ async function init() {
   const auth = await checkAuth();
 
   if (auth.authenticated) {
-    if (auth.role === 'superadmin') {
+    if (auth.role === "superadmin") {
       window.location.href = "/superadmin/dashboard";
     } else if (auth.role === "admin") {
       window.location.href = "/admin/dashboard";
@@ -20,10 +20,8 @@ async function init() {
     }
     return;
   }
-
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-
     const username = document.getElementById("username").value;
     const password = document.getElementById("password").value;
 
@@ -31,6 +29,7 @@ async function init() {
       method: "POST",
       body: JSON.stringify({ username, password }),
     });
+
     if (username === "" || password === "") {
       loginError.textContent = "Veuillez remplir tous les champs.";
       boiteMotDePasse.style.borderColor = "red";
@@ -44,13 +43,29 @@ async function init() {
       boiteNomUtilisateur.style.borderColor = "red";
     } else {
       loginError.textContent = "";
-      if (data.role === 'superadmin') {
+      if (data.role === "superadmin") {
         window.location.href = "/superadmin/dashboard";
-      } if (data.role === "admin") {
+      }
+      if (data.role === "admin") {
         window.location.href = "/admin/dashboard";
       } else {
         window.location.href = "/dashboard";
       }
+    }
+  });
+
+  // Permettre la soumission du formulaire avec la touche Entrée dans les champs
+  boiteNomUtilisateur.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      loginForm.requestSubmit();
+    }
+  });
+
+  boiteMotDePasse.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      loginForm.requestSubmit();
     }
   });
 }
