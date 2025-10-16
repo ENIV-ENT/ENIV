@@ -59,20 +59,49 @@ body {
   font-size: 1rem;
 }
 
+/* Style de base du bouton */
 #login-form button {
   width: 100%;
   padding: 0.75rem;
-  background: var(--primary);
+  background: var(--primary, #3498db);
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 50px;
   font-size: 1rem;
+  font-weight: bold;
   cursor: pointer;
-  transition: background 0.3s;
+  transition: background-color ease-in-out 0.3s, transform ease-in-out 0.2s,
+    box-shadow ease-in-out 0.3s, scale 1.7s ease-in-out;
+  text-transform: uppercase;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  animation: ApparitionBouton 1.6s ease-in-out;
+}
+/* Effet au survol */
+#login-form button:hover {
+  background-color: #1e9e69;
+  transform: scale(1.1);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  filter: brightness(1.2);
 }
 
-#login-form button:hover {
-  background: var(--primary-dark);
+/* Effet au clic */
+#login-form button:active {
+  transform: scale(0.95);
+  background-color: #5a6b68;
+  box-shadow: 0 4px 8px rgba(107, 92, 92, 0.1);
+  filter: brightness(1);
+}
+
+/* animation du bouton */
+@keyframes ApparitionBouton {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .error {
