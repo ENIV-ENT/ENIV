@@ -56,7 +56,7 @@ app.get('/admin/dashboard', (req, res) => {
 
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api') && !req.path.startsWith('/ws') && !req.path.startsWith('/js') && !req.path.startsWith('/css') && !req.path.startsWith('/uploads')) {
-    res.redirect('/login');
+    res.redirect('/');
   }
 });
 
