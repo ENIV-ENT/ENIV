@@ -4,23 +4,35 @@ const db = require('../models/database');
  * Envoie un embed Discord via webhook
  * @param {string} webhookUrl - URL du webhook Discord
  * @param {Object} embed - Objet embed à envoyer
+ * @param {string} username - Nom d'utilisateur du webhook
+ * @param {string} avatarUrl - URL de l'avatar du webhook
  * @returns {Promise<boolean>} - True si l'envoi a réussi
  */
-async function sendDiscordEmbed(webhookUrl, embed) {
+async function sendDiscordEmbed(webhookUrl, embed, username = null, avatarUrl = null) {
   if (!webhookUrl) {
     console.log('Pas de webhook Discord configuré');
     return false;
   }
 
   try {
+    const payload = {
+      embeds: [embed]
+    };
+
+    if (username) {
+      payload.username = username;
+    }
+
+    if (avatarUrl) {
+      payload.avatar_url = avatarUrl;
+    }
+
     const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        embeds: [embed]
-      })
+      body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
@@ -118,8 +130,10 @@ async function envoyerRecapitulatifQuotidien() {
       // Créer l'embed
       const embed = creerEmbedRecapitulatif(classeData);
 
-      // Envoyer le message
-      await sendDiscordEmbed(setting.value, embed);
+      // Envoyer le message avec le nom de la classe et le logo
+      const username = `ENT - ${classeData.classe_nom}`;
+      const avatarUrl = process.env.BASE_URL ? `${process.env.BASE_URL}/images/logo.png` : null;
+      await sendDiscordEmbed(setting.value, embed, username, avatarUrl);
 
       console.log(`Récapitulatif envoyé pour la classe ${classeData.classe_nom}`);
     } catch (error) {
@@ -152,7 +166,7 @@ function creerEmbedRecapitulatif(classeData) {
 
   return {
     title: `📚 Devoirs pour ${dateFormatee}`,
-    description: `Récapitulatif des devoirs pour la classe **${classeData.classe_nom}**`,
+    description: "",
     color: 0x4A90E2, // Bleu
     fields: fields,
     footer: {
