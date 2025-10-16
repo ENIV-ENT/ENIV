@@ -1,5 +1,5 @@
 import { apiCall, checkAuth, logout } from '../utils/api.js';
-import { escapeHTML, formatDate, toggleModal, setupModalClose } from '../utils/dom.js';
+import { escapeHTML, localDate, formatDate, toggleModal, setupModalClose } from '../utils/dom.js';
 import { initWebSocket } from '../utils/websocket.js';
 
 let matieres = [];
@@ -248,9 +248,9 @@ function renderDesktopMonthView() {
 
   document.getElementById('current-month').textContent = `${monthNames[currentMonth]} ${currentYear}`;
 
-  const firstDay = new Date(currentYear, currentMonth, 1);
-  const lastDay = new Date(currentYear, currentMonth + 1, 0);
-  const prevLastDay = new Date(currentYear, currentMonth, 0);
+  const firstDay = localDate(currentYear, currentMonth, 1);
+  const lastDay = localDate(currentYear, currentMonth + 1, 0);
+  const prevLastDay = localDate(currentYear, currentMonth, 0);
 
   const firstDayIndex = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
   const lastDayDate = lastDay.getDate();
@@ -264,17 +264,17 @@ function renderDesktopMonthView() {
   calendarHTML += '</div><div class="calendar-dates">';
 
   for (let x = firstDayIndex; x > 0; x--) {
-    const date = new Date(currentYear, currentMonth - 1, prevLastDayDate - x + 1);
+    const date = localDate(currentYear, currentMonth - 1, prevLastDayDate - x + 1);
     calendarHTML += renderDateCell(date, true);
   }
 
   for (let i = 1; i <= lastDayDate; i++) {
-    const date = new Date(currentYear, currentMonth, i);
+    const date = localDate(currentYear, currentMonth, i);
     calendarHTML += renderDateCell(date, false);
   }
 
   for (let j = 1; j <= nextDays; j++) {
-    const date = new Date(currentYear, currentMonth + 1, j);
+    const date = localDate(currentYear, currentMonth + 1, j);
     calendarHTML += renderDateCell(date, true);
   }
 
@@ -364,7 +364,7 @@ function showDevoirModal(devoirId) {
   }
   html += `</p>
     ${devoir.description ? `<p><strong>Description:</strong> ${escapeHTML(devoir.description)}</p>` : ''}
-    ${devoir.date_limite ? `<p><strong>Date limite:</strong> ${formatDate(devoir.date_limite)}</p>` : ''}
+    ${devoir.date_limite ? `<p><strong>Pour le:</strong> ${formatDate(devoir.date_limite)}</p>` : ''}
     <p><strong>Créé par:</strong> ${escapeHTML(devoir.created_by_username)}</p>
     <div class="modal-actions">
       <label class="checkbox-container">

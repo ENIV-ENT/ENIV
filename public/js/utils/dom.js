@@ -4,6 +4,10 @@ export function escapeHTML(string) {
   return container.innerHTML;
 }
 
+export function localDate(year, month, day) {
+  return new Date(year, month, day, 0, -new Date().getTimezoneOffset());
+}
+
 export function formatDate(dateString) {
   if (!dateString) return 'Aucune date limite';
   const date = new Date(dateString);
