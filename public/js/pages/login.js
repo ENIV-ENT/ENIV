@@ -40,7 +40,7 @@ async function init() {
       loginError.textContent = data.error;
       boiteMotDePasse.style.borderColor = "red";
       boiteNomUtilisateur.style.borderColor = "red";
-    }  else {
+    } else {
       loginError.textContent = "";
       if (data.role === "admin") {
         window.location.href = "/admin/dashboard";
