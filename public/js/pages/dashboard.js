@@ -219,8 +219,14 @@ function renderMobileWeekView() {
         const couleur = matiere?.couleur || '#999';
         html += `<div class="mobile-devoir-item ${devoir.fait ? 'fait' : ''}" data-devoir-id="${devoir.id}" style="border-left: 4px solid ${couleur};">`;
         html += `<div class="mobile-devoir-title">${escapeHTML(devoir.titre)}</div>`;
-        html += `<div class="mobile-devoir-matiere" style="color: ${couleur};">${escapeHTML(devoir.matiere_nom || 'Sans matière')}</div>`;
-        html += `</div>`;
+        html += `<div class="mobile-devoir-matiere" style="color: ${couleur};">`;
+        const matiereNomHtml = escapeHTML(devoir.matiere_nom || 'Sans matière');
+        if (matiere.lien) {
+          html += `<a href="${matiere.lien}" target="_blank">${matiereNomHtml}</a>`
+        } else {
+          html += matiereNomHtml;
+        }
+        html += `</div></div>`;
       });
       html += '</div>';
     } else {
@@ -344,11 +350,19 @@ function showDevoirModal(devoirId) {
   const devoir = devoirs.find(d => d.id === devoirId);
   if (!devoir) return;
 
+  const matiere = matieres.find(m => m.id === devoir.matiere_id);
   const modalBody = document.getElementById('modal-body');
 
   let html = `
     <h3>${escapeHTML(devoir.titre)}</h3>
-    <p><strong>Matière:</strong> ${escapeHTML(devoir.matiere_nom || 'Non définie')}</p>
+    <p><strong>Matière:</strong> `;
+  const matiereNomHtml = escapeHTML(devoir.matiere_nom || 'Non définie');
+  if (matiere.lien) {
+    html += `<a href="${matiere.lien}" target="_blank">${matiereNomHtml}</a>`
+  } else {
+    html += matiereNomHtml;
+  }
+  html += `</p>
     ${devoir.description ? `<p><strong>Description:</strong> ${escapeHTML(devoir.description)}</p>` : ''}
     ${devoir.date_limite ? `<p><strong>Date limite:</strong> ${formatDate(devoir.date_limite)}</p>` : ''}
     <p><strong>Créé par:</strong> ${escapeHTML(devoir.created_by_username)}</p>
