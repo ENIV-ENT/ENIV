@@ -1,5 +1,5 @@
-import { apiCall, checkAuth, logout } from '../utils/api.js';
-import { escapeHTML, toggleModal, setupModalClose } from '../utils/dom.js';
+import { apiCall, checkAuth, logout } from "../utils/api.js";
+import { escapeHTML, toggleModal, setupModalClose } from "../utils/dom.js";
 
 let classes = [];
 let admins = [];
@@ -7,9 +7,11 @@ let admins = [];
 async function init() {
   const auth = await checkAuth();
 
-  document.getElementById('user-info').textContent = `SuperAdmin: ${auth.username}`;
+  document.getElementById(
+    "user-info"
+  ).textContent = `SuperAdmin: ${auth.username}`;
 
-  document.getElementById('logout-btn').addEventListener('click', logout);
+  document.getElementById("logout-btn").addEventListener("click", logout);
 
   setupTabs();
   setupClasseModal();
@@ -20,53 +22,57 @@ async function init() {
 }
 
 function setupTabs() {
-  const tabBtns = document.querySelectorAll('.tab-btn');
-  const tabContents = document.querySelectorAll('.tab-content');
+  const tabBtns = document.querySelectorAll(".tab-btn");
+  const tabContents = document.querySelectorAll(".tab-content");
 
-  tabBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
+  tabBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
       const tabName = btn.dataset.tab;
 
-      tabBtns.forEach(b => b.classList.remove('active'));
-      tabContents.forEach(c => c.classList.remove('active'));
+      tabBtns.forEach((b) => b.classList.remove("active"));
+      tabContents.forEach((c) => c.classList.remove("active"));
 
-      btn.classList.add('active');
-      document.getElementById(`tab-${tabName}`).classList.add('active');
+      btn.classList.add("active");
+      document.getElementById(`tab-${tabName}`).classList.add("active");
     });
   });
 }
 
 function setupClasseModal() {
-  const addBtn = document.getElementById('add-classe-btn');
-  const addForm = document.getElementById('add-classe-form');
-  const editForm = document.getElementById('edit-classe-form');
+  const addBtn = document.getElementById("add-classe-btn");
+  const addForm = document.getElementById("add-classe-form");
+  const editForm = document.getElementById("edit-classe-form");
 
-  addBtn.addEventListener('click', () => {
-    toggleModal('add-classe-modal', true);
+  addBtn.addEventListener("click", () => {
+    toggleModal("add-classe-modal", true);
   });
 
-  setupModalClose('add-classe-modal', 'close-add-classe-modal');
-  setupModalClose('edit-classe-modal', 'close-edit-classe-modal');
+  setupModalClose("add-classe-modal", "close-add-classe-modal");
+  setupModalClose("edit-classe-modal", "close-edit-classe-modal");
 
-  document.getElementById('cancel-add-classe-btn').addEventListener('click', () => {
-    toggleModal('add-classe-modal', false);
-  });
+  document
+    .getElementById("cancel-add-classe-btn")
+    .addEventListener("click", () => {
+      toggleModal("add-classe-modal", false);
+    });
 
-  document.getElementById('cancel-edit-classe-btn').addEventListener('click', () => {
-    toggleModal('edit-classe-modal', false);
-  });
+  document
+    .getElementById("cancel-edit-classe-btn")
+    .addEventListener("click", () => {
+      toggleModal("edit-classe-modal", false);
+    });
 
-  addForm.addEventListener('submit', async (e) => {
+  addForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const nom = document.getElementById('add-classe-nom').value;
+    const nom = document.getElementById("add-classe-nom").value;
 
-    const data = await apiCall('/api/superadmin/classes', {
-      method: 'POST',
+    const data = await apiCall("/api/superadmin/classes", {
+      method: "POST",
       body: JSON.stringify({ nom }),
     });
 
     if (data.success) {
-      toggleModal('add-classe-modal', false);
+      toggleModal("add-classe-modal", false);
       addForm.reset();
       await loadClasses();
     } else if (data.error) {
@@ -74,18 +80,18 @@ function setupClasseModal() {
     }
   });
 
-  editForm.addEventListener('submit', async (e) => {
+  editForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const id = document.getElementById('edit-classe-id').value;
-    const nom = document.getElementById('edit-classe-nom').value;
+    const id = document.getElementById("edit-classe-id").value;
+    const nom = document.getElementById("edit-classe-nom").value;
 
     const data = await apiCall(`/api/superadmin/classes/${id}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify({ nom }),
     });
 
     if (data.success) {
-      toggleModal('edit-classe-modal', false);
+      toggleModal("edit-classe-modal", false);
       await loadClasses();
       await loadAdmins();
     } else if (data.error) {
@@ -95,39 +101,43 @@ function setupClasseModal() {
 }
 
 function setupAdminModal() {
-  const addBtn = document.getElementById('add-admin-btn');
-  const addForm = document.getElementById('add-admin-form');
-  const editForm = document.getElementById('edit-admin-form');
+  const addBtn = document.getElementById("add-admin-btn");
+  const addForm = document.getElementById("add-admin-form");
+  const editForm = document.getElementById("edit-admin-form");
 
-  addBtn.addEventListener('click', () => {
+  addBtn.addEventListener("click", () => {
     populateClasseSelects();
-    toggleModal('add-admin-modal', true);
+    toggleModal("add-admin-modal", true);
   });
 
-  setupModalClose('add-admin-modal', 'close-add-admin-modal');
-  setupModalClose('edit-admin-modal', 'close-edit-admin-modal');
+  setupModalClose("add-admin-modal", "close-add-admin-modal");
+  setupModalClose("edit-admin-modal", "close-edit-admin-modal");
 
-  document.getElementById('cancel-add-admin-btn').addEventListener('click', () => {
-    toggleModal('add-admin-modal', false);
-  });
+  document
+    .getElementById("cancel-add-admin-btn")
+    .addEventListener("click", () => {
+      toggleModal("add-admin-modal", false);
+    });
 
-  document.getElementById('cancel-edit-admin-btn').addEventListener('click', () => {
-    toggleModal('edit-admin-modal', false);
-  });
+  document
+    .getElementById("cancel-edit-admin-btn")
+    .addEventListener("click", () => {
+      toggleModal("edit-admin-modal", false);
+    });
 
-  addForm.addEventListener('submit', async (e) => {
+  addForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const username = document.getElementById('add-admin-username').value;
-    const password = document.getElementById('add-admin-password').value;
-    const classe_id = document.getElementById('add-admin-classe').value;
+    const username = document.getElementById("add-admin-username").value;
+    const password = document.getElementById("add-admin-password").value;
+    const classe_id = document.getElementById("add-admin-classe").value;
 
-    const data = await apiCall('/api/superadmin/admins', {
-      method: 'POST',
+    const data = await apiCall("/api/superadmin/admins", {
+      method: "POST",
       body: JSON.stringify({ username, password, classe_id }),
     });
 
     if (data.success) {
-      toggleModal('add-admin-modal', false);
+      toggleModal("add-admin-modal", false);
       addForm.reset();
       await loadAdmins();
     } else if (data.error) {
@@ -135,12 +145,12 @@ function setupAdminModal() {
     }
   });
 
-  editForm.addEventListener('submit', async (e) => {
+  editForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const id = document.getElementById('edit-admin-id').value;
-    const username = document.getElementById('edit-admin-username').value;
-    const password = document.getElementById('edit-admin-password').value;
-    const classe_id = document.getElementById('edit-admin-classe').value;
+    const id = document.getElementById("edit-admin-id").value;
+    const username = document.getElementById("edit-admin-username").value;
+    const password = document.getElementById("edit-admin-password").value;
+    const classe_id = document.getElementById("edit-admin-classe").value;
 
     const body = { username, classe_id };
     if (password) {
@@ -148,12 +158,12 @@ function setupAdminModal() {
     }
 
     const data = await apiCall(`/api/superadmin/admins/${id}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(body),
     });
 
     if (data.success) {
-      toggleModal('edit-admin-modal', false);
+      toggleModal("edit-admin-modal", false);
       await loadAdmins();
     } else if (data.error) {
       alert(data.error);
@@ -162,16 +172,16 @@ function setupAdminModal() {
 }
 
 function populateClasseSelects() {
-  const addSelect = document.getElementById('add-admin-classe');
-  const editSelect = document.getElementById('edit-admin-classe');
+  const addSelect = document.getElementById("add-admin-classe");
+  const editSelect = document.getElementById("edit-admin-classe");
 
-  [addSelect, editSelect].forEach(select => {
+  [addSelect, editSelect].forEach((select) => {
     while (select.children.length > 1) {
       select.removeChild(select.lastChild);
     }
 
-    classes.forEach(classe => {
-      const option = document.createElement('option');
+    classes.forEach((classe) => {
+      const option = document.createElement("option");
       option.value = classe.id;
       option.textContent = classe.nom;
       select.appendChild(option);
@@ -180,7 +190,7 @@ function populateClasseSelects() {
 }
 
 async function loadClasses() {
-  const data = await apiCall('/api/superadmin/classes');
+  const data = await apiCall("/api/superadmin/classes");
   if (data.classes) {
     classes = data.classes;
     renderClasses();
@@ -188,54 +198,64 @@ async function loadClasses() {
 }
 
 function renderClasses() {
-  const container = document.getElementById('classes-list');
-  container.innerHTML = '';
+  const container = document.getElementById("classes-list");
+  container.innerHTML = "";
 
   if (classes.length === 0) {
-    container.innerHTML = '<p>Aucune classe pour le moment.</p>';
+    container.innerHTML = "<p>Aucune classe pour le moment.</p>";
     return;
   }
 
-  classes.forEach(classe => {
-    const item = document.createElement('div');
-    item.className = 'list-item';
+  classes.forEach((classe) => {
+    const item = document.createElement("div");
+    item.className = "list-item";
     item.innerHTML = `
       <div class="list-item-info">
         <h3>${escapeHTML(classe.nom)}</h3>
       </div>
       <div class="list-item-actions">
-        <button class="btn-secondary edit-classe-btn" data-id="${classe.id}">Modifier</button>
-        <button class="btn-danger delete-classe-btn" data-id="${classe.id}">Supprimer</button>
+        <button class="btn-secondary edit-classe-btn" data-id="${
+          classe.id
+        }">Modifier</button>
+        <button class="btn-danger delete-classe-btn" data-id="${
+          classe.id
+        }">Supprimer</button>
       </div>
     `;
     container.appendChild(item);
   });
 
-  document.querySelectorAll('.edit-classe-btn').forEach(btn => {
-    btn.addEventListener('click', () => openEditClasseModal(parseInt(btn.dataset.id)));
+  document.querySelectorAll(".edit-classe-btn").forEach((btn) => {
+    btn.addEventListener("click", () =>
+      openEditClasseModal(parseInt(btn.dataset.id))
+    );
   });
 
-  document.querySelectorAll('.delete-classe-btn').forEach(btn => {
-    btn.addEventListener('click', () => deleteClasse(parseInt(btn.dataset.id)));
+  document.querySelectorAll(".delete-classe-btn").forEach((btn) => {
+    btn.addEventListener("click", () => deleteClasse(parseInt(btn.dataset.id)));
   });
 }
 
 function openEditClasseModal(id) {
-  const classe = classes.find(c => c.id === id);
+  const classe = classes.find((c) => c.id === id);
   if (!classe) return;
 
-  document.getElementById('edit-classe-id').value = classe.id;
-  document.getElementById('edit-classe-nom').value = classe.nom;
-  toggleModal('edit-classe-modal', true);
+  document.getElementById("edit-classe-id").value = classe.id;
+  document.getElementById("edit-classe-nom").value = classe.nom;
+  toggleModal("edit-classe-modal", true);
 }
 
 async function deleteClasse(id) {
-  if (!confirm('Êtes-vous sûr de vouloir supprimer cette classe ? Tous les utilisateurs, matières et devoirs associés seront également supprimés.')) {
+  if (
+    !confirm(
+      "Êtes-vous sûr de vouloir supprimer cette classe ? Tous les utilisateurs, matières et devoirs associés seront également supprimés."
+    )
+  ) {
     return;
   }
 
   const data = await apiCall(`/api/superadmin/classes/${id}`, {
-    method: 'DELETE',
+    method: "DELETE",
   });
 
   if (data.success) {
@@ -245,7 +265,7 @@ async function deleteClasse(id) {
 }
 
 async function loadAdmins() {
-  const data = await apiCall('/api/superadmin/admins');
+  const data = await apiCall("/api/superadmin/admins");
   if (data.admins) {
     admins = data.admins;
     renderAdmins();
@@ -253,58 +273,64 @@ async function loadAdmins() {
 }
 
 function renderAdmins() {
-  const container = document.getElementById('admins-list');
-  container.innerHTML = '';
+  const container = document.getElementById("admins-list");
+  container.innerHTML = "";
 
   if (admins.length === 0) {
-    container.innerHTML = '<p>Aucun administrateur pour le moment.</p>';
+    container.innerHTML = "<p>Aucun administrateur pour le moment.</p>";
     return;
   }
 
-  admins.forEach(admin => {
-    const item = document.createElement('div');
-    item.className = 'list-item';
+  admins.forEach((admin) => {
+    const item = document.createElement("div");
+    item.className = "list-item";
     item.innerHTML = `
       <div class="list-item-info">
-        <h3>${escapeHTML(admin.username)}</h3>
-        <p>${escapeHTML(admin.classe_nom || 'Aucune classe')}</p>
+      <h3>${escapeHTML(admin.username)}</h3>
+      <p>${escapeHTML(admin.classe_nom || "Aucune classe")}</p>
       </div>
       <div class="list-item-actions">
-        <button class="btn-secondary edit-admin-btn" data-id="${admin.id}">Modifier</button>
-        <button class="btn-danger delete-admin-btn" data-id="${admin.id}">Supprimer</button>
+      <button class="btn btn-secondary edit-admin-btn" data-id="${
+        admin.id
+      }" style="padding:8px 12px;border-radius:4px;border:1px solid #bdbdbd;background:#f6f6f6;color:#222;">Modifier</button>
+      <button class="btn btn-danger delete-admin-btn" data-id="${
+        admin.id
+      }" style="padding:8px 12px;border-radius:4px;border:1px solid #b71c1c;background:#d32f2f;color:#fff;">Supprimer</button>
       </div>
     `;
     container.appendChild(item);
   });
 
-  document.querySelectorAll('.edit-admin-btn').forEach(btn => {
-    btn.addEventListener('click', () => openEditAdminModal(parseInt(btn.dataset.id)));
+  document.querySelectorAll(".edit-admin-btn").forEach((btn) => {
+    btn.addEventListener("click", () =>
+      openEditAdminModal(parseInt(btn.dataset.id))
+    );
   });
 
-  document.querySelectorAll('.delete-admin-btn').forEach(btn => {
-    btn.addEventListener('click', () => deleteAdmin(parseInt(btn.dataset.id)));
+  document.querySelectorAll(".delete-admin-btn").forEach((btn) => {
+    btn.addEventListener("click", () => deleteAdmin(parseInt(btn.dataset.id)));
   });
 }
 
 function openEditAdminModal(id) {
-  const admin = admins.find(a => a.id === id);
+  const admin = admins.find((a) => a.id === id);
   if (!admin) return;
 
   populateClasseSelects();
-  document.getElementById('edit-admin-id').value = admin.id;
-  document.getElementById('edit-admin-username').value = admin.username;
-  document.getElementById('edit-admin-password').value = '';
-  document.getElementById('edit-admin-classe').value = admin.classe_id || '';
-  toggleModal('edit-admin-modal', true);
+  document.getElementById("edit-admin-id").value = admin.id;
+  document.getElementById("edit-admin-username").value = admin.username;
+  document.getElementById("edit-admin-password").value = "";
+  document.getElementById("edit-admin-classe").value = admin.classe_id || "";
+  toggleModal("edit-admin-modal", true);
 }
 
 async function deleteAdmin(id) {
-  if (!confirm('Êtes-vous sûr de vouloir supprimer cet administrateur ?')) {
+  if (!confirm("Êtes-vous sûr de vouloir supprimer cet administrateur ?")) {
     return;
   }
 
   const data = await apiCall(`/api/superadmin/admins/${id}`, {
-    method: 'DELETE',
+    method: "DELETE",
   });
 
   if (data.success) {

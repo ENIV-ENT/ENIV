@@ -12,8 +12,8 @@ async function init() {
 
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const username = document.getElementById("username").value;
-    const password = document.getElementById("password").value;
+    const username = boiteNomUtilisateur.value;
+    const password = boiteMotDePasse.value;
 
     const data = await apiCall("/api/auth/login", {
       method: "POST",
@@ -34,7 +34,7 @@ async function init() {
     } else {
       loginError.textContent = "";
       switch (data.role) {
-        case 'superadmin':
+        case "superadmin":
           window.location.href = "/superadmin/dashboard/";
           break;
         case "admin":
