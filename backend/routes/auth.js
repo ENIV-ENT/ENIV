@@ -95,4 +95,59 @@ router.post('/change-password', (req, res) => {
   }
 });
 
+// Update user information
+router.post('/update-info', (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Non authentifié' });
+  }
+
+  const { email, nom, prenom } = req.body;
+
+  if (!email || !nom || !prenom) {
+    return res.status(400).json({ error: 'Tous les champs sont requis' });
+  }
+
+  // Validation de l'email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: 'Format d\'email invalide' });
+  }
+
+  try {
+    // Vérifier si l'email existe déjà pour un autre utilisateur
+    const existingUser = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(email, req.session.userId);
+    if (existingUser) {
+      return res.status(400).json({ error: 'Cet email est déjà utilisé' });
+    }
+
+    db.prepare('UPDATE users SET email = ?, nom = ?, prenom = ? WHERE id = ?')
+      .run(email, nom, prenom, req.session.userId);
+
+    res.json({ success: true, message: 'Informations mises à jour avec succès' });
+  } catch (error) {
+    console.error('Error updating user info:', error);
+    res.status(500).json({ error: 'Erreur lors de la mise à jour des informations' });
+  }
+});
+
+// Get user information
+router.get('/user-info', (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Non authentifié' });
+  }
+
+  try {
+    const user = db.prepare('SELECT email, nom, prenom FROM users WHERE id = ?').get(req.session.userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error('Error fetching user info:', error);
+    res.status(500).json({ error: 'Erreur lors de la récupération des informations' });
+  }
+});
+
 module.exports = router;

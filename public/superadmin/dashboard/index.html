@@ -114,56 +114,33 @@
       </div>
     </div>
 
-    <div id="add-admin-modal" class="modal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>Nouvel administrateur</h2>
-          <button class="modal-close" id="close-add-admin-modal">
-            &times;
-          </button>
-        </div>
-        <form id="add-admin-form">
-          <div class="form-group">
-            <label for="add-admin-username" class="form-label"
-              >Nom d'utilisateur</label
-            >
-            <input
-              type="text"
-              id="add-admin-username"
-              placeholder="Nom d'utilisateur"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <label for="add-admin-password" class="form-label"
-              >Mot de passe</label
-            >
-            <input
-              type="password"
-              id="add-admin-password"
-              placeholder="Mot de passe"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <label for="add-admin-classe" class="form-label">Classe</label>
-            <select id="add-admin-classe" required>
-              <option value="">Sélectionner une classe</option>
-            </select>
-          </div>
-          <div class="form-actions">
-            <button type="submit" class="btn-primary">Créer</button>
-            <button
-              type="button"
-              id="cancel-add-admin-btn"
-              class="btn-secondary"
-            >
-              Annuler
-            </button>
-          </div>
-        </form>
+  <div id="add-admin-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Inviter un administrateur</h2>
+        <button class="modal-close" id="close-add-admin-modal">&times;</button>
       </div>
+      <p style="color: var(--secondary); font-size: 0.9rem; margin: 0 0 1rem 0; padding: 0 20px;">
+        L'administrateur recevra un email avec un lien pour finaliser son inscription (nom, prénom, username, mot de passe).
+      </p>
+      <form id="add-admin-form">
+        <div class="form-group">
+          <label for="add-admin-email" class="form-label">Email</label>
+          <input type="email" id="add-admin-email" placeholder="email@exemple.com" required>
+        </div>
+        <div class="form-group">
+          <label for="add-admin-classe" class="form-label">Classe</label>
+          <select id="add-admin-classe" required>
+            <option value="">Sélectionner une classe</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Envoyer l'invitation</button>
+          <button type="button" id="cancel-add-admin-btn" class="btn-secondary">Annuler</button>
+        </div>
+      </form>
     </div>
+  </div>
 
     <div id="edit-admin-modal" class="modal">
       <div class="modal-content">

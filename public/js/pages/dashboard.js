@@ -1,5 +1,5 @@
 import { apiCall, checkAuth, logout } from '../utils/api.js';
-import { escapeHTML, localDate, formatDate, toggleModal, setupModalClose } from '../utils/dom.js';
+import { escapeHTML, localDate, formatDate, toggleModal, setupModalClose, showAlert, showConfirm } from '../utils/dom.js';
 import { initWebSocket } from '../utils/websocket.js';
 
 let matieres = [];
@@ -404,7 +404,7 @@ async function handleAddDevoir(e) {
   });
 
   if (data.error) {
-    alert(data.error);
+    await showAlert(data.error, 'Erreur');
   } else {
     toggleModal('add-devoir-modal', false);
     document.getElementById('devoir-form').reset();
@@ -455,7 +455,7 @@ async function handleEditDevoir(e) {
   });
 
   if (data.error) {
-    alert(data.error);
+    await showAlert(data.error, 'Erreur');
   } else {
     toggleModal('edit-devoir-modal', false);
     document.getElementById('edit-devoir-form').reset();
@@ -465,7 +465,8 @@ async function handleEditDevoir(e) {
 }
 
 async function deleteDevoir(id) {
-  if (!confirm('Supprimer ce devoir ?')) return;
+  const confirmed = await showConfirm('Êtes-vous sûr de vouloir supprimer ce devoir ?', 'Confirmation');
+  if (!confirmed) return;
 
   await apiCall(`/api/devoirs/${id}`, { method: 'DELETE' });
   toggleModal('devoir-modal', false);

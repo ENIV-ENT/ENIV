@@ -1,10 +1,11 @@
 const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
 const path = require('path');
+const MigrationManager = require('../migrations/migrationManager');
 
 const db = new Database(path.join(__dirname, '../ent.db'));
 
-// Créer les tables
+// Créer les tables de base
 db.exec(`
   CREATE TABLE IF NOT EXISTS classes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,6 +74,10 @@ db.exec(`
     FOREIGN KEY (classe_id) REFERENCES classes(id) ON DELETE CASCADE
   );
 `);
+
+// Exécuter les migrations
+const migrationManager = new MigrationManager(db);
+migrationManager.runMigrations();
 
 // Créer un superadmin par défaut si aucun n'existe
 const superadminExists = db.prepare('SELECT COUNT(*) as count FROM users WHERE role = ?').get('superadmin');
