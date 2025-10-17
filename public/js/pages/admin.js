@@ -4,6 +4,7 @@ import { initWebSocket } from '../utils/websocket.js';
 
 let eleves = [];
 let matieres = [];
+let invitations = [];
 
 const availableColors = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
@@ -29,7 +30,8 @@ async function loadAllData() {
   await Promise.all([
     loadEleves(),
     loadMatieres(),
-    loadSettings()
+    loadSettings(),
+    loadInvitations()
   ]);
 }
 
@@ -202,6 +204,7 @@ async function handleAddEleve(e) {
     document.getElementById('add-eleve-form').classList.add('hidden');
     document.getElementById('eleve-form').reset();
     await loadEleves();
+    await loadInvitations();
   }
 }
 
@@ -421,6 +424,83 @@ async function handleSaveDiscordWebhook(e) {
     await showAlert(data.error, 'Erreur');
   } else {
     await showAlert('Webhook Discord enregistré avec succès', 'Succès');
+  }
+}
+
+async function loadInvitations() {
+  const data = await apiCall("/api/invitations/list");
+  if (data && Array.isArray(data)) {
+    invitations = data;
+    renderInvitations();
+  }
+}
+
+function renderInvitations() {
+  const container = document.getElementById("invitations-list");
+  container.innerHTML = "";
+
+  if (invitations.length === 0) {
+    container.innerHTML = "<p>Aucune invitation en attente.</p>";
+    return;
+  }
+
+  invitations.forEach((invitation) => {
+    const item = document.createElement("div");
+    item.className = "list-item";
+
+    const createdDate = new Date(invitation.created_at).toLocaleDateString('fr-FR');
+    const expiresDate = new Date(invitation.expires_at).toLocaleDateString('fr-FR');
+
+    item.innerHTML = `
+      <div class="list-item-info">
+        <h3>${escapeHTML(invitation.email)}</h3>
+        <p style="font-size: 0.8rem; color: var(--secondary);">
+          Envoyée le ${createdDate} - Expire le ${expiresDate}
+        </p>
+      </div>
+      <div class="list-item-actions">
+        <button class="btn-secondary resend-invitation-btn" data-id="${invitation.id}">Renvoyer l'email</button>
+        <button class="btn-danger delete-invitation-btn" data-id="${invitation.id}">Supprimer</button>
+      </div>
+    `;
+    container.appendChild(item);
+  });
+
+  document.querySelectorAll(".resend-invitation-btn").forEach((btn) => {
+    btn.addEventListener("click", () => resendInvitation(parseInt(btn.dataset.id)));
+  });
+
+  document.querySelectorAll(".delete-invitation-btn").forEach((btn) => {
+    btn.addEventListener("click", () => deleteInvitation(parseInt(btn.dataset.id)));
+  });
+}
+
+async function resendInvitation(id) {
+  const data = await apiCall(`/api/invitations/resend/${id}`, {
+    method: "POST",
+  });
+
+  if (data.success) {
+    await showAlert(data.message, 'Succès');
+  } else if (data.error) {
+    await showAlert(data.error, 'Erreur');
+  }
+}
+
+async function deleteInvitation(id) {
+  const confirmed = await showConfirm('Êtes-vous sûr de vouloir supprimer cette invitation ?', 'Confirmation');
+  if (!confirmed) {
+    return;
+  }
+
+  const data = await apiCall(`/api/invitations/${id}`, {
+    method: "DELETE",
+  });
+
+  if (data.success) {
+    await loadInvitations();
+  } else if (data.error) {
+    await showAlert(data.error, 'Erreur');
   }
 }
 

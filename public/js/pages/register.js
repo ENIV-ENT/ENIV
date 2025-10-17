@@ -43,9 +43,6 @@ function showRegisterForm(invitationData) {
   document.getElementById('loading-state').style.display = 'none';
   document.getElementById('register-form-container').style.display = 'block';
 
-  // Afficher les informations de l'invitation
-  document.getElementById('invite-email').textContent = invitationData.email;
-
   const roleText = invitationData.role === 'admin' ? 'Administrateur' : 'Élève';
   document.getElementById('invite-role').textContent = roleText;
 

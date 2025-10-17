@@ -232,7 +232,7 @@ router.get('/list', (req, res) => {
       FROM invitations i
       LEFT JOIN classes c ON i.classe_id = c.id
       LEFT JOIN users u ON i.created_by = u.id
-      WHERE i.created_by = ?
+      WHERE i.created_by = ? AND i.used = 0 AND i.expires_at > datetime('now')
       ORDER BY i.created_at DESC
     `).all(req.session.userId);
 
@@ -240,6 +240,68 @@ router.get('/list', (req, res) => {
   } catch (error) {
     console.error('Error listing invitations:', error);
     res.status(500).json({ error: 'Erreur lors de la récupération des invitations' });
+  }
+});
+
+// Renvoyer une invitation
+router.post('/resend/:id', async (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Non authentifié' });
+  }
+
+  const { id } = req.params;
+
+  try {
+    // Récupérer l'invitation
+    const invitation = db.prepare(`
+      SELECT i.*, c.nom as classe_nom
+      FROM invitations i
+      LEFT JOIN classes c ON i.classe_id = c.id
+      WHERE i.id = ? AND i.created_by = ? AND i.used = 0 AND i.expires_at > datetime('now')
+    `).get(id, req.session.userId);
+
+    if (!invitation) {
+      return res.status(404).json({ error: 'Invitation non trouvée ou déjà utilisée' });
+    }
+
+    // Renvoyer l'email
+    await sendInvitationEmail(invitation.email, invitation.token, invitation.role, invitation.classe_nom);
+
+    res.json({
+      success: true,
+      message: 'Email d\'invitation renvoyé avec succès'
+    });
+  } catch (error) {
+    console.error('Error resending invitation:', error);
+    res.status(500).json({ error: 'Erreur lors de l\'envoi de l\'invitation' });
+  }
+});
+
+// Supprimer une invitation
+router.delete('/:id', (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Non authentifié' });
+  }
+
+  const { id } = req.params;
+
+  try {
+    // Vérifier que l'invitation appartient bien à l'utilisateur
+    const invitation = db.prepare(
+      'SELECT id FROM invitations WHERE id = ? AND created_by = ?'
+    ).get(id, req.session.userId);
+
+    if (!invitation) {
+      return res.status(404).json({ error: 'Invitation non trouvée' });
+    }
+
+    // Supprimer l'invitation
+    db.prepare('DELETE FROM invitations WHERE id = ?').run(id);
+
+    res.json({ success: true, message: 'Invitation supprimée' });
+  } catch (error) {
+    console.error('Error deleting invitation:', error);
+    res.status(500).json({ error: 'Erreur lors de la suppression de l\'invitation' });
   }
 });
 

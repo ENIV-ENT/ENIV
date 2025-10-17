@@ -113,7 +113,6 @@ async function sendInvitationEmail(email, token, role, className = null) {
             <div class="info-box">
               <p style="margin: 5px 0;"><strong>Rôle :</strong> ${roleText}</p>
               ${classeInfo}
-              <p style="margin: 5px 0;"><strong>Email :</strong> ${email}</p>
             </div>
 
             <p>Pour finaliser votre inscription, cliquez sur le bouton ci-dessous et remplissez le formulaire avec vos informations :</p>
@@ -121,7 +120,7 @@ async function sendInvitationEmail(email, token, role, className = null) {
             <ul>
               <li>Nom</li>
               <li>Prénom</li>
-              <li>Nom d'utilisateur (sera vérifié en temps réel)</li>
+              <li>Nom d'utilisateur</li>
               <li>Mot de passe</li>
             </ul>
 
@@ -149,7 +148,6 @@ Vous êtes invité(e) à rejoindre Eniv !
 
 Rôle : ${roleText}
 ${className ? `Classe : ${className}` : ''}
-Email : ${email}
 
 Pour finaliser votre inscription, accédez au lien suivant :
 ${invitationUrl}
