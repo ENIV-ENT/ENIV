@@ -284,6 +284,15 @@ header h1 {
   border-radius: 4px;
   font-size: 1rem;
   font-family: inherit;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.form-container input:focus,
+.form-container textarea:focus,
+.form-container select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
 }
 
 .file-label {
@@ -786,6 +795,7 @@ header h1 {
 }
 
 .modal-content input[type="text"],
+.modal-content input[type="email"],
 .modal-content input[type="url"],
 .modal-content input[type="date"],
 .modal-content input[type="password"],
@@ -801,6 +811,7 @@ header h1 {
 }
 
 .modal-content input[type="text"]:focus,
+.modal-content input[type="email"]:focus,
 .modal-content input[type="url"]:focus,
 .modal-content input[type="date"]:focus,
 .modal-content input[type="password"]:focus,
