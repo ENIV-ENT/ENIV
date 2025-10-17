@@ -42,7 +42,7 @@ router.post('/create', async (req, res) => {
 
     // Vérifier si une invitation active existe déjà
     const existingInvitation = db.prepare(
-      'SELECT id FROM invitations WHERE email = ? AND used = 0 AND expires_at > datetime("now")'
+      "SELECT id FROM invitations WHERE email = ? AND used = 0 AND expires_at > datetime('now')"
     ).get(email);
 
     if (existingInvitation) {
@@ -97,7 +97,7 @@ router.get('/verify/:token', (req, res) => {
       SELECT i.*, c.nom as classe_nom
       FROM invitations i
       LEFT JOIN classes c ON i.classe_id = c.id
-      WHERE i.token = ? AND i.used = 0 AND i.expires_at > datetime("now")
+      WHERE i.token = ? AND i.used = 0 AND i.expires_at > datetime('now')
     `).get(token);
 
     if (!invitation) {
@@ -162,7 +162,7 @@ router.post('/complete', (req, res) => {
     // Vérifier l'invitation
     const invitation = db.prepare(`
       SELECT * FROM invitations
-      WHERE token = ? AND used = 0 AND expires_at > datetime("now")
+      WHERE token = ? AND used = 0 AND expires_at > datetime('now')
     `).get(token);
 
     if (!invitation) {
@@ -195,7 +195,7 @@ router.post('/complete', (req, res) => {
       // Marquer l'invitation comme utilisée
       db.prepare(`
         UPDATE invitations
-        SET used = 1, used_at = datetime("now")
+        SET used = 1, used_at = datetime('now')
         WHERE id = ?
       `).run(invitation.id);
 
