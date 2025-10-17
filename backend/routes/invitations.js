@@ -56,11 +56,13 @@ router.post('/create', async (req, res) => {
     // Date d'expiration (7 jours)
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
+    // Convertir au format MySQL YYYY-MM-DD HH:MM:SS
+    const mysqlDateTime = expiresAt.toISOString().slice(0, 19).replace('T', ' ');
 
     // Créer l'invitation
     const result = await db.run(
       'INSERT INTO invitations (email, token, role, classe_id, created_by, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [email, token, role, classe_id || null, req.session.userId, expiresAt.toISOString()]
+      [email, token, role, classe_id || null, req.session.userId, mysqlDateTime]
     );
 
     // Récupérer le nom de la classe si applicable
