@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eniv - Inscription</title>
+  <link rel="icon" type="image/x-icon" href="/images/logo.ico">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .register-container {
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 0 20px;
+    }
+
+    .info-card {
+      background: var(--surface);
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      border-left: 4px solid var(--primary);
+    }
+
+    .info-card h2 {
+      margin-top: 0;
+      color: var(--primary);
+    }
+
+    .info-item {
+      display: flex;
+      justify-content: space-between;
+      margin: 10px 0;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .info-item:last-child {
+      border-bottom: none;
+    }
+
+    .info-label {
+      font-weight: 600;
+      color: var(--secondary);
+    }
+
+    .info-value {
+      color: var(--text);
+    }
+
+    .username-feedback {
+      margin-top: 8px;
+      font-size: 0.9rem;
+      padding: 8px 12px;
+      border-radius: 4px;
+      display: none;
+    }
+
+    .username-feedback.available {
+      display: block;
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .username-feedback.unavailable {
+      display: block;
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .username-feedback.checking {
+      display: block;
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(0,0,0,.1);
+      border-left-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .error-container {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      text-align: center;
+    }
+
+    .success-container {
+      background: #d4edda;
+      color: #155724;
+      padding: 30px;
+      border-radius: 8px;
+      margin: 20px 0;
+      text-align: center;
+    }
+
+    .success-container h2 {
+      margin-top: 0;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Eniv</h1>
+  </header>
+
+  <div class="register-container">
+    <div id="loading-state" class="form-container" style="text-align: center;">
+      <div class="loading-spinner" style="width: 40px; height: 40px; border-width: 4px;"></div>
+      <p>Vérification de votre invitation...</p>
+    </div>
+
+    <div id="error-state" style="display: none;">
+      <div class="error-container">
+        <h2>Invitation invalide</h2>
+        <p id="error-message"></p>
+        <a href="/" class="btn-primary" style="display: inline-block; margin-top: 20px;">Retour à l'accueil</a>
+      </div>
+    </div>
+
+    <div id="register-form-container" style="display: none;">
+      <div class="info-card">
+        <h2>Informations de l'invitation</h2>
+        <div class="info-item">
+          <span class="info-label">Email :</span>
+          <span class="info-value" id="invite-email"></span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Rôle :</span>
+          <span class="info-value" id="invite-role"></span>
+        </div>
+        <div class="info-item" id="invite-classe-container" style="display: none;">
+          <span class="info-label">Classe :</span>
+          <span class="info-value" id="invite-classe"></span>
+        </div>
+      </div>
+
+      <form id="register-form" class="form-container">
+        <h2>Finaliser votre inscription</h2>
+
+        <div class="form-group">
+          <label for="nom" class="form-label">Nom *</label>
+          <input type="text" id="nom" placeholder="Votre nom" required>
+        </div>
+
+        <div class="form-group">
+          <label for="prenom" class="form-label">Prénom *</label>
+          <input type="text" id="prenom" placeholder="Votre prénom" required>
+        </div>
+
+        <div class="form-group">
+          <label for="username" class="form-label">Nom d'utilisateur *</label>
+          <input type="text" id="username" placeholder="Choisissez un nom d'utilisateur (min. 3 caractères)" required minlength="3">
+          <div id="username-feedback" class="username-feedback"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="password" class="form-label">Mot de passe *</label>
+          <input type="password" id="password" placeholder="Choisissez un mot de passe (min. 4 caractères)" required minlength="4">
+        </div>
+
+        <div class="form-group">
+          <label for="confirm-password" class="form-label">Confirmer le mot de passe *</label>
+          <input type="password" id="confirm-password" placeholder="Retapez votre mot de passe" required>
+        </div>
+
+        <button type="submit" class="btn-primary" id="submit-btn">Créer mon compte</button>
+      </form>
+    </div>
+
+    <div id="success-state" style="display: none;">
+      <div class="success-container">
+        <h2>Compte créé avec succès !</h2>
+        <p>Votre compte a été créé. Vous pouvez maintenant vous connecter.</p>
+        <a href="/" class="btn-primary" style="display: inline-block; margin-top: 20px;">Se connecter</a>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/pages/register.js"></script>
+</body>
+</html>

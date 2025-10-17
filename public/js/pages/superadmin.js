@@ -1,5 +1,5 @@
 import { apiCall, checkAuth, logout } from '../utils/api.js';
-import { escapeHTML, toggleModal, setupModalClose } from '../utils/dom.js';
+import { escapeHTML, toggleModal, setupModalClose, showAlert, showConfirm } from '../utils/dom.js';
 
 let classes = [];
 let admins = [];
@@ -70,7 +70,7 @@ function setupClasseModal() {
       addForm.reset();
       await loadClasses();
     } else if (data.error) {
-      alert(data.error);
+      await showAlert(data.error, 'Erreur');
     }
   });
 
@@ -89,7 +89,7 @@ function setupClasseModal() {
       await loadClasses();
       await loadAdmins();
     } else if (data.error) {
-      alert(data.error);
+      await showAlert(data.error, 'Erreur');
     }
   });
 }
@@ -117,21 +117,21 @@ function setupAdminModal() {
 
   addForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const username = document.getElementById('add-admin-username').value;
-    const password = document.getElementById('add-admin-password').value;
+    const email = document.getElementById('add-admin-email').value;
     const classe_id = document.getElementById('add-admin-classe').value;
 
-    const data = await apiCall('/api/superadmin/admins', {
+    const data = await apiCall('/api/invitations/create', {
       method: 'POST',
-      body: JSON.stringify({ username, password, classe_id }),
+      body: JSON.stringify({ email, role: 'admin', classe_id }),
     });
 
     if (data.success) {
+      await showAlert('Invitation envoyée avec succès à ' + email, 'Succès');
       toggleModal('add-admin-modal', false);
       addForm.reset();
       await loadAdmins();
     } else if (data.error) {
-      alert(data.error);
+      await showAlert(data.error, 'Erreur');
     }
   });
 
@@ -156,7 +156,7 @@ function setupAdminModal() {
       toggleModal('edit-admin-modal', false);
       await loadAdmins();
     } else if (data.error) {
-      alert(data.error);
+      await showAlert(data.error, 'Erreur');
     }
   });
 }
@@ -230,7 +230,8 @@ function openEditClasseModal(id) {
 }
 
 async function deleteClasse(id) {
-  if (!confirm('Êtes-vous sûr de vouloir supprimer cette classe ? Tous les utilisateurs, matières et devoirs associés seront également supprimés.')) {
+  const confirmed = await showConfirm('Êtes-vous sûr de vouloir supprimer cette classe ? Tous les utilisateurs, matières et devoirs associés seront également supprimés.', 'Confirmation');
+  if (!confirmed) {
     return;
   }
 
@@ -299,7 +300,8 @@ function openEditAdminModal(id) {
 }
 
 async function deleteAdmin(id) {
-  if (!confirm('Êtes-vous sûr de vouloir supprimer cet administrateur ?')) {
+  const confirmed = await showConfirm('Êtes-vous sûr de vouloir supprimer cet administrateur ?', 'Confirmation');
+  if (!confirmed) {
     return;
   }
 

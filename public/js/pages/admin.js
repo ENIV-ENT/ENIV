@@ -1,5 +1,5 @@
 import { apiCall, checkAuth, logout } from '../utils/api.js';
-import { escapeHTML, formatDate, toggleModal, setupModalClose } from '../utils/dom.js';
+import { escapeHTML, formatDate, toggleModal, setupModalClose, showAlert, showConfirm } from '../utils/dom.js';
 import { initWebSocket } from '../utils/websocket.js';
 
 let eleves = [];
@@ -188,17 +188,17 @@ function setupEventListeners() {
 async function handleAddEleve(e) {
   e.preventDefault();
 
-  const username = document.getElementById('eleve-username').value;
-  const password = document.getElementById('eleve-password').value;
+  const email = document.getElementById('eleve-email').value;
 
-  const data = await apiCall('/api/admin/eleves', {
+  const data = await apiCall('/api/invitations/create', {
     method: 'POST',
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ email, role: 'eleve' }),
   });
 
   if (data.error) {
-    alert(data.error);
+    await showAlert(data.error, 'Erreur');
   } else {
+    await showAlert('Invitation envoyée avec succès à ' + email, 'Succès');
     document.getElementById('add-eleve-form').classList.add('hidden');
     document.getElementById('eleve-form').reset();
     await loadEleves();
@@ -227,7 +227,7 @@ async function handleEditEleve(e) {
 
   if (password) {
     if (password !== passwordConfirm) {
-      alert('Les mots de passe ne correspondent pas');
+      await showAlert('Les mots de passe ne correspondent pas', 'Erreur');
       return;
     }
   }
@@ -238,17 +238,18 @@ async function handleEditEleve(e) {
   });
 
   if (data.error) {
-    alert(data.error);
+    await showAlert(data.error, 'Erreur');
     return;
   }
 
   toggleModal('edit-eleve-modal', false);
-  alert('Modifications enregistrées');
+  await showAlert('Modifications enregistrées', 'Succès');
   await loadEleves();
 }
 
 async function deleteEleve(id) {
-  if (!confirm('Supprimer cet élève ?')) return;
+  const confirmed = await showConfirm('Êtes-vous sûr de vouloir supprimer cet élève ?', 'Confirmation');
+  if (!confirmed) return;
 
   await apiCall(`/api/admin/eleves/${id}`, { method: 'DELETE' });
   await loadEleves();
@@ -297,7 +298,7 @@ async function handleAddMatiere(e) {
   });
 
   if (data.error) {
-    alert(data.error);
+    await showAlert(data.error, 'Erreur');
   } else {
     toggleModal('add-matiere-modal', false);
     document.getElementById('add-matiere-form').reset();
@@ -344,7 +345,7 @@ async function handleEditMatiere(e) {
   });
 
   if (data.error) {
-    alert(data.error);
+    await showAlert(data.error, 'Erreur');
   } else {
     toggleModal('edit-matiere-modal', false);
     await loadMatieres();
@@ -352,7 +353,8 @@ async function handleEditMatiere(e) {
 }
 
 async function deleteMatiere(id) {
-  if (!confirm('Supprimer cette matière ?')) return;
+  const confirmed = await showConfirm('Êtes-vous sûr de vouloir supprimer cette matière ?', 'Confirmation');
+  if (!confirmed) return;
 
   await apiCall(`/api/admin/matieres/${id}`, { method: 'DELETE' });
   await loadMatieres();
@@ -366,7 +368,7 @@ async function handleChangePassword(e) {
   const confirmPassword = document.getElementById('admin-confirm-password').value;
 
   if (newPassword !== confirmPassword) {
-    alert('Les nouveaux mots de passe ne correspondent pas');
+    await showAlert('Les nouveaux mots de passe ne correspondent pas', 'Erreur');
     return;
   }
 
@@ -376,9 +378,9 @@ async function handleChangePassword(e) {
   });
 
   if (data.error) {
-    alert(data.error);
+    await showAlert(data.error, 'Erreur');
   } else {
-    alert('Mot de passe modifié avec succès');
+    await showAlert('Mot de passe modifié avec succès', 'Succès');
     document.getElementById('admin-password-form').reset();
   }
 }
@@ -394,9 +396,9 @@ async function handleSaveSettings(e) {
   });
 
   if (data.error) {
-    alert(data.error);
+    await showAlert(data.error, 'Erreur');
   } else {
-    alert('Paramètres enregistrés');
+    await showAlert('Paramètres enregistrés', 'Succès');
   }
 }
 
@@ -406,7 +408,7 @@ async function handleSaveDiscordWebhook(e) {
   const webhook = document.getElementById('discord-webhook-url').value;
 
   if (webhook && !webhook.match(/^https:\/\/discord\.com\/api\/webhooks\/.+/)) {
-    alert('URL de webhook Discord invalide. Elle doit commencer par https://discord.com/api/webhooks/');
+    await showAlert('URL de webhook Discord invalide. Elle doit commencer par https://discord.com/api/webhooks/', 'Erreur');
     return;
   }
 
@@ -416,9 +418,9 @@ async function handleSaveDiscordWebhook(e) {
   });
 
   if (data.error) {
-    alert(data.error);
+    await showAlert(data.error, 'Erreur');
   } else {
-    alert('Webhook Discord enregistré avec succès');
+    await showAlert('Webhook Discord enregistré avec succès', 'Succès');
   }
 }
 

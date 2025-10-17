@@ -1,4 +1,5 @@
 import { apiCall, checkAuth, logout } from '../utils/api.js';
+import { showAlert } from '../utils/dom.js';
 
 async function init() {
   const auth = await checkAuth();
@@ -38,7 +39,7 @@ async function handleUpdateInfo(e) {
   const prenom = document.getElementById('prenom').value;
 
   if (!email || !nom || !prenom) {
-    alert('Tous les champs sont requis');
+    await showAlert('Tous les champs sont requis', 'Erreur');
     return;
   }
 
@@ -48,9 +49,9 @@ async function handleUpdateInfo(e) {
   });
 
   if (data.error) {
-    alert(data.error);
+    await showAlert(data.error, 'Erreur');
   } else {
-    alert('Informations mises à jour avec succès');
+    await showAlert('Informations mises à jour avec succès', 'Succès');
   }
 }
 
@@ -62,12 +63,12 @@ async function handleChangePassword(e) {
   const confirmPassword = document.getElementById('confirm-password').value;
 
   if (newPassword !== confirmPassword) {
-    alert('Les nouveaux mots de passe ne correspondent pas');
+    await showAlert('Les nouveaux mots de passe ne correspondent pas', 'Erreur');
     return;
   }
 
   if (newPassword.length < 4) {
-    alert('Le nouveau mot de passe doit contenir au moins 4 caractères');
+    await showAlert('Le nouveau mot de passe doit contenir au moins 4 caractères', 'Erreur');
     return;
   }
 
@@ -77,9 +78,9 @@ async function handleChangePassword(e) {
   });
 
   if (data.error) {
-    alert(data.error);
+    await showAlert(data.error, 'Erreur');
   } else {
-    alert('Mot de passe modifié avec succès');
+    await showAlert('Mot de passe modifié avec succès', 'Succès');
     document.getElementById('password-form').reset();
   }
 }

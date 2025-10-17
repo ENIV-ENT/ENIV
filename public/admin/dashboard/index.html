@@ -30,12 +30,14 @@
       </div>
 
       <div id="add-eleve-form" class="form-container hidden">
-        <h3>Nouvel élève</h3>
+        <h3>Inviter un élève</h3>
+        <p style="color: var(--secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+          L'élève recevra un email avec un lien pour finaliser son inscription (nom, prénom, username, mot de passe).
+        </p>
         <form id="eleve-form">
-          <input type="text" id="eleve-username" placeholder="Nom d'utilisateur" required>
-          <input type="password" id="eleve-password" placeholder="Mot de passe" required>
+          <input type="email" id="eleve-email" placeholder="Email de l'élève" required>
           <div class="form-actions">
-            <button type="submit" class="btn-primary">Créer</button>
+            <button type="submit" class="btn-primary">Envoyer l'invitation</button>
             <button type="button" id="cancel-eleve-btn" class="btn-secondary">Annuler</button>
           </div>
         </form>
