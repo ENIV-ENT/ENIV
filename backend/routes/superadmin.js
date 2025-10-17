@@ -1,6 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const db = require('../models/database');
+const db = require('../models/dbHelper');
 const router = express.Router();
 
 function requireSuperAdmin(req, res, next) {
@@ -10,7 +10,7 @@ function requireSuperAdmin(req, res, next) {
   next();
 }
 
-router.post('/classes', requireSuperAdmin, express.json(), (req, res) => {
+router.post('/classes', requireSuperAdmin, express.json(), async (req, res) => {
   const { nom } = req.body;
 
   if (!nom) {
@@ -18,7 +18,7 @@ router.post('/classes', requireSuperAdmin, express.json(), (req, res) => {
   }
 
   try {
-    const result = db.prepare('INSERT INTO classes (nom) VALUES (?)').run(nom);
+    const result = await db.run('INSERT INTO classes (nom) VALUES (?)', [nom]);
     res.json({
       success: true,
       classeId: result.lastInsertRowid,
@@ -30,9 +30,9 @@ router.post('/classes', requireSuperAdmin, express.json(), (req, res) => {
   }
 });
 
-router.get('/classes', requireSuperAdmin, (req, res) => {
+router.get('/classes', requireSuperAdmin, async (req, res) => {
   try {
-    const classes = db.prepare('SELECT * FROM classes ORDER BY nom').all();
+    const classes = await db.all('SELECT * FROM classes ORDER BY nom', []);
     res.json({ classes });
   } catch (error) {
     console.error('Error fetching classes:', error);
@@ -40,7 +40,7 @@ router.get('/classes', requireSuperAdmin, (req, res) => {
   }
 });
 
-router.put('/classes/:id', requireSuperAdmin, express.json(), (req, res) => {
+router.put('/classes/:id', requireSuperAdmin, express.json(), async (req, res) => {
   const { nom } = req.body;
 
   if (!nom) {
@@ -48,7 +48,7 @@ router.put('/classes/:id', requireSuperAdmin, express.json(), (req, res) => {
   }
 
   try {
-    db.prepare('UPDATE classes SET nom = ? WHERE id = ?').run(nom, req.params.id);
+    await db.run('UPDATE classes SET nom = ? WHERE id = ?', [nom, req.params.id]);
     res.json({ success: true, message: 'Classe mise à jour' });
   } catch (error) {
     console.error('Error updating class:', error);
@@ -56,9 +56,9 @@ router.put('/classes/:id', requireSuperAdmin, express.json(), (req, res) => {
   }
 });
 
-router.delete('/classes/:id', requireSuperAdmin, (req, res) => {
+router.delete('/classes/:id', requireSuperAdmin, async (req, res) => {
   try {
-    db.prepare('DELETE FROM classes WHERE id = ?').run(req.params.id);
+    await db.run('DELETE FROM classes WHERE id = ?', [req.params.id]);
     res.json({ success: true, message: 'Classe supprimée' });
   } catch (error) {
     console.error('Error deleting class:', error);
@@ -66,7 +66,7 @@ router.delete('/classes/:id', requireSuperAdmin, (req, res) => {
   }
 });
 
-router.post('/admins', requireSuperAdmin, express.json(), (req, res) => {
+router.post('/admins', requireSuperAdmin, express.json(), async (req, res) => {
   const { username, password, classe_id } = req.body;
 
   if (!username || !password || !classe_id) {
@@ -75,7 +75,10 @@ router.post('/admins', requireSuperAdmin, express.json(), (req, res) => {
 
   try {
     const hashedPassword = bcrypt.hashSync(password, 10);
-    const result = db.prepare('INSERT INTO users (username, password, role, classe_id) VALUES (?, ?, ?, ?)').run(username, hashedPassword, 'admin', classe_id);
+    const result = await db.run(
+      'INSERT INTO users (username, password, role, classe_id) VALUES (?, ?, ?, ?)',
+      [username, hashedPassword, 'admin', classe_id]
+    );
 
     res.json({
       success: true,
@@ -83,7 +86,7 @@ router.post('/admins', requireSuperAdmin, express.json(), (req, res) => {
       message: 'Admin créé avec succès'
     });
   } catch (error) {
-    if (error.message.includes('UNIQUE')) {
+    if (error.message.includes('UNIQUE') || error.code === 'ER_DUP_ENTRY') {
       res.status(400).json({ error: 'Ce nom d\'utilisateur existe déjà' });
     } else {
       console.error('Error creating admin:', error);
@@ -92,15 +95,16 @@ router.post('/admins', requireSuperAdmin, express.json(), (req, res) => {
   }
 });
 
-router.get('/admins', requireSuperAdmin, (req, res) => {
+router.get('/admins', requireSuperAdmin, async (req, res) => {
   try {
-    const admins = db.prepare(`
-      SELECT u.id, u.username, u.classe_id, u.created_at, c.nom as classe_nom
-      FROM users u
-      LEFT JOIN classes c ON u.classe_id = c.id
-      WHERE u.role = 'admin'
-      ORDER BY u.username
-    `).all();
+    const admins = await db.all(
+      `SELECT u.id, u.username, u.classe_id, u.created_at, c.nom as classe_nom
+       FROM users u
+       LEFT JOIN classes c ON u.classe_id = c.id
+       WHERE u.role = 'admin'
+       ORDER BY u.username`,
+      []
+    );
     res.json({ admins });
   } catch (error) {
     console.error('Error fetching admins:', error);
@@ -108,7 +112,7 @@ router.get('/admins', requireSuperAdmin, (req, res) => {
   }
 });
 
-router.put('/admins/:id', requireSuperAdmin, express.json(), (req, res) => {
+router.put('/admins/:id', requireSuperAdmin, express.json(), async (req, res) => {
   const { username, password, classe_id } = req.body;
 
   if (!username || !classe_id) {
@@ -118,13 +122,19 @@ router.put('/admins/:id', requireSuperAdmin, express.json(), (req, res) => {
   try {
     if (password) {
       const hashedPassword = bcrypt.hashSync(password, 10);
-      db.prepare('UPDATE users SET username = ?, password = ?, classe_id = ? WHERE id = ? AND role = ?').run(username, hashedPassword, classe_id, req.params.id, 'admin');
+      await db.run(
+        'UPDATE users SET username = ?, password = ?, classe_id = ? WHERE id = ? AND role = ?',
+        [username, hashedPassword, classe_id, req.params.id, 'admin']
+      );
     } else {
-      db.prepare('UPDATE users SET username = ?, classe_id = ? WHERE id = ? AND role = ?').run(username, classe_id, req.params.id, 'admin');
+      await db.run(
+        'UPDATE users SET username = ?, classe_id = ? WHERE id = ? AND role = ?',
+        [username, classe_id, req.params.id, 'admin']
+      );
     }
     res.json({ success: true, message: 'Admin modifié avec succès' });
   } catch (error) {
-    if (error.message.includes('UNIQUE')) {
+    if (error.message.includes('UNIQUE') || error.code === 'ER_DUP_ENTRY') {
       res.status(400).json({ error: 'Ce nom d\'utilisateur existe déjà' });
     } else {
       console.error('Error updating admin:', error);
@@ -133,9 +143,9 @@ router.put('/admins/:id', requireSuperAdmin, express.json(), (req, res) => {
   }
 });
 
-router.delete('/admins/:id', requireSuperAdmin, (req, res) => {
+router.delete('/admins/:id', requireSuperAdmin, async (req, res) => {
   try {
-    db.prepare('DELETE FROM users WHERE id = ? AND role = ?').run(req.params.id, 'admin');
+    await db.run('DELETE FROM users WHERE id = ? AND role = ?', [req.params.id, 'admin']);
     res.json({ success: true, message: 'Admin supprimé' });
   } catch (error) {
     console.error('Error deleting admin:', error);
@@ -143,7 +153,7 @@ router.delete('/admins/:id', requireSuperAdmin, (req, res) => {
   }
 });
 
-router.post('/change-password', requireSuperAdmin, express.json(), (req, res) => {
+router.post('/change-password', requireSuperAdmin, express.json(), async (req, res) => {
   const { oldPassword, newPassword } = req.body;
 
   if (!oldPassword || !newPassword) {
@@ -155,7 +165,7 @@ router.post('/change-password', requireSuperAdmin, express.json(), (req, res) =>
   }
 
   try {
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
+    const user = await db.get('SELECT * FROM users WHERE id = ?', [req.session.userId]);
 
     if (!user) {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
@@ -167,7 +177,7 @@ router.post('/change-password', requireSuperAdmin, express.json(), (req, res) =>
     }
 
     const hashedPassword = bcrypt.hashSync(newPassword, 10);
-    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedPassword, req.session.userId);
+    await db.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, req.session.userId]);
 
     res.json({ success: true, message: 'Mot de passe modifié avec succès' });
   } catch (error) {

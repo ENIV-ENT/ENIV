@@ -1,7 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const db = require('../models/database');
+const db = require('../models/dbHelper');
 const { sendInvitationEmail } = require('../services/email');
 const router = express.Router();
 
@@ -35,15 +35,16 @@ router.post('/create', async (req, res) => {
 
   try {
     // Vérifier si l'email existe déjà
-    const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    const existingUser = await db.get('SELECT id FROM users WHERE email = ?', [email]);
     if (existingUser) {
       return res.status(400).json({ error: 'Cet email est déjà associé à un compte' });
     }
 
     // Vérifier si une invitation active existe déjà
-    const existingInvitation = db.prepare(
-      "SELECT id FROM invitations WHERE email = ? AND used = 0 AND expires_at > datetime('now')"
-    ).get(email);
+    const existingInvitation = await db.get(
+      'SELECT id FROM invitations WHERE email = ? AND used = 0 AND expires_at > NOW()',
+      [email]
+    );
 
     if (existingInvitation) {
       return res.status(400).json({ error: 'Une invitation est déjà en attente pour cet email' });
@@ -57,15 +58,15 @@ router.post('/create', async (req, res) => {
     expiresAt.setDate(expiresAt.getDate() + 7);
 
     // Créer l'invitation
-    const result = db.prepare(`
-      INSERT INTO invitations (email, token, role, classe_id, created_by, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(email, token, role, classe_id || null, req.session.userId, expiresAt.toISOString());
+    const result = await db.run(
+      'INSERT INTO invitations (email, token, role, classe_id, created_by, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [email, token, role, classe_id || null, req.session.userId, expiresAt.toISOString()]
+    );
 
     // Récupérer le nom de la classe si applicable
     let className = null;
     if (classe_id) {
-      const classe = db.prepare('SELECT nom FROM classes WHERE id = ?').get(classe_id);
+      const classe = await db.get('SELECT nom FROM classes WHERE id = ?', [classe_id]);
       className = classe ? classe.nom : null;
     }
 
@@ -79,7 +80,7 @@ router.post('/create', async (req, res) => {
       });
     } catch (emailError) {
       // Supprimer l'invitation si l'email n'a pas pu être envoyé
-      db.prepare('DELETE FROM invitations WHERE id = ?').run(result.lastInsertRowid);
+      await db.run('DELETE FROM invitations WHERE id = ?', [result.lastInsertRowid]);
       throw emailError;
     }
   } catch (error) {
@@ -89,16 +90,17 @@ router.post('/create', async (req, res) => {
 });
 
 // Vérifier la validité d'une invitation
-router.get('/verify/:token', (req, res) => {
+router.get('/verify/:token', async (req, res) => {
   const { token } = req.params;
 
   try {
-    const invitation = db.prepare(`
-      SELECT i.*, c.nom as classe_nom
-      FROM invitations i
-      LEFT JOIN classes c ON i.classe_id = c.id
-      WHERE i.token = ? AND i.used = 0 AND i.expires_at > datetime('now')
-    `).get(token);
+    const invitation = await db.get(
+      `SELECT i.*, c.nom as classe_nom
+       FROM invitations i
+       LEFT JOIN classes c ON i.classe_id = c.id
+       WHERE i.token = ? AND i.used = 0 AND i.expires_at > NOW()`,
+      [token]
+    );
 
     if (!invitation) {
       return res.status(404).json({ error: 'Invitation invalide ou expirée' });
@@ -117,7 +119,7 @@ router.get('/verify/:token', (req, res) => {
 });
 
 // Vérifier la disponibilité d'un username
-router.post('/check-username', (req, res) => {
+router.post('/check-username', async (req, res) => {
   const { username } = req.body;
 
   if (!username) {
@@ -129,7 +131,7 @@ router.post('/check-username', (req, res) => {
   }
 
   try {
-    const existingUser = db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)').get(username);
+    const existingUser = await db.get('SELECT id FROM users WHERE LOWER(username) = LOWER(?)', [username]);
 
     if (existingUser) {
       return res.json({ available: false, message: 'Ce nom d\'utilisateur est déjà utilisé' });
@@ -143,7 +145,7 @@ router.post('/check-username', (req, res) => {
 });
 
 // Finaliser l'inscription avec une invitation
-router.post('/complete', (req, res) => {
+router.post('/complete', async (req, res) => {
   const { token, username, password, nom, prenom } = req.body;
 
   if (!token || !username || !password || !nom || !prenom) {
@@ -160,49 +162,46 @@ router.post('/complete', (req, res) => {
 
   try {
     // Vérifier l'invitation
-    const invitation = db.prepare(`
-      SELECT * FROM invitations
-      WHERE token = ? AND used = 0 AND expires_at > datetime('now')
-    `).get(token);
+    const invitation = await db.get(
+      'SELECT * FROM invitations WHERE token = ? AND used = 0 AND expires_at > NOW()',
+      [token]
+    );
 
     if (!invitation) {
       return res.status(404).json({ error: 'Invitation invalide ou expirée' });
     }
 
     // Vérifier si le username est disponible
-    const existingUser = db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)').get(username);
+    const existingUser = await db.get('SELECT id FROM users WHERE LOWER(username) = LOWER(?)', [username]);
     if (existingUser) {
       return res.status(400).json({ error: 'Ce nom d\'utilisateur est déjà utilisé' });
     }
 
     // Vérifier si l'email n'est pas déjà utilisé
-    const emailUser = db.prepare('SELECT id FROM users WHERE email = ?').get(invitation.email);
+    const emailUser = await db.get('SELECT id FROM users WHERE email = ?', [invitation.email]);
     if (emailUser) {
       return res.status(400).json({ error: 'Cet email est déjà associé à un compte' });
     }
 
     // Créer le compte dans une transaction
-    const transaction = db.transaction(() => {
+    const userId = await db.transaction(async (connection) => {
       // Hasher le mot de passe
       const hashedPassword = bcrypt.hashSync(password, 10);
 
       // Créer l'utilisateur
-      const result = db.prepare(`
-        INSERT INTO users (username, password, email, nom, prenom, role, classe_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(username, hashedPassword, invitation.email, nom, prenom, invitation.role, invitation.classe_id);
+      const [result] = await connection.query(
+        'INSERT INTO users (username, password, email, nom, prenom, role, classe_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [username, hashedPassword, invitation.email, nom, prenom, invitation.role, invitation.classe_id]
+      );
 
       // Marquer l'invitation comme utilisée
-      db.prepare(`
-        UPDATE invitations
-        SET used = 1, used_at = datetime('now')
-        WHERE id = ?
-      `).run(invitation.id);
+      await connection.query(
+        'UPDATE invitations SET used = 1, used_at = NOW() WHERE id = ?',
+        [invitation.id]
+      );
 
-      return result.lastInsertRowid;
+      return result.insertId;
     });
-
-    const userId = transaction();
 
     res.json({
       success: true,
@@ -216,7 +215,7 @@ router.post('/complete', (req, res) => {
 });
 
 // Lister les invitations (Admin/Superadmin)
-router.get('/list', (req, res) => {
+router.get('/list', async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: 'Non authentifié' });
   }
@@ -227,14 +226,15 @@ router.get('/list', (req, res) => {
   }
 
   try {
-    const invitations = db.prepare(`
-      SELECT i.*, c.nom as classe_nom, u.username as created_by_username
-      FROM invitations i
-      LEFT JOIN classes c ON i.classe_id = c.id
-      LEFT JOIN users u ON i.created_by = u.id
-      WHERE i.created_by = ? AND i.used = 0 AND i.expires_at > datetime('now')
-      ORDER BY i.created_at DESC
-    `).all(req.session.userId);
+    const invitations = await db.all(
+      `SELECT i.*, c.nom as classe_nom, u.username as created_by_username
+       FROM invitations i
+       LEFT JOIN classes c ON i.classe_id = c.id
+       LEFT JOIN users u ON i.created_by = u.id
+       WHERE i.created_by = ? AND i.used = 0 AND i.expires_at > NOW()
+       ORDER BY i.created_at DESC`,
+      [req.session.userId]
+    );
 
     res.json(invitations);
   } catch (error) {
@@ -253,12 +253,13 @@ router.post('/resend/:id', async (req, res) => {
 
   try {
     // Récupérer l'invitation
-    const invitation = db.prepare(`
-      SELECT i.*, c.nom as classe_nom
-      FROM invitations i
-      LEFT JOIN classes c ON i.classe_id = c.id
-      WHERE i.id = ? AND i.created_by = ? AND i.used = 0 AND i.expires_at > datetime('now')
-    `).get(id, req.session.userId);
+    const invitation = await db.get(
+      `SELECT i.*, c.nom as classe_nom
+       FROM invitations i
+       LEFT JOIN classes c ON i.classe_id = c.id
+       WHERE i.id = ? AND i.created_by = ? AND i.used = 0 AND i.expires_at > NOW()`,
+      [id, req.session.userId]
+    );
 
     if (!invitation) {
       return res.status(404).json({ error: 'Invitation non trouvée ou déjà utilisée' });
@@ -278,7 +279,7 @@ router.post('/resend/:id', async (req, res) => {
 });
 
 // Supprimer une invitation
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: 'Non authentifié' });
   }
@@ -287,16 +288,17 @@ router.delete('/:id', (req, res) => {
 
   try {
     // Vérifier que l'invitation appartient bien à l'utilisateur
-    const invitation = db.prepare(
-      'SELECT id FROM invitations WHERE id = ? AND created_by = ?'
-    ).get(id, req.session.userId);
+    const invitation = await db.get(
+      'SELECT id FROM invitations WHERE id = ? AND created_by = ?',
+      [id, req.session.userId]
+    );
 
     if (!invitation) {
       return res.status(404).json({ error: 'Invitation non trouvée' });
     }
 
     // Supprimer l'invitation
-    db.prepare('DELETE FROM invitations WHERE id = ?').run(id);
+    await db.run('DELETE FROM invitations WHERE id = ?', [id]);
 
     res.json({ success: true, message: 'Invitation supprimée' });
   } catch (error) {

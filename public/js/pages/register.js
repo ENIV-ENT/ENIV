@@ -43,14 +43,6 @@ function showRegisterForm(invitationData) {
   document.getElementById('loading-state').style.display = 'none';
   document.getElementById('register-form-container').style.display = 'block';
 
-  const roleText = invitationData.role === 'admin' ? 'Administrateur' : 'Élève';
-  document.getElementById('invite-role').textContent = roleText;
-
-  if (invitationData.classe) {
-    document.getElementById('invite-classe-container').style.display = 'flex';
-    document.getElementById('invite-classe').textContent = invitationData.classe;
-  }
-
   setupEventListeners();
 }
 

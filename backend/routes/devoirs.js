@@ -1,11 +1,11 @@
 const express = require('express');
-const db = require('../models/database');
+const db = require('../models/dbHelper');
 const { requireAuth } = require('../middleware/auth');
 const router = express.Router();
 
 router.use(requireAuth);
 
-router.post('/', express.json(), (req, res) => {
+router.post('/', express.json(), async (req, res) => {
   const { titre, description, matiere_id, date } = req.body;
 
   if (!titre || !matiere_id) {
@@ -13,14 +13,15 @@ router.post('/', express.json(), (req, res) => {
   }
 
   try {
-    const user = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
     if (!user || !user.classe_id) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
-    const result = db.prepare(
-      'INSERT INTO devoirs (titre, description, matiere_id, date, classe_id, created_by) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(titre, description || null, matiere_id, date || null, user.classe_id, req.session.userId);
+    const result = await db.run(
+      'INSERT INTO devoirs (titre, description, matiere_id, date, classe_id, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+      [titre, description || null, matiere_id, date || null, user.classe_id, req.session.userId]
+    );
 
     res.json({
       success: true,
@@ -33,15 +34,15 @@ router.post('/', express.json(), (req, res) => {
   }
 });
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const user = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
     if (!user || !user.classe_id) {
       return res.json([]);
     }
 
-    const devoirs = db.prepare(`
-      SELECT
+    const devoirs = await db.all(
+      `SELECT
         d.*,
         m.nom as matiere_nom,
         u.username as created_by_username,
@@ -51,8 +52,9 @@ router.get('/', (req, res) => {
       LEFT JOIN users u ON d.created_by = u.id
       LEFT JOIN devoir_statuts ds ON d.id = ds.devoir_id AND ds.user_id = ?
       WHERE d.classe_id = ?
-      ORDER BY COALESCE(ds.fait, 0) ASC, d.date ASC, d.created_at DESC
-    `).all(req.session.userId, user.classe_id);
+      ORDER BY COALESCE(ds.fait, 0) ASC, d.date ASC, d.created_at DESC`,
+      [req.session.userId, user.classe_id]
+    );
 
     res.json(devoirs);
   } catch (error) {
@@ -61,15 +63,15 @@ router.get('/', (req, res) => {
   }
 });
 
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const user = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
     if (!user || !user.classe_id) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
-    const devoir = db.prepare(`
-      SELECT
+    const devoir = await db.get(
+      `SELECT
         d.*,
         m.nom as matiere_nom,
         u.username as created_by_username,
@@ -78,8 +80,9 @@ router.get('/:id', (req, res) => {
       LEFT JOIN matieres m ON d.matiere_id = m.id
       LEFT JOIN users u ON d.created_by = u.id
       LEFT JOIN devoir_statuts ds ON d.id = ds.devoir_id AND ds.user_id = ?
-      WHERE d.id = ? AND d.classe_id = ?
-    `).get(req.session.userId, req.params.id, user.classe_id);
+      WHERE d.id = ? AND d.classe_id = ?`,
+      [req.session.userId, req.params.id, user.classe_id]
+    );
 
     if (!devoir) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
@@ -91,18 +94,19 @@ router.get('/:id', (req, res) => {
   }
 });
 
-router.put('/:id', express.json(), (req, res) => {
+router.put('/:id', express.json(), async (req, res) => {
   const { titre, description, matiere_id, date } = req.body;
 
   try {
-    const user = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
     if (!user || !user.classe_id) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
-    db.prepare(
-      'UPDATE devoirs SET titre = ?, description = ?, matiere_id = ?, date = ? WHERE id = ? AND classe_id = ?'
-    ).run(titre, description || null, matiere_id, date || null, req.params.id, user.classe_id);
+    await db.run(
+      'UPDATE devoirs SET titre = ?, description = ?, matiere_id = ?, date = ? WHERE id = ? AND classe_id = ?',
+      [titre, description || null, matiere_id, date || null, req.params.id, user.classe_id]
+    );
 
     res.json({ success: true, message: 'Devoir mis à jour' });
   } catch (error) {
@@ -111,29 +115,30 @@ router.put('/:id', express.json(), (req, res) => {
   }
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const user = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
     if (!user || !user.classe_id) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
-    db.prepare('DELETE FROM devoirs WHERE id = ? AND classe_id = ?').run(req.params.id, user.classe_id);
+    await db.run('DELETE FROM devoirs WHERE id = ? AND classe_id = ?', [req.params.id, user.classe_id]);
     res.json({ success: true, message: 'Devoir supprimé' });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la suppression du devoir' });
   }
 });
 
-router.post('/:id/statut', express.json(), (req, res) => {
+router.post('/:id/statut', express.json(), async (req, res) => {
   const { fait } = req.body;
 
   try {
-    db.prepare(`
-      INSERT INTO devoir_statuts (devoir_id, user_id, fait)
-      VALUES (?, ?, ?)
-      ON CONFLICT(devoir_id, user_id) DO UPDATE SET fait = excluded.fait
-    `).run(req.params.id, req.session.userId, fait ? 1 : 0);
+    await db.run(
+      `INSERT INTO devoir_statuts (devoir_id, user_id, fait)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE fait = VALUES(fait)`,
+      [req.params.id, req.session.userId, fait ? 1 : 0]
+    );
 
     res.json({ success: true, message: 'Statut mis à jour' });
   } catch (error) {
@@ -142,15 +147,15 @@ router.post('/:id/statut', express.json(), (req, res) => {
   }
 });
 
-router.get('/settings/emploi-temps', (req, res) => {
+router.get('/settings/emploi-temps', async (req, res) => {
   try {
-    const user = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
     if (!user || !user.classe_id) {
       return res.json({ lien: null });
     }
 
     const key = `emploi_temps_lien_${user.classe_id}`;
-    const setting = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+    const setting = await db.get('SELECT value FROM settings WHERE key = ?', [key]);
     res.json({ lien: setting ? setting.value : null });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la récupération' });

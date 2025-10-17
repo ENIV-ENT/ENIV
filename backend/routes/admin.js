@@ -1,6 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const db = require('../models/database');
+const db = require('../models/dbHelper');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
@@ -15,9 +15,9 @@ const availableColors = [
 ];
 
 // Fonction pour obtenir une couleur unique
-function getUniqueColor() {
+async function getUniqueColor() {
   try {
-    const usedColors = db.prepare('SELECT couleur FROM matieres WHERE couleur IS NOT NULL').all();
+    const usedColors = await db.all('SELECT couleur FROM matieres WHERE couleur IS NOT NULL', []);
     const usedSet = new Set(usedColors.map(m => m.couleur));
 
     const available = availableColors.filter(color => !usedSet.has(color));
@@ -36,7 +36,7 @@ function getUniqueColor() {
 }
 
 // Changer le mot de passe de l'admin
-router.post('/change-password', requireAdmin, express.json(), (req, res) => {
+router.post('/change-password', requireAdmin, express.json(), async (req, res) => {
   const { oldPassword, newPassword } = req.body;
 
   if (!oldPassword || !newPassword) {
@@ -45,7 +45,7 @@ router.post('/change-password', requireAdmin, express.json(), (req, res) => {
 
   try {
     // Récupérer le mot de passe actuel de l'admin
-    const admin = db.prepare('SELECT * FROM users WHERE id = ? AND role = ?').get(req.session.userId, 'admin');
+    const admin = await db.get('SELECT * FROM users WHERE id = ? AND role = ?', [req.session.userId, 'admin']);
 
     if (!admin) {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
@@ -59,7 +59,7 @@ router.post('/change-password', requireAdmin, express.json(), (req, res) => {
 
     // Mettre à jour le mot de passe
     const hashedPassword = bcrypt.hashSync(newPassword, 10);
-    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedPassword, req.session.userId);
+    await db.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, req.session.userId]);
 
     res.json({ success: true, message: 'Mot de passe modifié avec succès' });
   } catch (error) {
@@ -69,7 +69,7 @@ router.post('/change-password', requireAdmin, express.json(), (req, res) => {
 });
 
 // Créer un élève
-router.post('/eleves', requireAdmin, express.json(), (req, res) => {
+router.post('/eleves', requireAdmin, express.json(), async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
@@ -77,13 +77,16 @@ router.post('/eleves', requireAdmin, express.json(), (req, res) => {
   }
 
   try {
-    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    const admin = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
     if (!admin || !admin.classe_id) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
     const hashedPassword = bcrypt.hashSync(password, 10);
-    const result = db.prepare('INSERT INTO users (username, password, role, classe_id) VALUES (?, ?, ?, ?)').run(username, hashedPassword, 'eleve', admin.classe_id);
+    const result = await db.run(
+      'INSERT INTO users (username, password, role, classe_id) VALUES (?, ?, ?, ?)',
+      [username, hashedPassword, 'eleve', admin.classe_id]
+    );
 
     res.json({
       success: true,
@@ -91,7 +94,7 @@ router.post('/eleves', requireAdmin, express.json(), (req, res) => {
       message: 'Élève créé avec succès'
     });
   } catch (error) {
-    if (error.message.includes('UNIQUE')) {
+    if (error.message.includes('UNIQUE') || error.code === 'ER_DUP_ENTRY') {
       res.status(400).json({ error: 'Ce nom d\'utilisateur existe déjà' });
     } else {
       res.status(500).json({ error: 'Erreur lors de la création de l\'élève' });
@@ -100,14 +103,17 @@ router.post('/eleves', requireAdmin, express.json(), (req, res) => {
 });
 
 // Lister tous les élèves
-router.get('/eleves', requireAdmin, (req, res) => {
+router.get('/eleves', requireAdmin, async (req, res) => {
   try {
-    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    const admin = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
     if (!admin || !admin.classe_id) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
-    const eleves = db.prepare('SELECT id, username, created_at FROM users WHERE role = ? AND classe_id = ?').all('eleve', admin.classe_id);
+    const eleves = await db.all(
+      'SELECT id, username, created_at FROM users WHERE role = ? AND classe_id = ?',
+      ['eleve', admin.classe_id]
+    );
     res.json(eleves);
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la récupération des élèves' });
@@ -115,7 +121,7 @@ router.get('/eleves', requireAdmin, (req, res) => {
 });
 
 // Modifier un élève (username et/ou mot de passe)
-router.put('/eleves/:id', requireAdmin, express.json(), (req, res) => {
+router.put('/eleves/:id', requireAdmin, express.json(), async (req, res) => {
   const { username, password } = req.body;
 
   if (!username) {
@@ -123,20 +129,26 @@ router.put('/eleves/:id', requireAdmin, express.json(), (req, res) => {
   }
 
   try {
-    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    const admin = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
     if (!admin || !admin.classe_id) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
     if (password) {
       const hashedPassword = bcrypt.hashSync(password, 10);
-      db.prepare('UPDATE users SET username = ?, password = ? WHERE id = ? AND role = ? AND classe_id = ?').run(username, hashedPassword, req.params.id, 'eleve', admin.classe_id);
+      await db.run(
+        'UPDATE users SET username = ?, password = ? WHERE id = ? AND role = ? AND classe_id = ?',
+        [username, hashedPassword, req.params.id, 'eleve', admin.classe_id]
+      );
     } else {
-      db.prepare('UPDATE users SET username = ? WHERE id = ? AND role = ? AND classe_id = ?').run(username, req.params.id, 'eleve', admin.classe_id);
+      await db.run(
+        'UPDATE users SET username = ? WHERE id = ? AND role = ? AND classe_id = ?',
+        [username, req.params.id, 'eleve', admin.classe_id]
+      );
     }
     res.json({ success: true, message: 'Élève modifié avec succès' });
   } catch (error) {
-    if (error.message.includes('UNIQUE')) {
+    if (error.message.includes('UNIQUE') || error.code === 'ER_DUP_ENTRY') {
       res.status(400).json({ error: 'Ce nom d\'utilisateur existe déjà' });
     } else {
       res.status(500).json({ error: 'Erreur lors de la modification de l\'élève' });
@@ -145,14 +157,17 @@ router.put('/eleves/:id', requireAdmin, express.json(), (req, res) => {
 });
 
 // Supprimer un élève
-router.delete('/eleves/:id', requireAdmin, (req, res) => {
+router.delete('/eleves/:id', requireAdmin, async (req, res) => {
   try {
-    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    const admin = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
     if (!admin || !admin.classe_id) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
-    db.prepare('DELETE FROM users WHERE id = ? AND role = ? AND classe_id = ?').run(req.params.id, 'eleve', admin.classe_id);
+    await db.run(
+      'DELETE FROM users WHERE id = ? AND role = ? AND classe_id = ?',
+      [req.params.id, 'eleve', admin.classe_id]
+    );
     res.json({ success: true, message: 'Élève supprimé' });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la suppression de l\'élève' });
@@ -160,7 +175,7 @@ router.delete('/eleves/:id', requireAdmin, (req, res) => {
 });
 
 // Créer une matière
-router.post('/matieres', requireAdmin, express.json(), (req, res) => {
+router.post('/matieres', requireAdmin, express.json(), async (req, res) => {
   const { nom, lien, couleur } = req.body;
 
   if (!nom) {
@@ -172,12 +187,15 @@ router.post('/matieres', requireAdmin, express.json(), (req, res) => {
   }
 
   try {
-    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    const admin = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
     if (!admin || !admin.classe_id) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
-    const result = db.prepare('INSERT INTO matieres (nom, lien, couleur, classe_id) VALUES (?, ?, ?, ?)').run(nom, lien || null, couleur, admin.classe_id);
+    const result = await db.run(
+      'INSERT INTO matieres (nom, lien, couleur, classe_id) VALUES (?, ?, ?, ?)',
+      [nom, lien || null, couleur, admin.classe_id]
+    );
 
     res.json({
       success: true,
@@ -191,14 +209,17 @@ router.post('/matieres', requireAdmin, express.json(), (req, res) => {
 });
 
 // Lister toutes les matières (accessible à tous les utilisateurs authentifiés)
-router.get('/matieres', requireAuth, (req, res) => {
+router.get('/matieres', requireAuth, async (req, res) => {
   try {
-    const user = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
     if (!user || !user.classe_id) {
       return res.json([]);
     }
 
-    const matieres = db.prepare('SELECT * FROM matieres WHERE classe_id = ? ORDER BY nom').all(user.classe_id);
+    const matieres = await db.all(
+      'SELECT * FROM matieres WHERE classe_id = ? ORDER BY nom',
+      [user.classe_id]
+    );
     res.json(matieres);
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la récupération des matières' });
@@ -206,16 +227,19 @@ router.get('/matieres', requireAuth, (req, res) => {
 });
 
 // Modifier une matière
-router.put('/matieres/:id', requireAdmin, express.json(), (req, res) => {
+router.put('/matieres/:id', requireAdmin, express.json(), async (req, res) => {
   const { nom, lien, couleur } = req.body;
 
   try {
-    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    const admin = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
     if (!admin || !admin.classe_id) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
-    db.prepare('UPDATE matieres SET nom = ?, lien = ?, couleur = ? WHERE id = ? AND classe_id = ?').run(nom, lien || null, couleur || null, req.params.id, admin.classe_id);
+    await db.run(
+      'UPDATE matieres SET nom = ?, lien = ?, couleur = ? WHERE id = ? AND classe_id = ?',
+      [nom, lien || null, couleur || null, req.params.id, admin.classe_id]
+    );
     res.json({ success: true, message: 'Matière mise à jour' });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la mise à jour de la matière' });
@@ -223,14 +247,17 @@ router.put('/matieres/:id', requireAdmin, express.json(), (req, res) => {
 });
 
 // Supprimer une matière
-router.delete('/matieres/:id', requireAdmin, (req, res) => {
+router.delete('/matieres/:id', requireAdmin, async (req, res) => {
   try {
-    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    const admin = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
     if (!admin || !admin.classe_id) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
-    db.prepare('DELETE FROM matieres WHERE id = ? AND classe_id = ?').run(req.params.id, admin.classe_id);
+    await db.run(
+      'DELETE FROM matieres WHERE id = ? AND classe_id = ?',
+      [req.params.id, admin.classe_id]
+    );
     res.json({ success: true, message: 'Matière supprimée' });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la suppression de la matière' });
@@ -238,17 +265,20 @@ router.delete('/matieres/:id', requireAdmin, (req, res) => {
 });
 
 // Configurer le lien emploi du temps
-router.post('/settings/emploi-temps', requireAdmin, express.json(), (req, res) => {
+router.post('/settings/emploi-temps', requireAdmin, express.json(), async (req, res) => {
   const { lien } = req.body;
 
   try {
-    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    const admin = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
     if (!admin || !admin.classe_id) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
     const key = `emploi_temps_lien_${admin.classe_id}`;
-    db.prepare('INSERT OR REPLACE INTO settings (key, value, classe_id) VALUES (?, ?, ?)').run(key, lien || null, admin.classe_id);
+    await db.run(
+      'INSERT INTO settings (key, value, classe_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value), classe_id = VALUES(classe_id)',
+      [key, lien || null, admin.classe_id]
+    );
     res.json({ success: true, message: 'Lien emploi du temps configuré' });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la configuration' });
@@ -256,15 +286,15 @@ router.post('/settings/emploi-temps', requireAdmin, express.json(), (req, res) =
 });
 
 // Récupérer le lien emploi du temps
-router.get('/settings/emploi-temps', requireAuth, (req, res) => {
+router.get('/settings/emploi-temps', requireAuth, async (req, res) => {
   try {
-    const user = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
     if (!user || !user.classe_id) {
       return res.json({ lien: null });
     }
 
     const key = `emploi_temps_lien_${user.classe_id}`;
-    const setting = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+    const setting = await db.get('SELECT value FROM settings WHERE key = ?', [key]);
     res.json({ lien: setting ? setting.value : null });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la récupération' });
@@ -272,11 +302,11 @@ router.get('/settings/emploi-temps', requireAuth, (req, res) => {
 });
 
 // Configurer le webhook Discord
-router.post('/settings/discord-webhook', requireAdmin, express.json(), (req, res) => {
+router.post('/settings/discord-webhook', requireAdmin, express.json(), async (req, res) => {
   const { webhook } = req.body;
 
   try {
-    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    const admin = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
     if (!admin || !admin.classe_id) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
@@ -287,7 +317,10 @@ router.post('/settings/discord-webhook', requireAdmin, express.json(), (req, res
     }
 
     const key = `discord_webhook_${admin.classe_id}`;
-    db.prepare('INSERT OR REPLACE INTO settings (key, value, classe_id) VALUES (?, ?, ?)').run(key, webhook || null, admin.classe_id);
+    await db.run(
+      'INSERT INTO settings (key, value, classe_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value), classe_id = VALUES(classe_id)',
+      [key, webhook || null, admin.classe_id]
+    );
     res.json({ success: true, message: 'Webhook Discord configuré' });
   } catch (error) {
     console.error('Error configuring Discord webhook:', error);
@@ -296,15 +329,15 @@ router.post('/settings/discord-webhook', requireAdmin, express.json(), (req, res
 });
 
 // Récupérer le webhook Discord
-router.get('/settings/discord-webhook', requireAdmin, (req, res) => {
+router.get('/settings/discord-webhook', requireAdmin, async (req, res) => {
   try {
-    const admin = db.prepare('SELECT classe_id FROM users WHERE id = ?').get(req.session.userId);
+    const admin = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
     if (!admin || !admin.classe_id) {
       return res.json({ webhook: null });
     }
 
     const key = `discord_webhook_${admin.classe_id}`;
-    const setting = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+    const setting = await db.get('SELECT value FROM settings WHERE key = ?', [key]);
     res.json({ webhook: setting ? setting.value : null });
   } catch (error) {
     console.error('Error retrieving Discord webhook:', error);

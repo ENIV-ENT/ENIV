@@ -1,4 +1,4 @@
-const db = require('../models/database');
+const db = require('../models/dbHelper');
 
 /**
  * Envoie un embed Discord via webhook
@@ -51,9 +51,9 @@ async function sendDiscordEmbed(webhookUrl, embed, username = null, avatarUrl = 
 
 /**
  * Récupère tous les devoirs pour le lendemain, groupés par classe
- * @returns {Object} - Devoirs groupés par classe
+ * @returns {Promise<Object>} - Devoirs groupés par classe
  */
-function getDevoirsPourDemain() {
+async function getDevoirsPourDemain() {
   try {
     // Calculer la date de demain au format YYYY-MM-DD (local)
     const demain = new Date();
@@ -66,8 +66,8 @@ function getDevoirsPourDemain() {
     const dateDemain = `${annee}-${mois}-${jour}`;
 
     // Récupérer tous les devoirs pour demain avec les informations de matière et classe
-    const devoirs = db.prepare(`
-      SELECT
+    const devoirs = await db.all(
+      `SELECT
         d.id,
         d.titre,
         d.description,
@@ -80,8 +80,9 @@ function getDevoirsPourDemain() {
       JOIN matieres m ON d.matiere_id = m.id
       JOIN classes c ON d.classe_id = c.id
       WHERE d.date = ?
-      ORDER BY d.classe_id, m.nom
-    `).all(dateDemain);
+      ORDER BY d.classe_id, m.nom`,
+      [dateDemain]
+    );
 
     // Grouper par classe
     const devoirsParClasse = {};
@@ -108,7 +109,7 @@ function getDevoirsPourDemain() {
 async function envoyerRecapitulatifQuotidien() {
   console.log('Envoi du récapitulatif quotidien des devoirs...');
 
-  const devoirsParClasse = getDevoirsPourDemain();
+  const devoirsParClasse = await getDevoirsPourDemain();
 
   if (Object.keys(devoirsParClasse).length === 0) {
     console.log('Aucun devoir pour demain');
@@ -120,7 +121,7 @@ async function envoyerRecapitulatifQuotidien() {
     try {
       // Récupérer le webhook de la classe
       const key = `discord_webhook_${classeId}`;
-      const setting = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+      const setting = await db.get('SELECT value FROM settings WHERE key = ?', [key]);
 
       if (!setting || !setting.value) {
         console.log(`Pas de webhook configuré pour la classe ${classeData.classe_nom}`);
@@ -179,12 +180,12 @@ function creerEmbedRecapitulatif(classeData) {
 /**
  * Récupère le webhook Discord pour une classe donnée
  * @param {number} classeId - ID de la classe
- * @returns {string|null} - URL du webhook ou null
+ * @returns {Promise<string|null>} - URL du webhook ou null
  */
-function getWebhookForClasse(classeId) {
+async function getWebhookForClasse(classeId) {
   try {
     const key = `discord_webhook_${classeId}`;
-    const setting = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+    const setting = await db.get('SELECT value FROM settings WHERE key = ?', [key]);
     return setting ? setting.value : null;
   } catch (error) {
     console.error('Erreur lors de la récupération du webhook:', error);

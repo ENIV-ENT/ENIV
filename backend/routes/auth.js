@@ -1,14 +1,14 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const db = require('../models/database');
+const db = require('../models/dbHelper');
 const router = express.Router();
 
 // Login
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const user = db.prepare('SELECT * FROM users WHERE LOWER(username) = LOWER(?)').get(username);
+    const user = await db.get('SELECT * FROM users WHERE LOWER(username) = LOWER(?)', [username]);
 
     if (!user) {
       return res.status(401).json({ error: 'Identifiants invalides' });
@@ -30,6 +30,7 @@ router.post('/login', (req, res) => {
       userId: user.id
     });
   } catch (error) {
+    console.error('Error during login:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -58,7 +59,7 @@ router.get('/me', (req, res) => {
   }
 });
 
-router.post('/change-password', (req, res) => {
+router.post('/change-password', async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: 'Non authentifié' });
   }
@@ -74,7 +75,7 @@ router.post('/change-password', (req, res) => {
   }
 
   try {
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
+    const user = await db.get('SELECT * FROM users WHERE id = ?', [req.session.userId]);
 
     if (!user) {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
@@ -86,7 +87,7 @@ router.post('/change-password', (req, res) => {
     }
 
     const hashedPassword = bcrypt.hashSync(newPassword, 10);
-    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedPassword, req.session.userId);
+    await db.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, req.session.userId]);
 
     res.json({ success: true, message: 'Mot de passe modifié avec succès' });
   } catch (error) {
@@ -96,7 +97,7 @@ router.post('/change-password', (req, res) => {
 });
 
 // Update user information
-router.post('/update-info', (req, res) => {
+router.post('/update-info', async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: 'Non authentifié' });
   }
@@ -115,13 +116,12 @@ router.post('/update-info', (req, res) => {
 
   try {
     // Vérifier si l'email existe déjà pour un autre utilisateur
-    const existingUser = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(email, req.session.userId);
+    const existingUser = await db.get('SELECT id FROM users WHERE email = ? AND id != ?', [email, req.session.userId]);
     if (existingUser) {
       return res.status(400).json({ error: 'Cet email est déjà utilisé' });
     }
 
-    db.prepare('UPDATE users SET email = ?, nom = ?, prenom = ? WHERE id = ?')
-      .run(email, nom, prenom, req.session.userId);
+    await db.run('UPDATE users SET email = ?, nom = ?, prenom = ? WHERE id = ?', [email, nom, prenom, req.session.userId]);
 
     res.json({ success: true, message: 'Informations mises à jour avec succès' });
   } catch (error) {
@@ -131,13 +131,13 @@ router.post('/update-info', (req, res) => {
 });
 
 // Get user information
-router.get('/user-info', (req, res) => {
+router.get('/user-info', async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: 'Non authentifié' });
   }
 
   try {
-    const user = db.prepare('SELECT email, nom, prenom FROM users WHERE id = ?').get(req.session.userId);
+    const user = await db.get('SELECT email, nom, prenom FROM users WHERE id = ?', [req.session.userId]);
 
     if (!user) {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
