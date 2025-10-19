@@ -345,4 +345,32 @@ router.get('/settings/discord-webhook', requireAdmin, async (req, res) => {
   }
 });
 
+// Récupérer les logs de devoirs (admin uniquement)
+router.get('/logs/devoirs', requireAdmin, async (req, res) => {
+  try {
+    const admin = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
+    if (!admin || !admin.classe_id) {
+      return res.json([]);
+    }
+
+    const logs = await db.all(
+      `SELECT
+        l.*,
+        m.nom as matiere_nom
+      FROM devoir_logs l
+      LEFT JOIN devoirs d ON l.devoir_id = d.id
+      LEFT JOIN matieres m ON d.matiere_id = m.id
+      WHERE l.classe_id = ?
+      ORDER BY l.created_at DESC
+      LIMIT 100`,
+      [admin.classe_id]
+    );
+
+    res.json(logs);
+  } catch (error) {
+    console.error('Error retrieving logs:', error);
+    res.status(500).json({ error: 'Erreur lors de la récupération des logs' });
+  }
+});
+
 module.exports = router;

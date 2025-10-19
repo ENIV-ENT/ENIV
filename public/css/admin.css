@@ -435,3 +435,27 @@ input[type="color"] {
     width: 100%;
   }
 }
+
+/* Styles pour les logs */
+.log-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.log-create {
+  background: #d4edda;
+  color: #155724;
+}
+
+.log-update {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.log-delete {
+  background: #f8d7da;
+  color: #721c24;
+}

@@ -13,7 +13,7 @@ router.post('/', express.json(), async (req, res) => {
   }
 
   try {
-    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
+    const user = await db.get('SELECT classe_id, username FROM users WHERE id = ?', [req.session.userId]);
     if (!user || !user.classe_id) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
@@ -23,9 +23,18 @@ router.post('/', express.json(), async (req, res) => {
       [titre, description || null, matiere_id, date || null, user.classe_id, req.session.userId]
     );
 
+    const devoirId = result.lastInsertRowid;
+
+    // Créer un log pour la création
+    const details = JSON.stringify({ titre, description, matiere_id, date });
+    await db.run(
+      'INSERT INTO devoir_logs (devoir_id, action, user_id, username, classe_id, details) VALUES (?, ?, ?, ?, ?, ?)',
+      [devoirId, 'create', req.session.userId, user.username, user.classe_id, details]
+    );
+
     res.json({
       success: true,
-      devoirId: result.lastInsertRowid,
+      devoirId,
       message: 'Devoir créé avec succès'
     });
   } catch (error) {
@@ -98,14 +107,30 @@ router.put('/:id', express.json(), async (req, res) => {
   const { titre, description, matiere_id, date } = req.body;
 
   try {
-    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
+    const user = await db.get('SELECT classe_id, username FROM users WHERE id = ?', [req.session.userId]);
     if (!user || !user.classe_id) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
+    }
+
+    // Récupérer l'ancien devoir pour le log
+    const oldDevoir = await db.get('SELECT * FROM devoirs WHERE id = ? AND classe_id = ?', [req.params.id, user.classe_id]);
+    if (!oldDevoir) {
+      return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
     await db.run(
       'UPDATE devoirs SET titre = ?, description = ?, matiere_id = ?, date = ? WHERE id = ? AND classe_id = ?',
       [titre, description || null, matiere_id, date || null, req.params.id, user.classe_id]
+    );
+
+    // Créer un log pour la modification
+    const details = JSON.stringify({
+      old: { titre: oldDevoir.titre, description: oldDevoir.description, matiere_id: oldDevoir.matiere_id, date: oldDevoir.date },
+      new: { titre, description, matiere_id, date }
+    });
+    await db.run(
+      'INSERT INTO devoir_logs (devoir_id, action, user_id, username, classe_id, details) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.params.id, 'update', req.session.userId, user.username, user.classe_id, details]
     );
 
     res.json({ success: true, message: 'Devoir mis à jour' });
@@ -117,12 +142,26 @@ router.put('/:id', express.json(), async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
-    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
+    const user = await db.get('SELECT classe_id, username FROM users WHERE id = ?', [req.session.userId]);
     if (!user || !user.classe_id) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
+    // Récupérer le devoir avant de le supprimer pour le log
+    const devoir = await db.get('SELECT * FROM devoirs WHERE id = ? AND classe_id = ?', [req.params.id, user.classe_id]);
+    if (!devoir) {
+      return res.status(404).json({ error: 'Devoir non trouvé' });
+    }
+
     await db.run('DELETE FROM devoirs WHERE id = ? AND classe_id = ?', [req.params.id, user.classe_id]);
+
+    // Créer un log pour la suppression
+    const details = JSON.stringify({ titre: devoir.titre, description: devoir.description, matiere_id: devoir.matiere_id, date: devoir.date });
+    await db.run(
+      'INSERT INTO devoir_logs (devoir_id, action, user_id, username, classe_id, details) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.params.id, 'delete', req.session.userId, user.username, user.classe_id, details]
+    );
+
     res.json({ success: true, message: 'Devoir supprimé' });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la suppression du devoir' });

@@ -5,6 +5,7 @@ import { initWebSocket } from '../utils/websocket.js';
 let eleves = [];
 let matieres = [];
 let invitations = [];
+let logs = [];
 
 const availableColors = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
@@ -31,7 +32,8 @@ async function loadAllData() {
     loadEleves(),
     loadMatieres(),
     loadSettings(),
-    loadInvitations()
+    loadInvitations(),
+    loadLogs()
   ]);
 }
 
@@ -503,6 +505,88 @@ async function deleteInvitation(id) {
   } else if (data.error) {
     await showAlert(data.error, 'Erreur');
   }
+}
+
+async function loadLogs() {
+  const data = await apiCall('/api/admin/logs/devoirs');
+  if (!data.error) {
+    logs = data;
+    renderLogs();
+  }
+}
+
+function renderLogs() {
+  const list = document.getElementById('logs-list');
+  list.innerHTML = '';
+
+  if (logs.length === 0) {
+    list.innerHTML = '<p>Aucun log pour le moment.</p>';
+    return;
+  }
+
+  logs.forEach(log => {
+    const item = document.createElement('div');
+    item.className = 'list-item';
+
+    let actionText = '';
+    let actionClass = '';
+    let detailsHtml = '';
+
+    try {
+      const details = JSON.parse(log.details);
+
+      switch(log.action) {
+        case 'create':
+          actionText = 'a créé le devoir';
+          actionClass = 'log-create';
+          detailsHtml = `<strong>${escapeHTML(details.titre)}</strong>`;
+          if (details.description) {
+            detailsHtml += `<br><small>${escapeHTML(details.description)}</small>`;
+          }
+          break;
+        case 'update':
+          actionText = 'a modifié le devoir';
+          actionClass = 'log-update';
+          detailsHtml = `<strong>${escapeHTML(details.old.titre)}</strong>`;
+          if (details.old.titre !== details.new.titre) {
+            detailsHtml += ` → <strong>${escapeHTML(details.new.titre)}</strong>`;
+          }
+          break;
+        case 'delete':
+          actionText = 'a supprimé le devoir';
+          actionClass = 'log-delete';
+          detailsHtml = `<strong>${escapeHTML(details.titre)}</strong>`;
+          break;
+      }
+    } catch (e) {
+      detailsHtml = 'Détails non disponibles';
+    }
+
+    const date = new Date(log.created_at);
+    const dateStr = date.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    item.innerHTML = `
+      <div class="list-item-info">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+          <span class="log-badge ${actionClass}">${actionText}</span>
+          <span style="color: var(--secondary); font-size: 0.9rem;">${dateStr}</span>
+        </div>
+        <div style="margin-bottom: 0.25rem;">
+          <strong>${escapeHTML(log.username)}</strong> ${actionText}
+        </div>
+        <div style="color: var(--text);">
+          ${detailsHtml}
+        </div>
+      </div>
+    `;
+    list.appendChild(item);
+  });
 }
 
 init();
