@@ -121,7 +121,7 @@ async function envoyerRecapitulatifQuotidien() {
     try {
       // Récupérer le webhook de la classe
       const key = `discord_webhook_${classeId}`;
-      const setting = await db.get('SELECT value FROM settings WHERE key = ?', [key]);
+      const setting = await db.get('SELECT value FROM settings WHERE `key` = ?', [key]);
 
       if (!setting || !setting.value) {
         console.log(`Pas de webhook configuré pour la classe ${classeData.classe_nom}`);
@@ -185,7 +185,7 @@ function creerEmbedRecapitulatif(classeData) {
 async function getWebhookForClasse(classeId) {
   try {
     const key = `discord_webhook_${classeId}`;
-    const setting = await db.get('SELECT value FROM settings WHERE key = ?', [key]);
+    const setting = await db.get('SELECT value FROM settings WHERE `key` = ?', [key]);
     return setting ? setting.value : null;
   } catch (error) {
     console.error('Erreur lors de la récupération du webhook:', error);

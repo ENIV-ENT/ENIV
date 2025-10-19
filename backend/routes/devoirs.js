@@ -155,7 +155,7 @@ router.get('/settings/emploi-temps', async (req, res) => {
     }
 
     const key = `emploi_temps_lien_${user.classe_id}`;
-    const setting = await db.get('SELECT value FROM settings WHERE key = ?', [key]);
+    const setting = await db.get('SELECT value FROM settings WHERE `key` = ?', [key]);
     res.json({ lien: setting ? setting.value : null });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la récupération' });

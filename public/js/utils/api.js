@@ -9,11 +9,13 @@ export async function apiCall(url, options = {}) {
       },
     });
 
-    if (!response.ok && response.status !== 401 && response.status !== 403) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+    // Pour toutes les réponses, essayer de parser le JSON
+    // (même les erreurs 400, 500, etc. peuvent contenir un message d'erreur)
+    const data = await response.json();
 
-    return await response.json();
+    // Si la réponse n'est pas ok, le JSON contient probablement un champ "error"
+    // On le retourne tel quel pour que l'appelant puisse afficher le message
+    return data;
   } catch (error) {
     console.error('API Error:', error);
     return { error: error.message };

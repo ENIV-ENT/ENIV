@@ -41,9 +41,10 @@ router.post('/create', async (req, res) => {
     }
 
     // Vérifier si une invitation active existe déjà
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     const existingInvitation = await db.get(
-      'SELECT id FROM invitations WHERE email = ? AND used = 0 AND expires_at > NOW()',
-      [email]
+      'SELECT id FROM invitations WHERE email = ? AND used = 0 AND expires_at > ?',
+      [email, now]
     );
 
     if (existingInvitation) {
@@ -96,12 +97,13 @@ router.get('/verify/:token', async (req, res) => {
   const { token } = req.params;
 
   try {
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     const invitation = await db.get(
       `SELECT i.*, c.nom as classe_nom
        FROM invitations i
        LEFT JOIN classes c ON i.classe_id = c.id
-       WHERE i.token = ? AND i.used = 0 AND i.expires_at > NOW()`,
-      [token]
+       WHERE i.token = ? AND i.used = 0 AND i.expires_at > ?`,
+      [token, now]
     );
 
     if (!invitation) {
@@ -164,9 +166,10 @@ router.post('/complete', async (req, res) => {
 
   try {
     // Vérifier l'invitation
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     const invitation = await db.get(
-      'SELECT * FROM invitations WHERE token = ? AND used = 0 AND expires_at > NOW()',
-      [token]
+      'SELECT * FROM invitations WHERE token = ? AND used = 0 AND expires_at > ?',
+      [token, now]
     );
 
     if (!invitation) {
@@ -197,9 +200,10 @@ router.post('/complete', async (req, res) => {
       );
 
       // Marquer l'invitation comme utilisée
+      const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
       await connection.query(
-        'UPDATE invitations SET used = 1, used_at = NOW() WHERE id = ?',
-        [invitation.id]
+        'UPDATE invitations SET used = 1, used_at = ? WHERE id = ?',
+        [now, invitation.id]
       );
 
       return result.insertId;
@@ -228,14 +232,15 @@ router.get('/list', async (req, res) => {
   }
 
   try {
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     const invitations = await db.all(
       `SELECT i.*, c.nom as classe_nom, u.username as created_by_username
        FROM invitations i
        LEFT JOIN classes c ON i.classe_id = c.id
        LEFT JOIN users u ON i.created_by = u.id
-       WHERE i.created_by = ? AND i.used = 0 AND i.expires_at > NOW()
+       WHERE i.created_by = ? AND i.used = 0 AND i.expires_at > ?
        ORDER BY i.created_at DESC`,
-      [req.session.userId]
+      [req.session.userId, now]
     );
 
     res.json(invitations);
@@ -255,12 +260,13 @@ router.post('/resend/:id', async (req, res) => {
 
   try {
     // Récupérer l'invitation
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     const invitation = await db.get(
       `SELECT i.*, c.nom as classe_nom
        FROM invitations i
        LEFT JOIN classes c ON i.classe_id = c.id
-       WHERE i.id = ? AND i.created_by = ? AND i.used = 0 AND i.expires_at > NOW()`,
-      [id, req.session.userId]
+       WHERE i.id = ? AND i.created_by = ? AND i.used = 0 AND i.expires_at > ?`,
+      [id, req.session.userId, now]
     );
 
     if (!invitation) {

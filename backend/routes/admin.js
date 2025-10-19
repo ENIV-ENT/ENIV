@@ -276,7 +276,7 @@ router.post('/settings/emploi-temps', requireAdmin, express.json(), async (req, 
 
     const key = `emploi_temps_lien_${admin.classe_id}`;
     await db.run(
-      'INSERT INTO settings (key, value, classe_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value), classe_id = VALUES(classe_id)',
+      'INSERT INTO settings (`key`, value, classe_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value), classe_id = VALUES(classe_id)',
       [key, lien || null, admin.classe_id]
     );
     res.json({ success: true, message: 'Lien emploi du temps configuré' });
@@ -294,7 +294,7 @@ router.get('/settings/emploi-temps', requireAuth, async (req, res) => {
     }
 
     const key = `emploi_temps_lien_${user.classe_id}`;
-    const setting = await db.get('SELECT value FROM settings WHERE key = ?', [key]);
+    const setting = await db.get('SELECT value FROM settings WHERE `key` = ?', [key]);
     res.json({ lien: setting ? setting.value : null });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la récupération' });
@@ -318,7 +318,7 @@ router.post('/settings/discord-webhook', requireAdmin, express.json(), async (re
 
     const key = `discord_webhook_${admin.classe_id}`;
     await db.run(
-      'INSERT INTO settings (key, value, classe_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value), classe_id = VALUES(classe_id)',
+      'INSERT INTO settings (`key`, value, classe_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value), classe_id = VALUES(classe_id)',
       [key, webhook || null, admin.classe_id]
     );
     res.json({ success: true, message: 'Webhook Discord configuré' });
@@ -337,7 +337,7 @@ router.get('/settings/discord-webhook', requireAdmin, async (req, res) => {
     }
 
     const key = `discord_webhook_${admin.classe_id}`;
-    const setting = await db.get('SELECT value FROM settings WHERE key = ?', [key]);
+    const setting = await db.get('SELECT value FROM settings WHERE `key` = ?', [key]);
     res.json({ webhook: setting ? setting.value : null });
   } catch (error) {
     console.error('Error retrieving Discord webhook:', error);
