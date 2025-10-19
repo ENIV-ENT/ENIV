@@ -311,8 +311,8 @@ router.post('/settings/discord-webhook', requireAdmin, express.json(), async (re
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
-    // Valider le format du webhook Discord
-    if (webhook && !webhook.match(/^https:\/\/discord\.com\/api\/webhooks\/.+/)) {
+    // Valider le format du webhook Discord (accepte discord.com et discordapp.com)
+    if (webhook && !webhook.match(/^https:\/\/(discord\.com|discordapp\.com)\/api\/webhooks\/.+/)) {
       return res.status(400).json({ error: 'URL de webhook Discord invalide' });
     }
 
