@@ -34,6 +34,15 @@ router.post('/create', async (req, res) => {
   }
 
   try {
+    // Récupérer la classe de l'utilisateur créateur si c'est un admin
+    let finalClasseId = classe_id;
+    if (creatorRole === 'admin' && !classe_id) {
+      const creator = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
+      if (creator && creator.classe_id) {
+        finalClasseId = creator.classe_id;
+      }
+    }
+
     // Vérifier si l'email existe déjà
     const existingUser = await db.get('SELECT id FROM users WHERE email = ?', [email]);
     if (existingUser) {
@@ -63,13 +72,13 @@ router.post('/create', async (req, res) => {
     // Créer l'invitation
     const result = await db.run(
       'INSERT INTO invitations (email, token, role, classe_id, created_by, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [email, token, role, classe_id || null, req.session.userId, mysqlDateTime]
+      [email, token, role, finalClasseId || null, req.session.userId, mysqlDateTime]
     );
 
     // Récupérer le nom de la classe si applicable
     let className = null;
-    if (classe_id) {
-      const classe = await db.get('SELECT nom FROM classes WHERE id = ?', [classe_id]);
+    if (finalClasseId) {
+      const classe = await db.get('SELECT nom FROM classes WHERE id = ?', [finalClasseId]);
       className = classe ? classe.nom : null;
     }
 
