@@ -1,5 +1,5 @@
 import { apiCall, checkAuth, logout } from '../utils/api.js';
-import { escapeHTML, localDate, formatDate, toggleModal, setupModalClose, showAlert, showConfirm } from '../utils/dom.js';
+import { escapeHTML, localDate, formatDate, toInputDate, toggleModal, setupModalClose, showAlert, showConfirm } from '../utils/dom.js';
 import { initWebSocket } from '../utils/websocket.js';
 
 let matieres = [];
@@ -189,7 +189,8 @@ function renderMobileWeekView() {
 
     const dayDevoirs = devoirs.filter(d => {
       if (!d.date) return false;
-      const devoirDate = new Date(d.date).toISOString().split('T')[0];
+      // Comparer directement les chaînes de dates pour éviter les problèmes de timezone
+      const devoirDate = d.date.split('T')[0];
       return devoirDate === dateStr;
     }).sort((a, b) => a.fait - b.fait);
 
@@ -279,7 +280,8 @@ function renderDateCell(date, otherMonth) {
 
   const dayDevoirs = devoirs.filter(d => {
     if (!d.date) return false;
-    const devoirDate = new Date(d.date).toISOString().split('T')[0];
+    // Comparer directement les chaînes de dates pour éviter les problèmes de timezone
+    const devoirDate = d.date.split('T')[0];
     return devoirDate === dateStr;
   }).sort((a, b) => a.fait - b.fait);
 
@@ -422,7 +424,7 @@ async function editDevoir(id) {
   document.getElementById('edit-devoir-id').value = devoir.id;
   document.getElementById('edit-devoir-titre').value = devoir.titre;
   document.getElementById('edit-devoir-description').value = devoir.description || '';
-  document.getElementById('edit-devoir-date-limite').value = devoir.date || '';
+  document.getElementById('edit-devoir-date-limite').value = toInputDate(devoir.date);
 
   const select = document.getElementById('edit-devoir-matiere');
   select.innerHTML = '<option value="">Sélectionner une matière</option>';

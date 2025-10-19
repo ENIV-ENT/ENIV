@@ -18,6 +18,39 @@ export function formatDate(dateString) {
   });
 }
 
+export function toInputDate(dateString) {
+  if (!dateString) return '';
+
+  // Si la date est déjà au format YYYY-MM-DD, la retourner directement
+  if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    return dateString;
+  }
+
+  // Parser la date
+  let date;
+  if (typeof dateString === 'string') {
+    // Ajouter l'heure pour éviter les problèmes de timezone
+    if (dateString.includes('T') || dateString.includes(' ')) {
+      date = new Date(dateString);
+    } else {
+      date = new Date(dateString + 'T12:00:00');
+    }
+  } else {
+    date = new Date(dateString);
+  }
+
+  // Vérifier que la date est valide
+  if (isNaN(date.getTime())) {
+    console.error('Date invalide:', dateString);
+    return '';
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function toggleModal(modalId, show = true) {
   const modal = document.getElementById(modalId);
   if (modal) {
