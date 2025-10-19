@@ -1,5 +1,5 @@
 import { apiCall, checkAuth, logout } from '../utils/api.js';
-import { escapeHTML, localDate, formatDate, toInputDate, toggleModal, setupModalClose, showAlert, showConfirm } from '../utils/dom.js';
+import { escapeHTML, localDate, formatDate, toInputDate, toggleModal, setupModalClose, showAlert, showConfirm, getContrastColor } from '../utils/dom.js';
 import { initWebSocket } from '../utils/websocket.js';
 
 let matieres = [];
@@ -296,7 +296,8 @@ function renderDateCell(date, otherMonth) {
   dayDevoirs.forEach(devoir => {
     const matiere = matieres.find(m => m.id === devoir.matiere_id);
     const couleur = matiere?.couleur || '#999';
-    html += `<div class="devoir-item ${devoir.fait ? 'fait' : ''}" data-devoir-id="${devoir.id}" style="background-color: ${couleur};">`;
+    const textColor = getContrastColor(couleur);
+    html += `<div class="devoir-item ${devoir.fait ? 'fait' : ''}" data-devoir-id="${devoir.id}" style="background-color: ${couleur}; color: ${textColor};">`;
     html += `${escapeHTML(devoir.titre)}`;
     html += '</div>';
   });

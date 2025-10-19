@@ -234,3 +234,21 @@ export function showConfirm(message, title = 'Confirmation') {
     confirmModalElement.rejectCallback = () => resolve(false);
   });
 }
+
+// Calcule si le texte doit être blanc ou noir selon la luminosité de la couleur de fond
+export function getContrastColor(hexColor) {
+  // Retirer le # si présent
+  const hex = hexColor.replace('#', '');
+
+  // Convertir en RGB
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+
+  // Calculer la luminosité selon la formule W3C
+  // https://www.w3.org/TR/WCAG20/#relativeluminancedef
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+  // Si la couleur est sombre (luminance < 0.5), utiliser du blanc, sinon du noir
+  return luminance < 0.5 ? '#ffffff' : '#000000';
+}
