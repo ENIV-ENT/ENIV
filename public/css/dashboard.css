@@ -295,10 +295,9 @@ header h1 {
 .calendar-days {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 1px;
-  background: var(--border);
+  gap: 0;
   border: 1px solid var(--border);
-  margin-bottom: 1px;
+  margin-bottom: 0;
 }
 
 .calendar-day-header {
@@ -308,14 +307,21 @@ header h1 {
   font-weight: 600;
   color: var(--dark);
   font-size: 0.875rem;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.calendar-day-header:nth-child(7) {
+  border-right: none;
 }
 
 .calendar-dates {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 1px;
-  background: var(--border);
-  border: 1px solid var(--border);
+  gap: 0;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   min-height: 500px;
 }
 
@@ -329,6 +335,12 @@ header h1 {
   position: relative;
   display: flex;
   flex-direction: column;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.calendar-date:nth-child(7n) {
+  border-right: none;
 }
 
 .calendar-date:hover {
