@@ -1,3 +1,6 @@
+/* CSS complet pour la page dashboard */
+
+/* Reset et base */
 * {
   margin: 0;
   padding: 0;
@@ -13,6 +16,8 @@
   --light: #f8f9fa;
   --dark: #343a40;
   --border: #dee2e6;
+  --surface: white;
+  --text: #343a40;
 }
 
 body {
@@ -33,105 +38,6 @@ body {
 
 .hidden {
   display: none !important;
-}
-
-/* Login Page */
-.login-container {
-  max-width: 400px;
-  margin: 100px auto;
-  padding: 2rem;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  animation: ApparitionBouton 1s ease-in-out;
-}
-
-.login-container h1 {
-  text-align: center;
-  margin-bottom: 2rem;
-  color: var(--primary);
-  animation: ApparitionBouton 1s ease-in-out;
-}
-.login-container h3 {
-  text-align: center;
-  margin-bottom: 1.5rem;
-  color: var(--secondary);
-  font-weight: 400;
-  animation: ApparitionBouton 1s ease-in-out;
-}
-#login-form input {
-  width: 100%;
-  padding: 0.75rem;
-  margin-bottom: 1rem;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  font-size: 1rem;
-  animation: ApparitionBouton 1s ease-in-out;
-}
-#Copyright {
-  text-align: center;
-  color: var(--secondary);
-  font-size: 0.875rem;
-  font-weight: 400;
-  animation: ApparitionBouton 1s ease-in-out;
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: white;
-  padding: 0.5rem 0;
-  z-index: 999;
-  box-shadow: 0 -2px 8px rgba(0,0,0,0.05);
-}
-/* Style de base du bouton */
-#login-form button {
-  width: 100%;
-  padding: 0.75rem;
-  background: var(--primary, #3498db);
-  color: white;
-  border: none;
-  border-radius: 50px;
-  font-size: 1rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color ease-in-out 0.3s, transform ease-in-out 0.2s,
-    box-shadow ease-in-out 0.3s, scale 1.7s ease-in-out;
-  text-transform: uppercase;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  animation: ApparitionBouton 2.7s ease-in-out;
-}
-/* Effet au survol */
-#login-form button:hover {
-  background-color: #1e9e69;
-  transform: scale(1.1);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
-  filter: brightness(1.2);
-}
-
-/* Effet au clic */
-#login-form button:active {
-  transform: scale(0.95);
-  background-color: #5a6b68;
-  box-shadow: 0 4px 8px rgba(107, 92, 92, 0.1);
-  filter: brightness(1);
-}
-
-/* animation du bouton */
-@keyframes ApparitionBouton {
-  0% {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.error {
-  color: var(--danger);
-  margin-top: 0.5rem;
-  font-size: 0.875rem;
 }
 
 /* Header */
@@ -168,42 +74,7 @@ header h1 {
   padding: 0 1rem;
 }
 
-/* Tabs */
-.tabs {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 2rem;
-  flex-wrap: wrap;
-}
-
-.tab-btn {
-  padding: 0.75rem 1.5rem;
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.tab-btn:hover {
-  background: var(--light);
-}
-
-.tab-btn.active {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
-}
-
-.tab-content {
-  display: none;
-}
-
-.tab-content.active {
-  display: block;
-}
-
-/* Buttons */
+/* Boutons */
 .btn-primary,
 .btn-secondary {
   padding: 0.5rem 1rem;
@@ -246,22 +117,7 @@ header h1 {
   opacity: 0.9;
 }
 
-/* Section Header */
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.section-header h2 {
-  font-size: 1.5rem;
-  color: var(--dark);
-}
-
-/* Forms */
+/* Formulaires */
 .form-container {
   background: white;
   padding: 1.5rem;
@@ -295,33 +151,80 @@ header h1 {
   box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
 }
 
-.file-label {
-  display: block;
-  margin-bottom: 1rem;
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-.file-label input[type="file"] {
-  display: none;
-}
-
-.file-label span {
-  display: inline-block;
-  padding: 0.75rem 1rem;
-  background: var(--light);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.3s;
-}
-
-.file-label span:hover {
-  background: var(--border);
+.form-label {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--dark);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .form-actions {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.error {
+  color: var(--danger);
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  padding: 0.75rem 1.5rem;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.tab-btn:hover {
+  background: var(--light);
+}
+
+.tab-btn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* Section Header */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.section-header h2 {
+  font-size: 1.5rem;
+  color: var(--dark);
 }
 
 /* Lists */
@@ -361,6 +264,120 @@ header h1 {
 .list-item-actions {
   display: flex;
   gap: 0.5rem;
+}
+
+/* Calendar header */
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.calendar-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--dark);
+}
+
+/* Calendar */
+.calendar {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+}
+
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  margin-bottom: 1px;
+}
+
+.calendar-day-header {
+  background: var(--light);
+  padding: 0.75rem;
+  text-align: center;
+  font-weight: 600;
+  color: var(--dark);
+  font-size: 0.875rem;
+}
+
+.calendar-dates {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  min-height: 500px;
+}
+
+.calendar-date {
+  background: white;
+  padding: 0.5rem;
+  min-height: 100px;
+  max-height: 150px;
+  cursor: pointer;
+  transition: background 0.2s;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-date:hover {
+  background: var(--light);
+}
+
+.calendar-date.other-month {
+  background: #fafafa;
+  color: #999;
+}
+
+.calendar-date.today {
+  background: #e3f2fd;
+}
+
+.date-number {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.date-devoirs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.devoir-item {
+  background: var(--primary);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.devoir-item:hover {
+  opacity: 0.8;
+}
+
+.devoir-item.fait {
+  text-decoration: line-through;
+  opacity: 0.6;
 }
 
 /* Devoirs Grid */
@@ -512,162 +529,27 @@ header h1 {
   cursor: pointer;
 }
 
-/* Modal */
-.modal {
+.file-label {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.file-label input[type="file"] {
   display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
-  overflow-y: auto;
 }
 
-.modal.active {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-}
-
-.modal-content {
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  max-width: 600px;
-  width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: var(--secondary);
-}
-
-/* Calendar */
-.calendar-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  padding: 1rem;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.calendar-header h2 {
-  margin: 0;
-  font-size: 1.5rem;
-  color: var(--dark);
-}
-
-.calendar {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 1rem;
-}
-
-.calendar-days {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 1px;
-  background: var(--border);
-  border: 1px solid var(--border);
-  margin-bottom: 1px;
-}
-
-.calendar-day-header {
+.file-label span {
+  display: inline-block;
+  padding: 0.75rem 1rem;
   background: var(--light);
-  padding: 0.75rem;
-  text-align: center;
-  font-weight: 600;
-  color: var(--dark);
-  font-size: 0.875rem;
-}
-
-.calendar-dates {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 1px;
-  background: var(--border);
   border: 1px solid var(--border);
-  min-height: 500px;
-}
-
-.calendar-date {
-  background: white;
-  padding: 0.5rem;
-  min-height: 100px;
-  max-height: 150px;
-  cursor: pointer;
-  transition: background 0.2s;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
-
-.calendar-date:hover {
-  background: var(--light);
-}
-
-.calendar-date.other-month {
-  background: #fafafa;
-  color: #999;
-}
-
-.calendar-date.today {
-  background: #e3f2fd;
-}
-
-.date-number {
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-  font-size: 0.875rem;
-}
-
-.date-devoirs {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.devoir-item {
-  background: var(--primary);
-  color: white;
-  padding: 0.25rem 0.5rem;
   border-radius: 4px;
-  font-size: 0.75rem;
   cursor: pointer;
-  transition: opacity 0.2s;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 500;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: background 0.3s;
 }
 
-.devoir-item:hover {
-  opacity: 0.8;
-}
-
-.devoir-item.fait {
-  text-decoration: line-through;
-  opacity: 0.6;
+.file-label span:hover {
+  background: var(--border);
 }
 
 /* Modal */
@@ -773,25 +655,11 @@ header h1 {
   flex-wrap: wrap;
 }
 
-/* Modal Form Styling */
+/* Modal form styling */
 .modal-content form {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.form-label {
-  font-weight: 600;
-  font-size: 0.875rem;
-  color: var(--dark);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .modal-content input[type="text"],
@@ -855,11 +723,6 @@ header h1 {
   color: var(--primary);
 }
 
-.modal-content .file-label span::before {
-  content: "📎 ";
-  font-size: 1.2rem;
-}
-
 .modal-content .form-actions {
   display: flex;
   gap: 0.75rem;
@@ -899,7 +762,7 @@ header h1 {
   border-color: var(--secondary);
 }
 
-/* Responsive */
+/* Responsive dashboard */
 @media (max-width: 768px) {
   header {
     padding: 1rem;
@@ -1082,11 +945,6 @@ header h1 {
 }
 
 @media (max-width: 480px) {
-  .login-container {
-    margin: 50px auto;
-    padding: 1.5rem;
-  }
-
   .header-actions {
     width: 100%;
     justify-content: space-between;

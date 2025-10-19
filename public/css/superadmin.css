@@ -1,28 +1,43 @@
-/* Reset de base */
+/* CSS complet pour la page superadmin */
+
+/* Reset et base */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-/* Variables */
 :root {
   --primary: #4a90e2;
   --primary-dark: #357abd;
   --secondary: #6c757d;
+  --success: #28a745;
   --danger: #dc3545;
   --light: #f8f9fa;
   --dark: #343a40;
   --border: #dee2e6;
+  --surface: white;
+  --text: #343a40;
 }
 
-/* Base */
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
     Ubuntu, Cantarell, sans-serif;
   background: var(--light);
   color: var(--dark);
   line-height: 1.6;
+}
+
+.page {
+  display: none;
+}
+
+.page.active {
+  display: block;
+}
+
+.hidden {
+  display: none !important;
 }
 
 /* Header */
@@ -45,6 +60,10 @@ header h1 {
   display: flex;
   gap: 1rem;
   align-items: center;
+}
+
+#user-info {
+  font-weight: 500;
 }
 
 /* Container */
@@ -73,6 +92,7 @@ header h1 {
 
 .tab-btn:hover {
   background: var(--light);
+  animation: btnHover 320ms ease forwards;
 }
 
 .tab-btn.active {
@@ -104,7 +124,7 @@ header h1 {
   color: var(--dark);
 }
 
-/* Buttons */
+/* Boutons */
 .btn-primary,
 .btn-secondary {
   padding: 0.5rem 1rem;
@@ -112,32 +132,9 @@ header h1 {
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.875rem;
-  transition: btnHover 0.7s;
-}
-@keyframes btnHover {
-  0% {
-    transform: translateY(0) scale(1);
-    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
-    opacity: 1;
-  }
-  50% {
-    transform: translateY(-4px) scale(1.03);
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(-2px) scale(1.02);
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
-    opacity: 1;
-  }
+  transition: all 0.3s;
 }
 
-/* Animation appliquée au survol des boutons */
-.btn-primary:hover,
-.btn-secondary:hover,
-.tab-btn:hover {
-  animation: btnHover 320ms ease forwards;
-}
 .btn-primary {
   background: var(--primary);
   color: white;
@@ -145,6 +142,7 @@ header h1 {
 
 .btn-primary:hover {
   background: var(--primary-dark);
+  animation: btnHover 320ms ease forwards;
 }
 
 .btn-secondary {
@@ -154,9 +152,78 @@ header h1 {
 
 .btn-secondary:hover {
   opacity: 0.9;
+  animation: btnHover 320ms ease forwards;
 }
 
-/* Modals */
+.btn-danger {
+  padding: 0.5rem 1rem;
+  background: var(--danger);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.btn-danger:hover {
+  opacity: 0.9;
+}
+
+@keyframes btnHover {
+  0% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  }
+  50% {
+    transform: translateY(-4px) scale(1.03);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+  }
+  100% {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
+  }
+}
+
+/* Lists */
+.list {
+  display: grid;
+  gap: 1rem;
+}
+
+.list-item {
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.list-item-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.list-item-info h3 {
+  margin-bottom: 0.25rem;
+}
+
+.list-item-info p {
+  color: var(--secondary);
+  font-size: 0.875rem;
+}
+
+.list-item-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Modal */
 .modal {
   display: none;
   position: fixed;
@@ -204,29 +271,75 @@ header h1 {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--light);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--dark);
+  font-weight: 700;
 }
 
 .modal-close {
-  background: none;
+  background: var(--light);
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
   color: var(--secondary);
+  line-height: 1;
+  padding: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
 }
 
-/* Forms */
+.modal-close:hover {
+  background: var(--danger);
+  color: white;
+  transform: rotate(90deg);
+}
+
+/* Formulaires */
+.form-container {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.form-container h2,
+.form-container h3 {
+  margin-bottom: 1rem;
+}
+
 .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
   margin-bottom: 1rem;
 }
 
 .form-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--dark);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 input[type="text"],
+input[type="email"],
 input[type="password"],
+input[type="url"],
+input[type="date"],
+textarea,
 select {
   width: 100%;
   padding: 0.75rem;
@@ -234,10 +347,83 @@ select {
   border-radius: 4px;
   font-size: 1rem;
   font-family: inherit;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="url"]:focus,
+input[type="date"]:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
 }
 
 .form-actions {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.error {
+  color: var(--danger);
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  header {
+    padding: 1rem;
+  }
+
+  header h1 {
+    font-size: 1.25rem;
+  }
+
+  .container {
+    padding: 0 0.5rem;
+  }
+
+  .tabs {
+    overflow-x: auto;
+  }
+
+  .tab-btn {
+    white-space: nowrap;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .list-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .list-item-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions button {
+    width: 100%;
+  }
 }
