@@ -70,8 +70,8 @@ function setupEventListeners() {
 
     // Masquer le feedback si le champ est vide
     if (username.length === 0) {
-      feedbackDiv.style.display = 'none';
       feedbackDiv.className = 'username-feedback';
+      feedbackDiv.textContent = '';
       isUsernameAvailable = false;
       return;
     }

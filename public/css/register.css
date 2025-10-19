@@ -212,9 +212,14 @@ header h1 {
   padding: 0.75rem;
   border: 1px solid var(--border);
   border-radius: 4px;
+  margin-bottom: 1rem;
   font-size: 1rem;
   font-family: inherit;
   transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.form-container #username {
+  margin-bottom: 0;
 }
 
 .form-container input:focus,
