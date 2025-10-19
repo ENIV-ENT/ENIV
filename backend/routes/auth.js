@@ -8,7 +8,11 @@ router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const user = await db.get('SELECT * FROM users WHERE LOWER(username) = LOWER(?)', [username]);
+    // Rechercher l'utilisateur par username OU par email
+    const user = await db.get(
+      'SELECT * FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)',
+      [username, username]
+    );
 
     if (!user) {
       return res.status(401).json({ error: 'Identifiants invalides' });
