@@ -100,7 +100,6 @@ async function sendInvitationEmail(email, token, role, className = null) {
         <div class="container">
           <div class="header">
             <h1>Eniv</h1>
-            <p>Espace Numérique de Travail</p>
           </div>
 
           <div class="content">
