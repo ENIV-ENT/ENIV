@@ -149,18 +149,19 @@ function setupEventListeners() {
   });
 
   document.getElementById('add-eleve-btn').addEventListener('click', () => {
-    document.getElementById('add-eleve-form').classList.toggle('hidden');
+    toggleModal('add-eleve-modal', true);
   });
 
-  document.getElementById('cancel-eleve-btn').addEventListener('click', () => {
-    document.getElementById('add-eleve-form').classList.add('hidden');
-    document.getElementById('eleve-form').reset();
+  document.getElementById('cancel-add-eleve-btn').addEventListener('click', () => {
+    toggleModal('add-eleve-modal', false);
+    document.getElementById('add-eleve-form').reset();
   });
 
-  document.getElementById('eleve-form').addEventListener('submit', handleAddEleve);
+  document.getElementById('add-eleve-form').addEventListener('submit', handleAddEleve);
 
   document.getElementById('add-matiere-btn').addEventListener('click', showAddMatiereModal);
 
+  setupModalClose('add-eleve-modal', 'close-add-eleve-modal');
   setupModalClose('add-matiere-modal', 'close-add-matiere-modal');
   setupModalClose('edit-matiere-modal', 'close-edit-matiere-modal');
   setupModalClose('edit-eleve-modal', 'close-edit-eleve-modal');
@@ -200,9 +201,9 @@ async function handleAddEleve(e) {
   if (data.error) {
     await showAlert(data.error, 'Erreur');
   } else {
+    toggleModal('add-eleve-modal', false);
     await showAlert('Invitation envoyée avec succès à ' + email, 'Succès');
-    document.getElementById('add-eleve-form').classList.add('hidden');
-    document.getElementById('eleve-form').reset();
+    document.getElementById('add-eleve-form').reset();
     await loadEleves();
     await loadInvitations();
   }

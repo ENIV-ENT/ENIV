@@ -30,20 +30,6 @@
         <button id="add-eleve-btn" class="btn-primary">Ajouter un élève</button>
       </div>
 
-      <div id="add-eleve-form" class="form-container hidden">
-        <h3>Inviter un élève</h3>
-        <p style="color: var(--secondary); font-size: 0.9rem; margin-bottom: 1rem;">
-          L'élève recevra un email avec un lien pour finaliser son inscription (nom, prénom, username, mot de passe).
-        </p>
-        <form id="eleve-form">
-          <input type="email" id="eleve-email" placeholder="Email de l'élève" required>
-          <div class="form-actions">
-            <button type="submit" class="btn-primary">Envoyer l'invitation</button>
-            <button type="button" id="cancel-eleve-btn" class="btn-secondary">Annuler</button>
-          </div>
-        </form>
-      </div>
-
       <div id="eleves-list" class="list"></div>
     </div>
 
@@ -90,6 +76,28 @@
         </p>
         <input type="url" id="discord-webhook-url" placeholder="https://discord.com/api/webhooks/..." pattern="https://discord\.com/api/webhooks/.*">
         <button type="submit" class="btn-primary">Enregistrer le webhook</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="add-eleve-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Inviter un élève</h2>
+        <button class="modal-close" id="close-add-eleve-modal">&times;</button>
+      </div>
+      <p style="color: var(--secondary); font-size: 0.9rem; margin-bottom: 1rem; padding: 0 1rem;">
+        L'élève recevra un email avec un lien pour finaliser son inscription (nom, prénom, username, mot de passe).
+      </p>
+      <form id="add-eleve-form">
+        <div class="form-group">
+          <label for="eleve-email" class="form-label">Email de l'élève</label>
+          <input type="email" id="eleve-email" placeholder="exemple@email.com" required>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Envoyer l'invitation</button>
+          <button type="button" id="cancel-add-eleve-btn" class="btn-secondary">Annuler</button>
+        </div>
       </form>
     </div>
   </div>
