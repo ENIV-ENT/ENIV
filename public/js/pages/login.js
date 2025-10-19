@@ -4,8 +4,11 @@ const loginForm = document.getElementById("login-form");
 const loginError = document.getElementById("login-error");
 const boiteNomUtilisateur = document.getElementById("username");
 const boiteMotDePasse = document.getElementById("password");
-//console.log(boiteNomUtilisateur);
-//console.log(boiteMotDePasse);
+
+// Elements pour la modal mot de passe oublié
+const forgotPasswordLink = document.getElementById("forgot-password-link");
+const forgotPasswordModal = document.getElementById("forgot-password-modal");
+const closeModal = document.querySelector(".close");
 
 async function init() {
   await checkAuth();
@@ -59,6 +62,22 @@ async function init() {
     if (e.key === "Enter") {
       e.preventDefault();
       loginForm.requestSubmit();
+    }
+  });
+
+  // Gestion de la modal mot de passe oublié
+  forgotPasswordLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    forgotPasswordModal.style.display = "block";
+  });
+
+  closeModal.addEventListener("click", () => {
+    forgotPasswordModal.style.display = "none";
+  });
+
+  window.addEventListener("click", (e) => {
+    if (e.target === forgotPasswordModal) {
+      forgotPasswordModal.style.display = "none";
     }
   });
 }

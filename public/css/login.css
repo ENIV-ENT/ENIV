@@ -130,6 +130,125 @@ body {
   font-size: 0.875rem;
 }
 
+.message {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.message.success {
+  color: var(--success);
+}
+
+.message.error {
+  color: var(--danger);
+}
+
+/* Forgot password link */
+.forgot-password-container {
+  text-align: center;
+  margin-top: 1rem;
+  animation: ApparitionBouton 1.5s ease-in-out;
+}
+
+.forgot-password-container a {
+  color: var(--primary);
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: color 0.3s ease;
+}
+
+.forgot-password-container a:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
+}
+
+/* Modal styles */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.5);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.modal-content {
+  position: relative;
+  background-color: #fefefe;
+  margin: 10% auto;
+  padding: 2rem;
+  border-radius: 15px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  animation: slideDown 0.3s ease-in-out;
+}
+
+.modal-content h2 {
+  color: var(--primary);
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.modal-content p {
+  color: var(--secondary);
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.admin-message {
+  padding: 1.5rem;
+  background: #e3f2fd;
+  border-radius: 8px;
+  border-left: 4px solid var(--primary);
+  color: var(--dark) !important;
+  font-size: 1rem !important;
+  line-height: 1.6;
+}
+
+.close {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  color: var(--secondary);
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: color 0.3s ease;
+  line-height: 1;
+}
+
+.close:hover,
+.close:focus {
+  color: var(--dark);
+}
+
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 /* Animation d'apparition */
 @keyframes ApparitionBouton {
   0% {
