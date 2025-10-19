@@ -219,6 +219,10 @@ header h1 {
 }
 
 .form-container #username {
+  margin-bottom: 1rem;
+}
+
+.form-container #username.has-feedback {
   margin-bottom: 0;
 }
 

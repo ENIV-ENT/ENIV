@@ -72,6 +72,7 @@ function setupEventListeners() {
     if (username.length === 0) {
       feedbackDiv.className = 'username-feedback';
       feedbackDiv.textContent = '';
+      usernameInput.classList.remove('has-feedback');
       isUsernameAvailable = false;
       return;
     }
@@ -80,6 +81,7 @@ function setupEventListeners() {
     if (username.length < 3) {
       feedbackDiv.className = 'username-feedback unavailable';
       feedbackDiv.textContent = 'Le nom d\'utilisateur doit contenir au moins 3 caractères';
+      usernameInput.classList.add('has-feedback');
       isUsernameAvailable = false;
       return;
     }
@@ -92,6 +94,7 @@ function setupEventListeners() {
     // Afficher l'indicateur de chargement
     feedbackDiv.className = 'username-feedback checking';
     feedbackDiv.innerHTML = '<span class="loading-spinner"></span> Vérification de la disponibilité...';
+    usernameInput.classList.add('has-feedback');
 
     // Attendre 500ms avant de faire la requête
     usernameCheckTimeout = setTimeout(() => {
@@ -106,6 +109,7 @@ function setupEventListeners() {
 async function checkUsernameAvailability(username) {
   lastCheckedUsername = username;
   const feedbackDiv = document.getElementById('username-feedback');
+  const usernameInput = document.getElementById('username');
 
   try {
     const data = await apiCall('/api/invitations/check-username', {
@@ -116,6 +120,7 @@ async function checkUsernameAvailability(username) {
     if (data.error) {
       feedbackDiv.className = 'username-feedback unavailable';
       feedbackDiv.textContent = '⚠️ Erreur lors de la vérification';
+      usernameInput.classList.add('has-feedback');
       isUsernameAvailable = false;
       return;
     }
@@ -123,15 +128,18 @@ async function checkUsernameAvailability(username) {
     if (data.available) {
       feedbackDiv.className = 'username-feedback available';
       feedbackDiv.textContent = '✓ ' + data.message;
+      usernameInput.classList.add('has-feedback');
       isUsernameAvailable = true;
     } else {
       feedbackDiv.className = 'username-feedback unavailable';
       feedbackDiv.textContent = '✗ ' + data.message;
+      usernameInput.classList.add('has-feedback');
       isUsernameAvailable = false;
     }
   } catch (error) {
     feedbackDiv.className = 'username-feedback unavailable';
     feedbackDiv.textContent = '⚠️ Erreur lors de la vérification';
+    usernameInput.classList.add('has-feedback');
     isUsernameAvailable = false;
   }
 }
