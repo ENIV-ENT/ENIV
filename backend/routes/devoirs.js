@@ -4,6 +4,8 @@ const path = require('path');
 const fs = require('fs');
 const db = require('../models/dbHelper');
 const { requireAuth } = require('../middleware/auth');
+const { convertToPDF } = require('../services/fileConverter');
+const { check_before_upload } = require('../services/fileCleanup');
 const router = express.Router();
 
 // Configuration de multer pour l'upload de fichiers PDF
@@ -22,11 +24,21 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  // Accepter uniquement les fichiers PDF
-  if (file.mimetype === 'application/pdf') {
+  // Accepter PDF, DOCX, PPTX
+  const allowedMimeTypes = [
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    'application/msword', // .doc
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+    'application/vnd.ms-powerpoint', // .ppt
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/vnd.ms-excel' // .xls
+  ];
+  
+  if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Seuls les fichiers PDF sont autorisés'), false);
+    cb(new Error('Seuls les fichiers PDF, DOCX, PPTX, XLSX sont autorisés'), false);
   }
 };
 
@@ -34,7 +46,7 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024 // Limite de 10 Mo
+    fileSize: 50 * 1024 * 1024 // Limite de 50 Mo
   }
 });
 
@@ -262,6 +274,19 @@ router.post('/:id/upload', upload.single('pdf'), async (req, res) => {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
+    // Vérifier la limite de stockage (nettoie si nécessaire ou refuse)
+    const storageCheck = await check_before_upload(req.file.size);
+    
+    if (!storageCheck.allowed) {
+      // Supprimer le fichier uploadé
+      fs.unlinkSync(req.file.path);
+      return res.status(507).json({ error: storageCheck.error });
+    }
+    
+    if (storageCheck.cleaned) {
+      console.log(`📦 Nettoyage effectué: ${storageCheck.cleaned.count} fichiers supprimés`);
+    }
+
     // Enregistrer le fichier dans la base de données avec l'utilisateur qui l'a uploadé
     await db.run(
       'INSERT INTO devoir_fichiers (devoir_id, filename, original_name, uploaded_by) VALUES (?, ?, ?, ?)',
@@ -336,6 +361,54 @@ router.get('/:id/fichiers', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erreur lors de la récupération des fichiers' });
+  }
+});
+
+// Servir un fichier en PDF (avec conversion automatique si nécessaire)
+router.get('/fichiers/:fichierId/pdf', async (req, res) => {
+  try {
+    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
+    if (!user || !user.classe_id) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+
+    // Récupérer le fichier avec vérification de la classe
+    const fichier = await db.get(
+      `SELECT df.*, d.classe_id
+       FROM devoir_fichiers df
+       JOIN devoirs d ON df.devoir_id = d.id
+       WHERE df.id = ? AND d.classe_id = ?`,
+      [req.params.fichierId, user.classe_id]
+    );
+
+    if (!fichier) {
+      return res.status(404).json({ error: 'Fichier non trouvé' });
+    }
+
+    const uploadsDir = path.join(__dirname, '../uploads');
+    let filePath = path.join(uploadsDir, fichier.filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Fichier physique non trouvé' });
+    }
+
+    // Convertir en PDF si nécessaire (DOCX, PPTX, etc.)
+    try {
+      filePath = await convertToPDF(filePath);
+    } catch (error) {
+      console.error('Erreur conversion PDF:', error);
+      return res.status(500).json({ error: 'Erreur lors de la conversion en PDF' });
+    }
+
+    // Envoyer le fichier PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${fichier.original_name}.pdf"`);
+    
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erreur lors de la récupération du fichier' });
   }
 });
 

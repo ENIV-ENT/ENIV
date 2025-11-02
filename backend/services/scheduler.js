@@ -5,6 +5,7 @@ const { envoyerRecapitulatifQuotidien } = require('./discord');
  * Initialise le planificateur de tâches
  */
 function initScheduler() {
+  // Récapitulatif Discord à 18h00
   cron.schedule('00 18 * * *', async () => {
     console.log('Exécution de la tâche planifiée: envoi du récapitulatif quotidien');
     try {

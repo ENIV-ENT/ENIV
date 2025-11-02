@@ -4,6 +4,7 @@ const Groq = require('groq-sdk');
 const fs = require('fs');
 const path = require('path');
 const pdfParse = require('pdf-parse');
+const { convertToPDF } = require('./fileConverter');
 
 /**
  * Extraire le texte d'un fichier PDF
@@ -167,21 +168,17 @@ function extractJSON(text) {
   }
 
   const questions = JSON.parse(jsonMatch[0]);
-  validateQuestions(questions);
+  validateQuestionsFormat(questions);
   
   return questions;
 }
 
 /**
- * Valider le format des questions
+ * Valider le format des questions (sans vérifier le minimum)
  */
-function validateQuestions(questions) {
+function validateQuestionsFormat(questions) {
   if (!Array.isArray(questions) || questions.length === 0) {
     throw new Error('Le quiz doit contenir au moins une question');
-  }
-
-  if (questions.length < 20) {
-    throw new Error(`Le quiz doit contenir au minimum 20 questions (${questions.length} générées)`);
   }
 
   questions.forEach((q, index) => {
@@ -201,6 +198,138 @@ function validateQuestions(questions) {
 }
 
 /**
+ * Créer un prompt pour compléter un quiz
+ */
+function create_completion_prompt(devoir, documentsText, existing) {
+  return `Tu es un assistant pédagogique expert. Tu as déjà généré ${existing.length} questions pour un quiz, mais il en faut PLUS pour avoir un quiz complet.
+
+DEVOIR : ${devoir.titre}
+${devoir.description ? 'DESCRIPTION : ' + devoir.description : ''}
+
+QUESTIONS DÉJÀ GÉNÉRÉES (à ne PAS répéter) :
+${existing.map((q, i) => `${i + 1}. ${q.question}`).join('\n')}
+
+DOCUMENTS :
+${documentsText}
+
+GÉNÈRE MINIMUM 20 NOUVELLES QUESTIONS différentes de celles ci-dessus.
+Plus tu en génères, mieux c'est (tu peux aller jusqu'à 50-100 si le contenu le permet).
+
+Format JSON strict :
+[
+  {
+    "question": "Question claire",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct": 0,
+    "explanation": "Explication de la bonne réponse",
+    "example": "Exemple concret (optionnel)"
+  }
+]
+
+RÈGLES STRICTES :
+- MINIMUM 20 nouvelles questions
+- Questions DIFFÉRENTES de celles déjà générées
+- Basées sur le CONTENU PÉDAGOGIQUE uniquement
+- Pas de questions sur les métadonnées du document
+- Couvre différents aspects du contenu
+- Format JSON valide sans texte avant/après`;
+}
+
+/**
+ * Générer avec retry jusqu'à avoir 20 questions
+ */
+async function generate_with_retry(devoir, isPremium, documentsText) {
+  const MAX_RETRIES = 5;
+  const MIN_QUESTIONS = 20;
+  let allQuestions = [];
+  let attempts = 0;
+  let useFallback = false; // Pour basculer vers Groq si Claude échoue
+
+  console.log(`🎯 Objectif: ${MIN_QUESTIONS} questions minimum`);
+  console.log(`🤖 Mode: ${isPremium ? 'Premium (Claude)' : 'Gratuit (Groq)'}`);
+
+  while (attempts < MAX_RETRIES && allQuestions.length < MIN_QUESTIONS) {
+    attempts++;
+    
+    try {
+      let newQuestions = [];
+      
+      if (allQuestions.length === 0) {
+        // Première tentative : prompt normal
+        console.log(`📝 Tentative ${attempts}/${MAX_RETRIES} - Génération initiale...`);
+        const prompt = createPrompt(devoir, documentsText);
+        
+        if (isPremium && !useFallback) {
+          try {
+            newQuestions = await generateWithClaude(prompt);
+          } catch (error) {
+            // Si erreur 400 avec Claude, basculer vers Groq
+            if (error.status === 400 || error.message.includes('400')) {
+              console.warn('⚠️ Erreur 400 avec Claude, basculement vers Groq (gratuit)...');
+              useFallback = true;
+              newQuestions = await generateWithGroq(prompt);
+            } else {
+              throw error;
+            }
+          }
+        } else {
+          newQuestions = await generateWithGroq(prompt);
+        }
+      } else {
+        // Tentatives suivantes : compléter avec minimum 20 questions
+        console.log(`📝 Tentative ${attempts}/${MAX_RETRIES} - Demande de questions supplémentaires (minimum 20)...`);
+        const prompt = create_completion_prompt(devoir, documentsText, allQuestions);
+        
+        if (isPremium && !useFallback) {
+          try {
+            newQuestions = await generateWithClaude(prompt);
+          } catch (error) {
+            if (error.status === 400 || error.message.includes('400')) {
+              console.warn('⚠️ Erreur 400 avec Claude, basculement vers Groq (gratuit)...');
+              useFallback = true;
+              newQuestions = await generateWithGroq(prompt);
+            } else {
+              throw error;
+            }
+          }
+        } else {
+          newQuestions = await generateWithGroq(prompt);
+        }
+      }
+
+      // Valider le format
+      validateQuestionsFormat(newQuestions);
+      
+      // Ajouter les nouvelles questions
+      allQuestions = allQuestions.concat(newQuestions);
+      
+      console.log(`✓ ${newQuestions.length} questions générées (Total: ${allQuestions.length}/${MIN_QUESTIONS})`);
+      
+      // Si on a atteint le minimum, on arrête
+      if (allQuestions.length >= MIN_QUESTIONS) {
+        console.log(`✅ Objectif atteint: ${allQuestions.length} questions`);
+        break;
+      }
+      
+    } catch (error) {
+      console.error(`❌ Tentative ${attempts} échouée:`, error.message);
+      
+      // Si c'est la dernière tentative et qu'on n'a pas assez de questions
+      if (attempts >= MAX_RETRIES && allQuestions.length < MIN_QUESTIONS) {
+        throw new Error(`Impossible de générer 20 questions après ${MAX_RETRIES} tentatives. Seulement ${allQuestions.length} questions générées.`);
+      }
+    }
+  }
+
+  // Vérification finale
+  if (allQuestions.length < MIN_QUESTIONS) {
+    throw new Error(`Impossible de générer ${MIN_QUESTIONS} questions après ${MAX_RETRIES} tentatives. Seulement ${allQuestions.length} questions générées.`);
+  }
+
+  return allQuestions;
+}
+
+/**
  * Fonction principale pour générer un quiz
  */
 async function generateQuizWithAI(devoir, isPremium, fichiers) {
@@ -211,14 +340,25 @@ async function generateQuizWithAI(devoir, isPremium, fichiers) {
   console.log(`📄 Extraction de ${fichiers.length} document(s)...`);
 
   for (const fichier of fichiers) {
-    const filePath = path.join(uploadsDir, fichier.filename);
-    if (fs.existsSync(filePath)) {
-      const text = await extractTextFromPDF(filePath);
-      if (text) {
-        documentsTexts.push(text);
-      }
-    } else {
+    let filePath = path.join(uploadsDir, fichier.filename);
+    
+    if (!fs.existsSync(filePath)) {
       console.warn(`⚠️ Fichier non trouvé : ${filePath}`);
+      continue;
+    }
+
+    // Convertir en PDF si nécessaire (DOCX, PPTX, etc.)
+    try {
+      filePath = await convertToPDF(filePath);
+    } catch (error) {
+      console.error(`❌ Erreur conversion : ${error.message}`);
+      continue;
+    }
+
+    // Extraire le texte du PDF
+    const text = await extractTextFromPDF(filePath);
+    if (text) {
+      documentsTexts.push(text);
     }
   }
 
@@ -236,25 +376,12 @@ async function generateQuizWithAI(devoir, isPremium, fichiers) {
     throw new Error('Le contenu des documents est insuffisant pour générer un quiz. Les documents doivent contenir au moins 500 caractères de texte extractible.');
   }
 
-  const prompt = createPrompt(devoir, documentsText);
-
-  // Générer avec l'API appropriée
-  if (isPremium) {
-    console.log('🎯 Génération avec Claude (Premium)...');
-    try {
-      return await generateWithClaude(prompt);
-    } catch (error) {
-      // Si erreur 400 avec Claude, fallback vers Groq
-      if (error.status === 400 || error.message.includes('400')) {
-        console.warn('⚠️ Erreur 400 avec Claude, basculement vers Groq (gratuit)...');
-        return await generateWithGroq(prompt);
-      }
-      throw error;
-    }
-  } else {
-    console.log('🎯 Génération avec Groq (Gratuit)...');
-    return await generateWithGroq(prompt);
-  }
+  // Générer avec retry jusqu'à avoir 20 questions
+  const questions = await generate_with_retry(devoir, isPremium, documentsText);
+  
+  console.log(`🎉 Quiz généré avec succès: ${questions.length} questions`);
+  
+  return questions;
 }
 
 module.exports = {

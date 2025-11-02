@@ -234,23 +234,34 @@ function setupDropZone(dropZoneId, inputId, fileArray, listId) {
 function addFilesToArray(files, fileArray, listId) {
   if (!files || files.length === 0) return;
 
-  // Filtrer les fichiers PDF uniquement
-  const pdfFiles = Array.from(files).filter(file => file.type === 'application/pdf');
+  // Types de fichiers autorisés
+  const allowedTypes = [
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    'application/msword', // .doc
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+    'application/vnd.ms-powerpoint', // .ppt
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/vnd.ms-excel' // .xls
+  ];
 
-  if (pdfFiles.length === 0) {
-    showAlert('Seuls les fichiers PDF sont autorisés', 'Erreur');
+  // Filtrer les fichiers autorisés
+  const validFiles = Array.from(files).filter(file => allowedTypes.includes(file.type));
+
+  if (validFiles.length === 0) {
+    showAlert('Seuls les fichiers PDF, Word (DOCX), PowerPoint (PPTX) et Excel (XLSX) sont autorisés', 'Erreur');
     return;
   }
 
-  // Vérifier la taille des fichiers (10 Mo max)
-  const oversizedFiles = pdfFiles.filter(file => file.size > 10 * 1024 * 1024);
+  // Vérifier la taille des fichiers (50 Mo max)
+  const oversizedFiles = validFiles.filter(file => file.size > 50 * 1024 * 1024);
   if (oversizedFiles.length > 0) {
-    showAlert(`Certains fichiers dépassent la limite de 10 Mo : ${oversizedFiles.map(f => f.name).join(', ')}`, 'Erreur');
+    showAlert(`Certains fichiers dépassent la limite de 50 Mo : ${oversizedFiles.map(f => f.name).join(', ')}`, 'Erreur');
     return;
   }
 
   // Ajouter les fichiers à l'array (ne pas effacer les anciens)
-  pdfFiles.forEach(file => {
+  validFiles.forEach(file => {
     // Vérifier si le fichier n'est pas déjà dans la liste
     const exists = fileArray.some(f => f.name === file.name && f.size === file.size);
     if (!exists) {

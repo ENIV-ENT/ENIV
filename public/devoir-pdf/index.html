@@ -264,8 +264,8 @@
                     <strong>Cliquez pour sélectionner un fichier PDF</strong><br>
                     ou glissez-déposez un fichier ici
                 </div>
-                <small style="color: #999;">Taille maximale : 10 Mo</small>
-                <input type="file" id="fileInput" class="file-input" accept=".pdf,application/pdf">
+                <small style="color: #999;">Taille maximale : 50 Mo - Formats : PDF, Word...</small>
+                <input type="file" id="fileInput" class="file-input" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
             </div>
             <div style="margin-top: 15px; text-align: center;">
                 <button class="btn btn-primary" id="uploadBtn" style="display: none;">Uploader le fichier</button>
@@ -384,18 +384,26 @@
                     ? `par ${file.uploaded_by_username}`
                     : '';
 
+                // Afficher l'icône selon le type de fichier
+                const ext = file.original_name.split('.').pop().toLowerCase();
+                let icon = '📄';
+                if (ext === 'pdf') icon = '📕';
+                else if (['docx', 'doc'].includes(ext)) icon = '📘';
+                else if (['pptx', 'ppt'].includes(ext)) icon = '📙';
+                else if (['xlsx', 'xls'].includes(ext)) icon = '📗';
+
                 // Tout le monde peut supprimer tous les fichiers
                 return `
                     <div class="file-item">
                         <div class="file-info">
-                            <div class="file-icon">📄</div>
+                            <div class="file-icon">${icon}</div>
                             <div class="file-details">
                                 <div class="file-name">${file.original_name}</div>
                                 <div class="file-meta">Ajouté le ${date.toLocaleDateString('fr-FR')} à ${date.toLocaleTimeString('fr-FR')} ${uploadedBy}</div>
                             </div>
                         </div>
                         <div class="file-actions">
-                            <a href="/uploads/${file.filename}" target="_blank" class="btn btn-primary">Ouvrir</a>
+                            <a href="/api/devoirs/fichiers/${file.id}/pdf" target="_blank" class="btn btn-primary">Ouvrir</a>
                             <button class="btn btn-danger" onclick="deleteFile(${file.id})">Supprimer</button>
                         </div>
                     </div>
@@ -438,15 +446,26 @@
 
         // Gérer la sélection de fichier
         function handleFileSelect(file) {
-            // Vérifier que c'est un PDF
-            if (file.type !== 'application/pdf') {
-                showAlert('error', 'Seuls les fichiers PDF sont autorisés');
+            // Types de fichiers autorisés
+            const allowedTypes = [
+                'application/pdf',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+                'application/msword', // .doc
+                'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+                'application/vnd.ms-powerpoint', // .ppt
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+                'application/vnd.ms-excel' // .xls
+            ];
+
+            // Vérifier le type de fichier
+            if (!allowedTypes.includes(file.type)) {
+                showAlert('error', 'Seuls les fichiers PDF, Word (DOCX), PowerPoint (PPTX) et Excel (XLSX) sont autorisés');
                 return;
             }
 
-            // Vérifier la taille (10 Mo max)
-            if (file.size > 10 * 1024 * 1024) {
-                showAlert('error', 'Le fichier est trop volumineux (maximum 10 Mo)');
+            // Vérifier la taille (50 Mo max)
+            if (file.size > 50 * 1024 * 1024) {
+                showAlert('error', 'Le fichier est trop volumineux (maximum 50 Mo)');
                 return;
             }
 
