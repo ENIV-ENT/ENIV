@@ -62,10 +62,6 @@ app.get('/quiz', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'quiz', 'index.html'));
 });
 
-app.get('/quiz/create', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'quiz', 'create.html'));
-});
-
 app.get('/devoir-pdf', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'devoir-pdf', 'index.html'));
 });

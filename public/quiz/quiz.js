@@ -9,6 +9,7 @@ let incorrectCount = 0;
 let answered = false;
 let quizMode = null;
 let answeredQuestions = new Set(); // Pour empêcher la modification des anciennes réponses
+let answersHistory = {}; // Stocker l'historique des réponses {questionIndex: {selectedOption, isCorrect, mode}}
 let devoirId = null;
 
 // Récupérer l'ID du devoir depuis l'URL
@@ -152,6 +153,32 @@ function loadQuestion() {
 
             optionsContainer.appendChild(optionDiv);
         });
+
+        // Restaurer l'état si déjà répondu
+        if (isAlreadyAnswered && answersHistory[currentQuestionIndex]) {
+            const history = answersHistory[currentQuestionIndex];
+            const options = document.querySelectorAll('.option');
+            
+            // Marquer l'option sélectionnée
+            if (history.isCorrect) {
+                options[history.selectedOption].classList.add('correct');
+            } else {
+                options[history.selectedOption].classList.add('incorrect');
+                options[question.correct].classList.add('correct');
+            }
+
+            // Afficher l'explication
+            if (question.explanation) {
+                document.getElementById('explanationText').textContent = question.explanation;
+                if (question.example) {
+                    document.getElementById('exampleText').innerHTML = question.example;
+                    document.getElementById('example').style.display = 'block';
+                } else {
+                    document.getElementById('example').style.display = 'none';
+                }
+                document.getElementById('explanation').classList.add('show');
+            }
+        }
     } else {
         document.getElementById('oralResponse').style.display = 'block';
 
@@ -165,6 +192,48 @@ function loadQuestion() {
         document.getElementById('selfEvaluation').style.display = 'none';
         document.getElementById('correctAnswer').style.display = 'none';
         document.getElementById('correctAnswer').innerHTML = '';
+
+        // Restaurer l'état si déjà répondu (mode oral)
+        if (isAlreadyAnswered && answersHistory[currentQuestionIndex]) {
+            const history = answersHistory[currentQuestionIndex];
+            
+            // Afficher la réponse correcte
+            const correctAnswerDiv = document.getElementById('correctAnswer');
+            correctAnswerDiv.innerHTML = `<strong>Réponse correcte:</strong> ${question.options[question.correct]}`;
+            correctAnswerDiv.style.display = 'block';
+
+            // Afficher l'auto-évaluation (désactivée)
+            document.getElementById('selfEvaluation').style.display = 'block';
+            const evalButtons = document.querySelectorAll('.eval-buttons button');
+            evalButtons.forEach(btn => btn.disabled = true);
+
+            // Afficher l'explication
+            if (question.explanation) {
+                document.getElementById('explanationText').textContent = question.explanation;
+                if (question.example) {
+                    document.getElementById('exampleText').innerHTML = question.example;
+                    document.getElementById('example').style.display = 'block';
+                } else {
+                    document.getElementById('example').style.display = 'none';
+                }
+                document.getElementById('explanation').classList.add('show');
+            }
+
+            // Restaurer le récap si la réponse était incorrecte
+            if (!history.isCorrect) {
+                const recapDiv = document.createElement('div');
+                recapDiv.id = 'recapDiv';
+                recapDiv.className = 'recap';
+                recapDiv.innerHTML = `
+                    <strong>Récapitulatif:</strong>
+                    <p>${question.question}</p>
+                    <p><strong>Réponse:</strong> ${question.options[question.correct]}</p>
+                    ${question.explanation ? `<p>${question.explanation}</p>` : ''}
+                `;
+                const correctAnswerDiv = document.getElementById('correctAnswer');
+                correctAnswerDiv.parentNode.insertBefore(recapDiv, correctAnswerDiv.nextSibling);
+            }
+        }
     }
 
     // Gérer l'affichage du bouton précédent
@@ -197,7 +266,16 @@ function validateAnswer() {
         opt.onclick = null;
     });
 
-    if (selectedOption === question.correct) {
+    const isCorrect = selectedOption === question.correct;
+
+    // Sauvegarder dans l'historique
+    answersHistory[currentQuestionIndex] = {
+        selectedOption: selectedOption,
+        isCorrect: isCorrect,
+        mode: 'choice'
+    };
+
+    if (isCorrect) {
         options[selectedOption].classList.add('correct');
         score += 10;
         correctCount++;
@@ -260,6 +338,13 @@ function evaluateAnswer(isCorrect) {
     if (answeredQuestions.has(currentQuestionIndex)) return;
 
     answeredQuestions.add(currentQuestionIndex);
+
+    // Sauvegarder dans l'historique
+    answersHistory[currentQuestionIndex] = {
+        selectedOption: null, // Pas d'option sélectionnée en mode oral
+        isCorrect: isCorrect,
+        mode: 'oral'
+    };
 
     const existingRecap = document.getElementById('recapDiv');
     if (existingRecap) {
@@ -369,6 +454,7 @@ function restartQuiz() {
     document.getElementById('resultCard').classList.remove('show');
     document.getElementById('modeSelector').style.display = 'block';
     answeredQuestions.clear();
+    answersHistory = {};
     score = 0;
     correctCount = 0;
     incorrectCount = 0;
@@ -380,5 +466,96 @@ function goBack() {
     window.location.href = '/dashboard';
 }
 
+// Gestion du menu utilisateur
+async function loadUserInfo() {
+    try {
+        const response = await fetch('/api/auth/me', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const eleveInfo = document.getElementById('eleve-info');
+            if (eleveInfo) {
+                eleveInfo.textContent = data.username || data.email;
+            }
+
+            // Charger les paramètres pour l'emploi du temps
+            const settingsResponse = await fetch('/api/devoirs/settings/emploi-temps', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+            
+            if (settingsResponse.ok) {
+                const settings = await settingsResponse.json();
+                if (settings.lien) {
+                    const emploiTempsBtn = document.getElementById('emploi-temps-btn');
+                    if (emploiTempsBtn) {
+                        emploiTempsBtn.classList.remove('hidden');
+                        emploiTempsBtn.onclick = () => {
+                            window.open(settings.lien, '_blank');
+                            // Fermer le dropdown après le clic
+                            document.getElementById('user-dropdown').classList.add('hidden');
+                        };
+                    }
+                } else {
+                    const emploiTempsBtn = document.getElementById('emploi-temps-btn');
+                    if (emploiTempsBtn) {
+                        emploiTempsBtn.classList.add('hidden');
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Erreur lors du chargement des infos utilisateur:', error);
+    }
+}
+
+// Gestion du dropdown menu
+const userMenuBtn = document.getElementById('user-menu-btn');
+const userDropdown = document.getElementById('user-dropdown');
+const settingsBtn = document.getElementById('settings-btn');
+const logoutBtn = document.getElementById('logout-btn');
+
+if (userMenuBtn && userDropdown) {
+    userMenuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        userDropdown.classList.toggle('hidden');
+    });
+
+    // Fermer le menu en cliquant ailleurs
+    document.addEventListener('click', (e) => {
+        if (!userDropdown.classList.contains('hidden') && !e.target.closest('.user-menu')) {
+            userDropdown.classList.add('hidden');
+        }
+    });
+
+    // Empêcher la fermeture en cliquant sur le menu
+    userDropdown.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+}
+
+// Bouton paramètres
+if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => {
+        window.location.href = '/settings';
+    });
+}
+
+// Bouton déconnexion
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+        localStorage.removeItem('token');
+        window.location.href = '/';
+    });
+}
+
 // Initialiser le quiz au chargement de la page
-document.addEventListener('DOMContentLoaded', loadQuizData);
+document.addEventListener('DOMContentLoaded', () => {
+    loadQuizData();
+    loadUserInfo();
+});

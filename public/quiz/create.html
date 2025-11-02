@@ -4,13 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Créer un Quiz - ENIV</title>
+    <link rel="icon" type="image/x-icon" href="/images/logo.ico">
     <link rel="stylesheet" href="style.css">
     <style>
         .form-container {
             background: white;
             padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             margin-bottom: 30px;
         }
 
@@ -21,8 +22,11 @@
         .form-group label {
             display: block;
             margin-bottom: 8px;
-            font-weight: bold;
-            color: #333;
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .form-group input,
@@ -30,10 +34,19 @@
         .form-group textarea {
             width: 100%;
             padding: 12px;
-            border: 2px solid #e9ecef;
+            border: 2px solid var(--border);
             border-radius: 8px;
             font-size: 1em;
             font-family: inherit;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
         }
 
         .form-group textarea {
@@ -42,11 +55,11 @@
         }
 
         .btn-create {
-            background: #28a745;
+            background: var(--success);
             color: white;
             padding: 15px 30px;
             border: none;
-            border-radius: 10px;
+            border-radius: 4px;
             font-size: 1em;
             font-weight: bold;
             cursor: pointer;
@@ -56,12 +69,12 @@
         .btn-create:hover {
             background: #218838;
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
         }
 
         .alert {
             padding: 15px;
-            border-radius: 10px;
+            border-radius: 8px;
             margin-bottom: 20px;
             display: none;
         }
@@ -81,17 +94,17 @@
         }
 
         .help-text {
-            font-size: 0.9em;
-            color: #666;
+            font-size: 0.875em;
+            color: var(--secondary);
             margin-top: 5px;
         }
 
         .json-example {
-            background: #f8f9fa;
+            background: var(--light);
             padding: 15px;
             border-radius: 8px;
             margin-top: 10px;
-            border-left: 4px solid #667eea;
+            border-left: 4px solid var(--primary);
         }
 
         .json-example pre {
@@ -101,6 +114,18 @@
     </style>
 </head>
 <body>
+    <header>
+        <h1>Eniv</h1>
+        <div class="header-actions">
+            <button class="btn-secondary" onclick="goBack()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 0.5rem;">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                Retour
+            </button>
+        </div>
+    </header>
+
     <div class="container">
         <div class="header">
             <h1>📝 Créer un Quiz</h1>
