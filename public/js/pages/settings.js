@@ -7,6 +7,7 @@ async function init() {
   document.getElementById('user-info').textContent = auth.username;
 
   await loadUserInfo();
+  await checkEmploiTempsButton();
   setupEventListeners();
 }
 
@@ -20,12 +21,50 @@ async function loadUserInfo() {
   }
 }
 
-function setupEventListeners() {
-  document.getElementById('logout-btn').addEventListener('click', logout);
+async function checkEmploiTempsButton() {
+  const data = await apiCall('/api/devoirs/settings/emploi-temps');
+  const btn = document.getElementById('emploi-temps-btn');
 
-  document.getElementById('back-btn').addEventListener('click', () => {
-    window.location.href = '/dashboard';
-  });
+  if (data.lien) {
+    btn.classList.remove('hidden');
+    btn.onclick = () => {
+      window.open(data.lien, '_blank');
+      // Fermer le dropdown après le clic
+      document.getElementById('user-dropdown').classList.add('hidden');
+    };
+  } else {
+    btn.classList.add('hidden');
+  }
+}
+
+function setupEventListeners() {
+  // User menu dropdown
+  const userMenuBtn = document.getElementById('user-menu-btn');
+  const userDropdown = document.getElementById('user-dropdown');
+
+  if (userMenuBtn && userDropdown) {
+    userMenuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      userDropdown.classList.toggle('hidden');
+    });
+
+    // Fermer le dropdown en cliquant ailleurs
+    document.addEventListener('click', (e) => {
+      if (!userDropdown.classList.contains('hidden') && !e.target.closest('.user-menu')) {
+        userDropdown.classList.add('hidden');
+      }
+    });
+  }
+
+  // Bouton tableau de bord
+  const dashboardBtn = document.getElementById('dashboard-btn');
+  if (dashboardBtn) {
+    dashboardBtn.addEventListener('click', () => {
+      window.location.href = '/dashboard';
+    });
+  }
+
+  document.getElementById('logout-btn').addEventListener('click', logout);
 
   document.getElementById('info-form').addEventListener('submit', handleUpdateInfo);
   document.getElementById('password-form').addEventListener('submit', handleChangePassword);
