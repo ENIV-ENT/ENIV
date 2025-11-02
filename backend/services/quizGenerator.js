@@ -3,7 +3,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const Groq = require('groq-sdk');
 const fs = require('fs');
 const path = require('path');
-const { PDFParse } = require('pdf-parse');
+const pdfParse = require('pdf-parse');
 
 /**
  * Extraire le texte d'un fichier PDF
@@ -11,23 +11,11 @@ const { PDFParse } = require('pdf-parse');
 async function extractTextFromPDF(filePath) {
   try {
     const dataBuffer = fs.readFileSync(filePath);
-    const parser = new PDFParse({ data: dataBuffer });
-    await parser.load();
-    const textData = await parser.getText();
     
-    // getText() retourne un objet avec { pages: [{ text: "...", num: 1 }, ...] }
-    let text = '';
-    if (textData && textData.pages && Array.isArray(textData.pages)) {
-      // Extraire le texte de chaque page
-      text = textData.pages
-        .map(page => page.text || '')
-        .filter(pageText => pageText.trim())
-        .join('\n\n');
-    } else {
-      console.warn(`⚠️ Format de texte inattendu pour "${path.basename(filePath)}"`);
-      console.warn('Structure reçue:', JSON.stringify(textData).substring(0, 200));
-      return '';
-    }
+    // pdf-parse v1.1.1 : fonction directe qui retourne { text: "..." }
+    const data = await pdfParse(dataBuffer);
+    
+    const text = data.text || '';
     
     // Nettoyer et vérifier le texte
     const cleanText = text.trim();
