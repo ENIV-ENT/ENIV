@@ -1,14 +1,8 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const db = require('../models/dbHelper');
+const { requireSuperAdmin } = require('../middleware/auth');
 const router = express.Router();
-
-function requireSuperAdmin(req, res, next) {
-  if (!req.session.userId || req.session.role !== 'superadmin') {
-    return res.status(403).json({ error: 'Accès refusé' });
-  }
-  next();
-}
 
 router.post('/classes', requireSuperAdmin, express.json(), async (req, res) => {
   const { nom } = req.body;

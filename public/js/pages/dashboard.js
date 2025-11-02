@@ -498,15 +498,10 @@ async function showDevoirModal(devoirId) {
     html += matiereNomHtml;
   }
   html += `</p>
-    ${devoir.description ? `<p><strong>Description:</strong> ${escapeHTML(devoir.description)}</p>` : ''}
-    ${devoir.date ? `<p><strong>Pour le:</strong> ${formatDate(devoir.date)}</p>` : ''}
-    <p><strong>Créé par:</strong> ${escapeHTML(devoir.created_by_username)}</p>`;
+    ${devoir.description ? `<p><strong>Description:</strong> ${escapeHTML(devoir.description)}</p>` : ''}`;
 
-  // Section des fichiers PDF
-  html += `<div id="devoir-modal-fichiers" style="margin: 1rem 0;">
-    <p><strong>Documents PDF:</strong></p>
-    <div id="devoir-modal-fichiers-list" style="color: var(--secondary); font-size: 0.9rem;">Chargement...</div>
-  </div>`;
+  // Section des fichiers PDF (sans titre, juste la liste)
+  html += `<div id="devoir-modal-fichiers" style="margin: 1rem 0;"></div>`;
 
   html += `<div class="modal-actions">
       <label class="checkbox-container">
@@ -535,14 +530,15 @@ async function showDevoirModal(devoirId) {
 }
 
 async function loadDevoirModalFichiers(devoirId) {
-  const container = document.getElementById('devoir-modal-fichiers-list');
+  const container = document.getElementById('devoir-modal-fichiers');
   if (!container) return;
 
   try {
     const fichiers = await apiCall(`/api/devoirs/${devoirId}/fichiers`);
 
+    // Si pas de fichiers, ne rien afficher
     if (!fichiers || fichiers.length === 0) {
-      container.innerHTML = '<p style="color: var(--secondary); font-size: 0.9rem; margin: 0;">Aucun document PDF</p>';
+      container.innerHTML = '';
       return;
     }
 
@@ -576,7 +572,8 @@ async function loadDevoirModalFichiers(devoirId) {
     container.innerHTML = html;
   } catch (error) {
     console.error('Erreur lors du chargement des fichiers:', error);
-    container.innerHTML = '<p style="color: var(--danger); font-size: 0.9rem; margin: 0;">Erreur lors du chargement des fichiers</p>';
+    // En cas d'erreur, ne rien afficher non plus
+    container.innerHTML = '';
   }
 }
 
@@ -697,13 +694,14 @@ async function editDevoir(id) {
 
 async function loadExistingFiles(devoirId) {
   const container = document.getElementById('edit-devoir-fichiers-existants');
-  container.innerHTML = '<p style="color: var(--secondary); font-size: 0.9rem;">Chargement...</p>';
+  container.innerHTML = '';
 
   try {
     const fichiers = await apiCall(`/api/devoirs/${devoirId}/fichiers`);
 
+    // Si pas de fichiers, ne rien afficher
     if (!fichiers || fichiers.length === 0) {
-      container.innerHTML = '<p style="color: var(--secondary); font-size: 0.9rem;">Aucun fichier PDF</p>';
+      container.innerHTML = '';
       return;
     }
 
@@ -720,7 +718,8 @@ async function loadExistingFiles(devoirId) {
     container.innerHTML = html;
   } catch (error) {
     console.error('Erreur lors du chargement des fichiers:', error);
-    container.innerHTML = '<p style="color: var(--danger); font-size: 0.9rem;">Erreur lors du chargement des fichiers</p>';
+    // En cas d'erreur, ne rien afficher non plus
+    container.innerHTML = '';
   }
 }
 

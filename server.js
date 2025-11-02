@@ -1,5 +1,4 @@
 const express = require('express');
-const session = require('express-session');
 const path = require('path');
 const WebSocket = require('ws');
 const http = require('http');
@@ -12,16 +11,6 @@ const wss = new WebSocket.Server({ server, path: '/ws' });
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Configuration session
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'ENT-secret-key-change-in-production',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    maxAge: 24 * 60 * 60 * 1000 // 1 jour
-  }
-}));
 
 // Initialiser la base de données
 require('./backend/models/database');

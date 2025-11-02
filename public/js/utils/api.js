@@ -1,10 +1,14 @@
 export async function apiCall(url, options = {}) {
   try {
+    // Récupérer le token depuis localStorage
+    const token = localStorage.getItem('token');
+
     const response = await fetch(url, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         ...options.headers,
       },
     });
@@ -55,5 +59,7 @@ export async function checkAuth() {
 
 export async function logout() {
   await apiCall('/api/auth/logout', { method: 'POST' });
+  // Supprimer le token du localStorage
+  localStorage.removeItem('token');
   window.location.href = '/';
 }

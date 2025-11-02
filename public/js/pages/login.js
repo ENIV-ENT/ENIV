@@ -36,6 +36,10 @@ async function init() {
       boiteNomUtilisateur.style.borderColor = "red";
     } else {
       loginError.textContent = "";
+      // Stocker le token JWT dans localStorage
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
       switch (data.role) {
         case "superadmin":
           window.location.href = "/superadmin/dashboard/";

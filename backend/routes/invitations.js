@@ -3,14 +3,11 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const db = require('../models/dbHelper');
 const { sendInvitationEmail } = require('../services/email');
+const { requireAuth } = require('../middleware/auth');
 const router = express.Router();
 
 // Créer une invitation (Admin ou Superadmin)
-router.post('/create', async (req, res) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ error: 'Non authentifié' });
-  }
-
+router.post('/create', requireAuth, async (req, res) => {
   const { email, role, classe_id } = req.body;
   const creatorRole = req.session.role;
 
@@ -230,11 +227,7 @@ router.post('/complete', async (req, res) => {
 });
 
 // Lister les invitations (Admin/Superadmin)
-router.get('/list', async (req, res) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ error: 'Non authentifié' });
-  }
-
+router.get('/list', requireAuth, async (req, res) => {
   const role = req.session.role;
   if (role !== 'admin' && role !== 'superadmin') {
     return res.status(403).json({ error: 'Accès refusé' });
@@ -260,10 +253,7 @@ router.get('/list', async (req, res) => {
 });
 
 // Renvoyer une invitation
-router.post('/resend/:id', async (req, res) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ error: 'Non authentifié' });
-  }
+router.post('/resend/:id', requireAuth, async (req, res) => {
 
   const { id } = req.params;
 
@@ -296,10 +286,7 @@ router.post('/resend/:id', async (req, res) => {
 });
 
 // Supprimer une invitation
-router.delete('/:id', async (req, res) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ error: 'Non authentifié' });
-  }
+router.delete('/:id', requireAuth, async (req, res) => {
 
   const { id } = req.params;
 

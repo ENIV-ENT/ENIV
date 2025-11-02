@@ -557,6 +557,27 @@ function renderLogs() {
           actionClass = 'log-delete';
           detailsHtml = `<strong>${escapeHTML(details.titre)}</strong>`;
           break;
+        case 'upload_pdf':
+          actionText = 'a ajouté un document';
+          actionClass = 'log-create';
+          detailsHtml = `<strong>${escapeHTML(details.filename)}</strong>`;
+          if (details.size) {
+            const sizeKB = Math.round(details.size / 1024);
+            detailsHtml += `<br><small>Taille: ${sizeKB} Ko</small>`;
+          }
+          break;
+        case 'delete_pdf':
+          actionText = 'a supprimé un document';
+          actionClass = 'log-delete';
+          detailsHtml = `<strong>${escapeHTML(details.filename)}</strong>`;
+          if (details.deleted_by) {
+            detailsHtml += `<br><small>Supprimé par: ${escapeHTML(details.deleted_by)}</small>`;
+          }
+          break;
+        default:
+          actionText = 'action inconnue';
+          actionClass = '';
+          detailsHtml = 'Détails non disponibles';
       }
     } catch (e) {
       detailsHtml = 'Détails non disponibles';

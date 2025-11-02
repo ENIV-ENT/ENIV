@@ -594,6 +594,15 @@ header h1 {
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: modalSlideIn 0.3s ease-out;
+
+  /* Masquer la scrollbar tout en gardant le scroll */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer/Edge */
+}
+
+/* Masquer la scrollbar pour Chrome, Safari et Opera */
+.modal-content::-webkit-scrollbar {
+  display: none;
 }
 
 @keyframes modalSlideIn {
