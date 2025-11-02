@@ -173,6 +173,142 @@ Si vous n'avez pas demandé cette invitation, vous pouvez ignorer ce message.
   }
 }
 
+/**
+ * Envoyer un email quand le quiz est prêt
+ * @param {string} email - Email du destinataire
+ * @param {string} devoirTitle - Titre du devoir
+ * @param {number} devoirId - ID du devoir
+ */
+async function sendQuizReadyEmail(email, devoirTitle, devoirId) {
+  const quizUrl = `${process.env.BASE_URL}/quiz?id=${devoirId}`;
+
+  const sendSmtpEmail = {
+    to: [{ email }],
+    sender: {
+      email: process.env.BREVO_SENDER_EMAIL,
+      name: process.env.BREVO_SENDER_NAME
+    },
+    subject: `Votre quiz est prêt : ${devoirTitle}`,
+    htmlContent: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+          }
+          .container {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 30px;
+            margin: 20px 0;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+          }
+          .header h1 {
+            color: #2c3e50;
+            margin: 0;
+          }
+          .content {
+            background: white;
+            padding: 25px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          }
+          .info-box {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border-left: 4px solid #4caf50;
+          }
+          .button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #4CAF50;
+            color: white !important;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 20px 0;
+            text-align: center;
+          }
+          .button:hover {
+            background: #45a049;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #666;
+            font-size: 0.9em;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>✅ Votre quiz est prêt !</h1>
+          </div>
+
+          <div class="content">
+            <h2>Quiz de révision disponible</h2>
+
+            <p>Bonjour,</p>
+
+            <p>Bonne nouvelle ! Le quiz de révision pour votre devoir est maintenant disponible.</p>
+
+            <div class="info-box">
+              <p style="margin: 5px 0;"><strong>Devoir :</strong> ${devoirTitle}</p>
+            </div>
+
+            <p>Le quiz a été généré automatiquement à partir des documents du devoir. Vous pouvez maintenant vous entraîner et réviser efficacement.</p>
+
+            <div style="text-align: center;">
+              <a href="${quizUrl}" class="button">Commencer le quiz</a>
+            </div>
+
+            <p>Bon courage pour vos révisions ! 💪</p>
+          </div>
+
+          <div class="footer">
+            <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
+            <p>&copy; 2025 Eniv - Tous droits réservés</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+    textContent: `
+Votre quiz est prêt !
+
+Le quiz de révision pour votre devoir "${devoirTitle}" est maintenant disponible.
+
+Pour commencer le quiz, accédez au lien suivant :
+${quizUrl}
+
+Bon courage pour vos révisions !
+    `
+  };
+
+  try {
+    const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    console.log('Email de notification quiz envoyé avec succès à:', email);
+    return { success: true, messageId: result.messageId };
+  } catch (error) {
+    console.error('Erreur lors de l\'envoi de l\'email:', error);
+    throw new Error('Impossible d\'envoyer l\'email de notification');
+  }
+}
+
 module.exports = {
-  sendInvitationEmail
+  sendInvitationEmail,
+  sendQuizReadyEmail
 };

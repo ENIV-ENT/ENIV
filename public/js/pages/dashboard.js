@@ -501,6 +501,9 @@ async function showDevoirModal(devoirId) {
   // Section des fichiers PDF (sans titre, juste la liste)
   html += `<div id="devoir-modal-fichiers" style="margin: 1rem 0;"></div>`;
 
+  // Section du bouton S'entraîner (sera affichée si documents présents)
+  html += `<div id="devoir-quiz-section"></div>`;
+
   html += `<div class="modal-actions">
       <label class="checkbox-container">
         <input type="checkbox" ${devoir.fait ? 'checked' : ''} id="devoir-statut-${devoir.id}">
@@ -515,6 +518,9 @@ async function showDevoirModal(devoirId) {
 
   // Charger les fichiers PDF
   loadDevoirModalFichiers(devoirId);
+  
+  // Charger le statut du quiz
+  loadQuizStatus(devoirId);
 
   document.getElementById(`devoir-statut-${devoir.id}`).addEventListener('change', async function() {
     await toggleDevoirStatut(devoir.id, this.checked);
@@ -821,6 +827,118 @@ async function deleteDevoir(id) {
   await loadDevoirs();
   renderCalendar();
 }
+
+async function loadQuizStatus(devoirId) {
+  const container = document.getElementById('devoir-quiz-section');
+  if (!container) return;
+
+  try {
+    const status = await apiCall(`/api/devoirs/${devoirId}/quiz-status`);
+
+    // Si pas de documents, ne rien afficher
+    if (!status.hasDocuments) {
+      container.innerHTML = '';
+      return;
+    }
+
+    let html = '<div style="margin: 1rem 0; padding: 1rem; background: #e3f2fd; border-radius: 6px; border-left: 4px solid #2196f3;">';
+
+    if (status.isGenerating) {
+      html += `
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <div style="width: 20px; height: 20px; border: 3px solid #2196f3; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          <div>
+            <div style="font-weight: 600; color: #2196f3;">Génération en cours...</div>
+            <div style="font-size: 0.85rem; color: #666; margin-top: 0.25rem;">Vous recevrez un email quand le quiz sera prêt</div>
+          </div>
+        </div>
+      `;
+    } else if (status.hasQuiz) {
+      html += `
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-weight: 600; color: #2196f3;">✅ Quiz disponible</div>
+            <div style="font-size: 0.85rem; color: #666; margin-top: 0.25rem;">Réviser avec un questionnaire interactif</div>
+          </div>
+          <button onclick="startQuiz(${devoirId})" class="btn-primary" style="white-space: nowrap;">
+            S'entraîner
+          </button>
+        </div>
+      `;
+    } else {
+      const premiumText = status.isPremium 
+        ? '<span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-left: 0.5rem;">PREMIUM</span>'
+        : '';
+      
+      html += `
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-weight: 600; color: #2196f3;">📚 Documents disponibles ${premiumText}</div>
+            <div style="font-size: 0.85rem; color: #666; margin-top: 0.25rem;">
+              ${status.isPremium ? 'Générer 20-100 questions avec IA Premium (Claude 4.5)' : 'Générer 20-100 questions avec IA (Llama 3.3)'}
+            </div>
+          </div>
+          <button onclick="generateQuiz(${devoirId})" class="btn-primary" style="white-space: nowrap;">
+            Générer Quiz
+          </button>
+        </div>
+      `;
+    }
+
+    html += '</div>';
+    
+    // Ajouter le CSS pour l'animation
+    if (status.isGenerating) {
+      html += `
+        <style>
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        </style>
+      `;
+    }
+
+    container.innerHTML = html;
+  } catch (error) {
+    console.error('Erreur lors du chargement du statut du quiz:', error);
+    container.innerHTML = '';
+  }
+}
+
+window.startQuiz = function(devoirId) {
+  window.location.href = `/quiz?id=${devoirId}`;
+};
+
+window.generateQuiz = async function(devoirId) {
+  const confirmed = await showConfirm(
+    'La génération du quiz peut prendre quelques minutes. Vous recevrez un email quand il sera prêt. Continuer ?',
+    'Générer le quiz'
+  );
+  
+  if (!confirmed) return;
+
+  try {
+    const result = await apiCall(`/api/devoirs/${devoirId}/generate-quiz`, {
+      method: 'POST'
+    });
+
+    if (result.error) {
+      await showAlert(result.error, 'Erreur');
+      return;
+    }
+
+    await showAlert(
+      'La génération du quiz a démarré ! Vous recevrez un email quand il sera prêt.',
+      'Quiz en cours de génération'
+    );
+
+    // Recharger le statut
+    await loadQuizStatus(devoirId);
+  } catch (error) {
+    console.error('Erreur lors de la génération du quiz:', error);
+    await showAlert('Erreur lors de la génération du quiz', 'Erreur');
+  }
+};
 
 async function toggleDevoirStatut(devoirId, fait) {
   await apiCall(`/api/devoirs/${devoirId}/statut`, {

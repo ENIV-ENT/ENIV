@@ -390,4 +390,200 @@ router.delete('/fichiers/:fichierId', async (req, res) => {
   }
 });
 
+// Vérifier le statut d'un quiz pour un devoir
+router.get('/:id/quiz-status', async (req, res) => {
+  try {
+    const user = await db.get('SELECT classe_id, premium FROM users WHERE id = ?', [req.session.userId]);
+    if (!user || !user.classe_id) {
+      return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
+    }
+
+    const devoir = await db.get(
+      'SELECT id FROM devoirs WHERE id = ? AND classe_id = ?',
+      [req.params.id, user.classe_id]
+    );
+
+    if (!devoir) {
+      return res.status(404).json({ error: 'Devoir non trouvé' });
+    }
+
+    // Vérifier s'il y a des fichiers
+    const fichiers = await db.all(
+      'SELECT id FROM devoir_fichiers WHERE devoir_id = ?',
+      [req.params.id]
+    );
+
+    if (fichiers.length === 0) {
+      return res.json({
+        hasDocuments: false,
+        hasQuiz: false,
+        isGenerating: false
+      });
+    }
+
+    // Vérifier si un quiz existe
+    const quiz = await db.get(
+      'SELECT id FROM devoir_quiz WHERE devoir_id = ?',
+      [req.params.id]
+    );
+
+    // Vérifier si une génération est en cours
+    const generation = await db.get(
+      'SELECT status FROM devoir_quiz_generation WHERE devoir_id = ?',
+      [req.params.id]
+    );
+
+    res.json({
+      hasDocuments: true,
+      hasQuiz: !!quiz,
+      isGenerating: generation && generation.status === 'pending',
+      isPremium: !!user.premium
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erreur lors de la vérification du statut' });
+  }
+});
+
+// Générer un quiz avec l'IA
+router.post('/:id/generate-quiz', express.json(), async (req, res) => {
+  try {
+    const user = await db.get(
+      'SELECT id, classe_id, premium, email, username FROM users WHERE id = ?',
+      [req.session.userId]
+    );
+
+    if (!user || !user.classe_id) {
+      return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
+    }
+
+    const devoir = await db.get(
+      `SELECT d.*, m.nom as matiere_nom
+       FROM devoirs d
+       LEFT JOIN matieres m ON d.matiere_id = m.id
+       WHERE d.id = ? AND d.classe_id = ?`,
+      [req.params.id, user.classe_id]
+    );
+
+    if (!devoir) {
+      return res.status(404).json({ error: 'Devoir non trouvé' });
+    }
+
+    // Vérifier s'il y a des documents
+    const fichiers = await db.all(
+      'SELECT id FROM devoir_fichiers WHERE devoir_id = ?',
+      [req.params.id]
+    );
+
+    if (fichiers.length === 0) {
+      return res.status(400).json({ error: 'Ce devoir n\'a pas de documents' });
+    }
+
+    // Vérifier si un quiz existe déjà
+    const existingQuiz = await db.get(
+      'SELECT id FROM devoir_quiz WHERE devoir_id = ?',
+      [req.params.id]
+    );
+
+    if (existingQuiz) {
+      return res.status(400).json({ error: 'Un quiz existe déjà pour ce devoir' });
+    }
+
+    // Vérifier si une génération est en cours
+    const existingGeneration = await db.get(
+      'SELECT status FROM devoir_quiz_generation WHERE devoir_id = ?',
+      [req.params.id]
+    );
+
+    if (existingGeneration && existingGeneration.status === 'pending') {
+      return res.status(400).json({ 
+        error: 'Une génération est déjà en cours pour ce devoir' 
+      });
+    }
+
+    // Supprimer l'ancienne génération si elle existe
+    if (existingGeneration) {
+      await db.run(
+        'DELETE FROM devoir_quiz_generation WHERE devoir_id = ?',
+        [req.params.id]
+      );
+    }
+
+    // Créer un enregistrement de génération
+    await db.run(
+      'INSERT INTO devoir_quiz_generation (devoir_id, user_id, status) VALUES (?, ?, ?)',
+      [req.params.id, user.id, 'pending']
+    );
+
+    // Lancer la génération en arrière-plan
+    generateQuizInBackground(
+      req.params.id,
+      devoir,
+      user,
+      fichiers
+    );
+
+    res.json({
+      success: true,
+      message: 'La génération du quiz a démarré. Vous recevrez un email lorsqu\'il sera prêt.'
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erreur lors de la génération du quiz' });
+  }
+});
+
+async function generateQuizInBackground(devoirId, devoir, user, fichiersIds) {
+  try {
+    // S'assurer que dotenv est chargé
+    require('dotenv').config();
+    
+    const { generateQuizWithAI } = require('../services/quizGenerator');
+    
+    // Récupérer les informations complètes des fichiers
+    const fichiers = await db.all(
+      'SELECT filename, original_name FROM devoir_fichiers WHERE devoir_id = ?',
+      [devoirId]
+    );
+    
+    const questions = await generateQuizWithAI(
+      devoir,
+      user.premium,
+      fichiers
+    );
+
+    // Sauvegarder le quiz
+    await db.run(
+      'INSERT INTO devoir_quiz (devoir_id, questions_json, mode) VALUES (?, ?, ?)',
+      [devoirId, JSON.stringify(questions), 'both']
+    );
+
+    // Mettre à jour le statut de génération
+    await db.run(
+      'UPDATE devoir_quiz_generation SET status = ?, completed_at = CURRENT_TIMESTAMP WHERE devoir_id = ?',
+      ['completed', devoirId]
+    );
+
+    // Envoyer un email
+    if (user.email) {
+      const { sendQuizReadyEmail } = require('../services/email');
+      await sendQuizReadyEmail(
+        user.email,
+        devoir.titre,
+        devoirId
+      );
+    }
+
+    console.log(`Quiz généré avec succès pour le devoir ${devoirId}`);
+  } catch (error) {
+    console.error(`Erreur lors de la génération du quiz pour le devoir ${devoirId}:`, error);
+
+    // Mettre à jour le statut de génération
+    await db.run(
+      'UPDATE devoir_quiz_generation SET status = ?, error_message = ?, completed_at = CURRENT_TIMESTAMP WHERE devoir_id = ?',
+      ['failed', error.message, devoirId]
+    );
+  }
+}
+
 module.exports = router;
