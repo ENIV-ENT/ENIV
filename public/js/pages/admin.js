@@ -1,6 +1,5 @@
 import { apiCall, checkAuth, logout } from '../utils/api.js';
 import { escapeHTML, formatDate, toggleModal, setupModalClose, showAlert, showConfirm } from '../utils/dom.js';
-import { initWebSocket } from '../utils/websocket.js';
 
 let eleves = [];
 let matieres = [];
@@ -21,7 +20,6 @@ async function init() {
 
   document.getElementById('user-info').textContent = `Admin: ${auth.username}`;
 
-  initWebSocket(loadAllData);
   await loadAllData();
 
   setupEventListeners();

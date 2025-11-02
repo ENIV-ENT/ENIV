@@ -1,6 +1,5 @@
 import { apiCall, checkAuth, logout } from '../utils/api.js';
 import { escapeHTML, localDate, formatDate, toInputDate, toggleModal, setupModalClose, showAlert, showConfirm, getContrastColor } from '../utils/dom.js';
-import { initWebSocket } from '../utils/websocket.js';
 
 let matieres = [];
 let devoirs = [];
@@ -19,7 +18,6 @@ async function init() {
 
   document.getElementById('eleve-info').textContent = auth.username;
 
-  initWebSocket(loadData);
   await loadData();
 
   setupEventListeners();
