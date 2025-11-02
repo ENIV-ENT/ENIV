@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Créer un Quiz - ENIV</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .form-container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1em;
+            font-family: inherit;
+        }
+
+        .form-group textarea {
+            min-height: 200px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .btn-create {
+            background: #28a745;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-create:hover {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .alert.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .help-text {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .json-example {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .json-example pre {
+            margin: 0;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📝 Créer un Quiz</h1>
+            <p>Associer un questionnaire à un devoir existant</p>
+        </div>
+
+        <div id="alert" class="alert"></div>
+
+        <div class="form-container">
+            <form id="quizForm">
+                <div class="form-group">
+                    <label for="devoirId">ID du Devoir *</label>
+                    <input type="number" id="devoirId" name="devoirId" required>
+                    <div class="help-text">L'identifiant du devoir auquel associer ce quiz</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="mode">Mode du Quiz *</label>
+                    <select id="mode" name="mode" required>
+                        <option value="both">Les deux modes (choix multiple et oral)</option>
+                        <option value="choice">Choix multiple uniquement</option>
+                        <option value="oral">Oral uniquement</option>
+                    </select>
+                    <div class="help-text">Choisissez quel(s) mode(s) sera/seront disponible(s) pour les élèves</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="questions">Questions (JSON) *</label>
+                    <textarea id="questions" name="questions" required placeholder='[
+  {
+    "question": "Votre question ?",
+    "options": ["Réponse 1", "Réponse 2", "Réponse 3", "Réponse 4"],
+    "correct": 0,
+    "explanation": "Explication de la réponse",
+    "example": "Exemple concret"
+  }
+]'></textarea>
+                    <div class="help-text">Collez votre JSON de questions ici (voir exemple ci-dessous)</div>
+                </div>
+
+                <div class="json-example">
+                    <strong>Exemple de format JSON :</strong>
+                    <pre>[
+  {
+    "question": "Quelle est la capitale de la France ?",
+    "options": ["Paris", "Londres", "Berlin", "Madrid"],
+    "correct": 0,
+    "explanation": "Paris est la capitale de la France.",
+    "example": "Paris compte plus de 2 millions d'habitants."
+  }
+]</pre>
+                </div>
+
+                <div style="margin-top: 30px; display: flex; gap: 15px;">
+                    <button type="submit" class="btn-create">Créer le Quiz</button>
+                    <button type="button" class="btn btn-secondary" onclick="goBack()">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('quizForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const devoirId = document.getElementById('devoirId').value;
+            const mode = document.getElementById('mode').value;
+            const questionsText = document.getElementById('questions').value;
+
+            // Valider le JSON
+            let questions;
+            try {
+                questions = JSON.parse(questionsText);
+                if (!Array.isArray(questions) || questions.length === 0) {
+                    throw new Error('Le JSON doit être un tableau non vide');
+                }
+
+                // Valider chaque question
+                for (let i = 0; i < questions.length; i++) {
+                    const q = questions[i];
+                    if (!q.question || !Array.isArray(q.options) || q.correct === undefined) {
+                        throw new Error(`Question ${i + 1} : format invalide (question, options et correct sont obligatoires)`);
+                    }
+                    if (q.options.length < 2 || q.options.length > 4) {
+                        throw new Error(`Question ${i + 1} : il faut entre 2 et 4 options`);
+                    }
+                    if (q.correct < 0 || q.correct >= q.options.length) {
+                        throw new Error(`Question ${i + 1} : l'index correct est invalide`);
+                    }
+                }
+            } catch (error) {
+                showAlert('error', 'Erreur JSON : ' + error.message);
+                return;
+            }
+
+            // Envoyer au serveur
+            try {
+                const response = await fetch('/api/quiz/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        devoirId: parseInt(devoirId),
+                        questions: questions,
+                        mode: mode
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('success', 'Quiz créé avec succès !');
+                    setTimeout(() => {
+                        window.location.href = '/admin/dashboard';
+                    }, 2000);
+                } else {
+                    showAlert('error', data.error || 'Erreur lors de la création du quiz');
+                }
+            } catch (error) {
+                console.error(error);
+                showAlert('error', 'Erreur de connexion au serveur');
+            }
+        });
+
+        function showAlert(type, message) {
+            const alert = document.getElementById('alert');
+            alert.className = `alert ${type}`;
+            alert.textContent = message;
+            alert.style.display = 'block';
+
+            if (type === 'success') {
+                setTimeout(() => {
+                    alert.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        function goBack() {
+            window.location.href = '/admin/dashboard';
+        }
+    </script>
+</body>
+</html>

@@ -1,7 +1,42 @@
 const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const db = require('../models/dbHelper');
 const { requireAuth } = require('../middleware/auth');
 const router = express.Router();
+
+// Configuration de multer pour l'upload de fichiers PDF
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+  // Accepter uniquement les fichiers PDF
+  if (file.mimetype === 'application/pdf') {
+    cb(null, true);
+  } else {
+    cb(new Error('Seuls les fichiers PDF sont autorisés'), false);
+  }
+};
+
+const upload = multer({
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // Limite de 10 Mo
+  }
+});
 
 router.use(requireAuth);
 
@@ -198,6 +233,160 @@ router.get('/settings/emploi-temps', async (req, res) => {
     res.json({ lien: setting ? setting.value : null });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la récupération' });
+  }
+});
+
+// Upload d'un PDF pour un devoir
+router.post('/:id/upload', upload.single('pdf'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Aucun fichier fourni' });
+    }
+
+    const user = await db.get('SELECT classe_id, role, username FROM users WHERE id = ?', [req.session.userId]);
+    if (!user || !user.classe_id) {
+      // Supprimer le fichier uploadé
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
+    }
+
+    // Vérifier que le devoir existe et appartient à la même classe
+    const devoir = await db.get(
+      'SELECT id FROM devoirs WHERE id = ? AND classe_id = ?',
+      [req.params.id, user.classe_id]
+    );
+
+    if (!devoir) {
+      // Supprimer le fichier uploadé
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({ error: 'Devoir non trouvé' });
+    }
+
+    // Enregistrer le fichier dans la base de données avec l'utilisateur qui l'a uploadé
+    await db.run(
+      'INSERT INTO devoir_fichiers (devoir_id, filename, original_name, uploaded_by) VALUES (?, ?, ?, ?)',
+      [req.params.id, req.file.filename, req.file.originalname, req.session.userId]
+    );
+
+    // Créer un log pour l'upload du fichier
+    const uploadDetails = JSON.stringify({
+      action: 'upload_pdf',
+      filename: req.file.originalname,
+      size: req.file.size
+    });
+    await db.run(
+      'INSERT INTO devoir_logs (devoir_id, action, user_id, username, classe_id, details) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.params.id, 'upload_pdf', req.session.userId, user.username, user.classe_id, uploadDetails]
+    );
+
+    res.json({
+      success: true,
+      message: 'Fichier uploadé avec succès',
+      file: {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        size: req.file.size
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    // Supprimer le fichier en cas d'erreur
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+    res.status(500).json({ error: 'Erreur lors de l\'upload du fichier' });
+  }
+});
+
+// Récupérer les fichiers d'un devoir
+router.get('/:id/fichiers', async (req, res) => {
+  try {
+    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
+    if (!user || !user.classe_id) {
+      return res.json([]);
+    }
+
+    // Vérifier que le devoir existe et appartient à la même classe
+    const devoir = await db.get(
+      'SELECT id FROM devoirs WHERE id = ? AND classe_id = ?',
+      [req.params.id, user.classe_id]
+    );
+
+    if (!devoir) {
+      return res.status(404).json({ error: 'Devoir non trouvé' });
+    }
+
+    // Récupérer les fichiers avec les informations de l'utilisateur qui les a uploadés
+    const fichiers = await db.all(
+      `SELECT
+        df.id,
+        df.filename,
+        df.original_name,
+        df.uploaded_at,
+        df.uploaded_by,
+        u.username as uploaded_by_username
+      FROM devoir_fichiers df
+      LEFT JOIN users u ON df.uploaded_by = u.id
+      WHERE df.devoir_id = ?
+      ORDER BY df.uploaded_at DESC`,
+      [req.params.id]
+    );
+
+    res.json(fichiers);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erreur lors de la récupération des fichiers' });
+  }
+});
+
+// Supprimer un fichier
+router.delete('/fichiers/:fichierId', async (req, res) => {
+  try {
+    const user = await db.get('SELECT classe_id, role, username FROM users WHERE id = ?', [req.session.userId]);
+    if (!user || !user.classe_id) {
+      return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
+    }
+
+    // Récupérer le fichier avec vérification de la classe
+    const fichier = await db.get(
+      `SELECT df.*, d.classe_id
+       FROM devoir_fichiers df
+       JOIN devoirs d ON df.devoir_id = d.id
+       WHERE df.id = ? AND d.classe_id = ?`,
+      [req.params.fichierId, user.classe_id]
+    );
+
+    if (!fichier) {
+      return res.status(404).json({ error: 'Fichier non trouvé' });
+    }
+
+    // Tout le monde peut supprimer tous les fichiers de sa classe
+    // Pas de vérification de propriétaire nécessaire
+
+    // Supprimer le fichier du système de fichiers
+    const filePath = path.join(__dirname, '../uploads', fichier.filename);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    // Supprimer l'enregistrement de la base de données
+    await db.run('DELETE FROM devoir_fichiers WHERE id = ?', [req.params.fichierId]);
+
+    // Créer un log pour la suppression du fichier
+    const deleteDetails = JSON.stringify({
+      action: 'delete_pdf',
+      filename: fichier.original_name,
+      deleted_by: user.username
+    });
+    await db.run(
+      'INSERT INTO devoir_logs (devoir_id, action, user_id, username, classe_id, details) VALUES (?, ?, ?, ?, ?, ?)',
+      [fichier.devoir_id, 'delete_pdf', req.session.userId, user.username, user.classe_id, deleteDetails]
+    );
+
+    res.json({ success: true, message: 'Fichier supprimé' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erreur lors de la suppression du fichier' });
   }
 });
 

@@ -10,6 +10,10 @@ let currentWeekStart = null;
 let selectedDate = null;
 let isMobileView = false;
 
+// Stockage des fichiers accumulés
+let accumulatedFiles = [];
+let accumulatedEditFiles = [];
+
 async function init() {
   const auth = await checkAuth();
 
@@ -71,16 +75,40 @@ async function checkEmploiTempsButton() {
 
   if (data.lien) {
     btn.classList.remove('hidden');
-    btn.onclick = () => window.open(data.lien, '_blank');
+    btn.onclick = () => {
+      window.open(data.lien, '_blank');
+      // Fermer le dropdown après le clic
+      document.getElementById('user-dropdown').classList.add('hidden');
+    };
   } else {
     btn.classList.add('hidden');
   }
 }
 
 function setupEventListeners() {
-  document.getElementById('logout-btn').addEventListener('click', logout);
+  // User menu dropdown
+  const userMenuBtn = document.getElementById('user-menu-btn');
+  const userDropdown = document.getElementById('user-dropdown');
+
+  userMenuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    userDropdown.classList.toggle('hidden');
+  });
+
+  // Fermer le dropdown en cliquant ailleurs
+  document.addEventListener('click', (e) => {
+    if (!userDropdown.classList.contains('hidden') && !e.target.closest('.user-menu')) {
+      userDropdown.classList.add('hidden');
+    }
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    userDropdown.classList.add('hidden');
+    logout();
+  });
 
   document.getElementById('settings-btn').addEventListener('click', () => {
+    userDropdown.classList.add('hidden');
     window.location.href = '/settings';
   });
 
@@ -117,15 +145,26 @@ function setupEventListeners() {
   document.getElementById('cancel-devoir-btn').addEventListener('click', () => {
     toggleModal('add-devoir-modal', false);
     document.getElementById('devoir-form').reset();
+    accumulatedFiles.length = 0;
+    document.getElementById('devoir-fichiers-list').innerHTML = '';
   });
 
   document.getElementById('cancel-edit-devoir-btn').addEventListener('click', () => {
     toggleModal('edit-devoir-modal', false);
     document.getElementById('edit-devoir-form').reset();
+    accumulatedEditFiles.length = 0;
+    document.getElementById('edit-devoir-nouveaux-fichiers-list').innerHTML = '';
+    document.getElementById('edit-devoir-fichiers-existants').innerHTML = '';
   });
 
   document.getElementById('devoir-form').addEventListener('submit', handleAddDevoir);
   document.getElementById('edit-devoir-form').addEventListener('submit', handleEditDevoir);
+
+  // Setup drag and drop pour la création de devoir
+  setupDropZone('devoir-drop-zone', 'devoir-fichiers', accumulatedFiles, 'devoir-fichiers-list');
+
+  // Setup drag and drop pour la modification de devoir
+  setupDropZone('edit-devoir-drop-zone', 'edit-devoir-nouveaux-fichiers', accumulatedEditFiles, 'edit-devoir-nouveaux-fichiers-list');
 
   document.addEventListener('click', handleCalendarClick);
 
@@ -152,6 +191,109 @@ function getWeekStart(date) {
   const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   return new Date(d.setDate(diff));
 }
+
+function setupDropZone(dropZoneId, inputId, fileArray, listId) {
+  const dropZone = document.getElementById(dropZoneId);
+  const fileInput = document.getElementById(inputId);
+
+  // Clic sur la zone pour ouvrir le sélecteur de fichiers
+  dropZone.addEventListener('click', () => {
+    fileInput.click();
+  });
+
+  // Changement de fichier via l'input
+  fileInput.addEventListener('change', function(e) {
+    addFilesToArray(e.target.files, fileArray, listId);
+    // Ne pas réinitialiser l'input pour pouvoir ajouter plusieurs fois
+  });
+
+  // Drag and drop events
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.style.borderColor = 'var(--primary)';
+    dropZone.style.backgroundColor = 'rgba(74, 144, 226, 0.1)';
+  });
+
+  dropZone.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.style.borderColor = 'var(--border)';
+    dropZone.style.backgroundColor = 'var(--light)';
+  });
+
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.style.borderColor = 'var(--border)';
+    dropZone.style.backgroundColor = 'var(--light)';
+
+    const files = e.dataTransfer.files;
+    addFilesToArray(files, fileArray, listId);
+  });
+}
+
+function addFilesToArray(files, fileArray, listId) {
+  if (!files || files.length === 0) return;
+
+  // Filtrer les fichiers PDF uniquement
+  const pdfFiles = Array.from(files).filter(file => file.type === 'application/pdf');
+
+  if (pdfFiles.length === 0) {
+    showAlert('Seuls les fichiers PDF sont autorisés', 'Erreur');
+    return;
+  }
+
+  // Vérifier la taille des fichiers (10 Mo max)
+  const oversizedFiles = pdfFiles.filter(file => file.size > 10 * 1024 * 1024);
+  if (oversizedFiles.length > 0) {
+    showAlert(`Certains fichiers dépassent la limite de 10 Mo : ${oversizedFiles.map(f => f.name).join(', ')}`, 'Erreur');
+    return;
+  }
+
+  // Ajouter les fichiers à l'array (ne pas effacer les anciens)
+  pdfFiles.forEach(file => {
+    // Vérifier si le fichier n'est pas déjà dans la liste
+    const exists = fileArray.some(f => f.name === file.name && f.size === file.size);
+    if (!exists) {
+      fileArray.push(file);
+    }
+  });
+
+  // Afficher la liste mise à jour
+  displayFileList(fileArray, listId);
+}
+
+function displayFileList(fileArray, listId) {
+  const container = document.getElementById(listId);
+
+  if (fileArray.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  let html = '<div style="margin-top: 0.5rem;">';
+  fileArray.forEach((file, index) => {
+    const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+    html += `<div style="padding: 0.5rem; background: white; border-radius: 4px; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border);">`;
+    html += `<span style="font-size: 0.9rem; flex: 1;">${escapeHTML(file.name)} <span style="color: var(--secondary);">(${sizeInMB} Mo)</span></span>`;
+    html += `<button type="button" class="btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="removeFileFromList(${index}, '${listId}')">Retirer</button>`;
+    html += `</div>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+window.removeFileFromList = function(index, listId) {
+  // Déterminer quel tableau utiliser
+  const fileArray = listId === 'devoir-fichiers-list' ? accumulatedFiles : accumulatedEditFiles;
+
+  // Retirer le fichier
+  fileArray.splice(index, 1);
+
+  // Rafraîchir l'affichage
+  displayFileList(fileArray, listId);
+};
 
 function renderCalendar() {
   const calendar = document.getElementById('calendar');
@@ -339,7 +481,7 @@ function handleCalendarClick(e) {
   }
 }
 
-function showDevoirModal(devoirId) {
+async function showDevoirModal(devoirId) {
   const devoir = devoirs.find(d => d.id === devoirId);
   if (!devoir) return;
 
@@ -350,7 +492,7 @@ function showDevoirModal(devoirId) {
     <h3>${escapeHTML(devoir.titre)}</h3>
     <p><strong>Matière:</strong> `;
   const matiereNomHtml = escapeHTML(devoir.matiere_nom || 'Non définie');
-  if (matiere.lien) {
+  if (matiere && matiere.lien) {
     html += `<a href="${matiere.lien}" target="_blank">${matiereNomHtml}</a>`
   } else {
     html += matiereNomHtml;
@@ -358,8 +500,15 @@ function showDevoirModal(devoirId) {
   html += `</p>
     ${devoir.description ? `<p><strong>Description:</strong> ${escapeHTML(devoir.description)}</p>` : ''}
     ${devoir.date ? `<p><strong>Pour le:</strong> ${formatDate(devoir.date)}</p>` : ''}
-    <p><strong>Créé par:</strong> ${escapeHTML(devoir.created_by_username)}</p>
-    <div class="modal-actions">
+    <p><strong>Créé par:</strong> ${escapeHTML(devoir.created_by_username)}</p>`;
+
+  // Section des fichiers PDF
+  html += `<div id="devoir-modal-fichiers" style="margin: 1rem 0;">
+    <p><strong>Documents PDF:</strong></p>
+    <div id="devoir-modal-fichiers-list" style="color: var(--secondary); font-size: 0.9rem;">Chargement...</div>
+  </div>`;
+
+  html += `<div class="modal-actions">
       <label class="checkbox-container">
         <input type="checkbox" ${devoir.fait ? 'checked' : ''} id="devoir-statut-${devoir.id}">
         <span>Marquer comme fait</span>
@@ -370,6 +519,9 @@ function showDevoirModal(devoirId) {
   `;
 
   modalBody.innerHTML = html;
+
+  // Charger les fichiers PDF
+  loadDevoirModalFichiers(devoirId);
 
   document.getElementById(`devoir-statut-${devoir.id}`).addEventListener('change', async function() {
     await toggleDevoirStatut(devoir.id, this.checked);
@@ -382,12 +534,62 @@ function showDevoirModal(devoirId) {
   toggleModal('devoir-modal', true);
 }
 
+async function loadDevoirModalFichiers(devoirId) {
+  const container = document.getElementById('devoir-modal-fichiers-list');
+  if (!container) return;
+
+  try {
+    const fichiers = await apiCall(`/api/devoirs/${devoirId}/fichiers`);
+
+    if (!fichiers || fichiers.length === 0) {
+      container.innerHTML = '<p style="color: var(--secondary); font-size: 0.9rem; margin: 0;">Aucun document PDF</p>';
+      return;
+    }
+
+    let html = '<div style="display: flex; flex-direction: column; gap: 0.5rem;">';
+    fichiers.forEach(fichier => {
+      html += `<div style="padding: 0.75rem; background: white; border-radius: 6px; border: 1px solid var(--border); display: flex; align-items: center; gap: 0.75rem; transition: all 0.2s ease; cursor: pointer;" onclick="window.open('/uploads/${escapeHTML(fichier.filename)}', '_blank')" onmouseover="this.style.backgroundColor='rgba(74, 144, 226, 0.05)'; this.style.borderColor='var(--primary)'" onmouseout="this.style.backgroundColor='white'; this.style.borderColor='var(--border)'">`;
+
+      // Icône PDF
+      html += `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" style="flex-shrink: 0;">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <text x="12" y="18" font-size="6" text-anchor="middle" fill="var(--danger)" font-weight="bold">PDF</text>
+      </svg>`;
+
+      // Info du fichier
+      html += `<div style="flex: 1; min-width: 0;">`;
+      html += `<div style="font-size: 0.95rem; font-weight: 500; color: var(--primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHTML(fichier.original_name)}</div>`;
+      html += `<div style="font-size: 0.8rem; color: var(--secondary);">Uploadé par ${escapeHTML(fichier.uploaded_by_username || 'Inconnu')}</div>`;
+      html += `</div>`;
+
+      // Icône flèche
+      html += `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--secondary)" stroke-width="2" style="flex-shrink: 0;">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+        <polyline points="15 3 21 3 21 9"></polyline>
+        <line x1="10" y1="14" x2="21" y2="3"></line>
+      </svg>`;
+
+      html += `</div>`;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+  } catch (error) {
+    console.error('Erreur lors du chargement des fichiers:', error);
+    container.innerHTML = '<p style="color: var(--danger); font-size: 0.9rem; margin: 0;">Erreur lors du chargement des fichiers</p>';
+  }
+}
+
 function showAddDevoirModal(dateStr) {
   const dateLimiteInput = document.getElementById('devoir-date-limite');
 
   if (dateStr) {
     dateLimiteInput.value = dateStr;
   }
+
+  // Réinitialiser la liste des fichiers accumulés
+  accumulatedFiles.length = 0;
+  document.getElementById('devoir-fichiers-list').innerHTML = '';
 
   updateMatiereSelect();
   toggleModal('add-devoir-modal', true);
@@ -396,23 +598,67 @@ function showAddDevoirModal(dateStr) {
 async function handleAddDevoir(e) {
   e.preventDefault();
 
-  const data = await apiCall('/api/devoirs', {
-    method: 'POST',
-    body: JSON.stringify({
-      titre: document.getElementById('devoir-titre').value,
-      description: document.getElementById('devoir-description').value,
-      matiere_id: document.getElementById('devoir-matiere').value,
-      date: document.getElementById('devoir-date-limite').value
-    })
-  });
+  const submitBtn = document.getElementById('add-devoir-submit-btn');
+  const originalText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Création en cours...';
 
-  if (data.error) {
-    await showAlert(data.error, 'Erreur');
-  } else {
+  try {
+    const data = await apiCall('/api/devoirs', {
+      method: 'POST',
+      body: JSON.stringify({
+        titre: document.getElementById('devoir-titre').value,
+        description: document.getElementById('devoir-description').value,
+        matiere_id: document.getElementById('devoir-matiere').value,
+        date: document.getElementById('devoir-date-limite').value
+      })
+    });
+
+    if (data.error) {
+      await showAlert(data.error, 'Erreur');
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
+      return;
+    }
+
+    // Upload des fichiers si présents
+    if (accumulatedFiles && accumulatedFiles.length > 0) {
+      submitBtn.textContent = `Upload des fichiers (0/${accumulatedFiles.length})...`;
+
+      for (let i = 0; i < accumulatedFiles.length; i++) {
+        const formData = new FormData();
+        formData.append('pdf', accumulatedFiles[i]);
+
+        try {
+          const uploadResult = await fetch(`/api/devoirs/${data.devoirId}/upload`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: formData
+          });
+
+          const uploadData = await uploadResult.json();
+          if (uploadData.error) {
+            console.error(`Erreur lors de l'upload de ${accumulatedFiles[i].name}:`, uploadData.error);
+          }
+
+          submitBtn.textContent = `Upload des fichiers (${i + 1}/${accumulatedFiles.length})...`;
+        } catch (error) {
+          console.error(`Erreur lors de l'upload de ${accumulatedFiles[i].name}:`, error);
+        }
+      }
+    }
+
     toggleModal('add-devoir-modal', false);
     document.getElementById('devoir-form').reset();
+    accumulatedFiles.length = 0;
+    document.getElementById('devoir-fichiers-list').innerHTML = '';
     await loadDevoirs();
     renderCalendar();
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
   }
 }
 
@@ -439,31 +685,133 @@ async function editDevoir(id) {
     select.appendChild(option);
   });
 
+  // Réinitialiser les fichiers nouveaux accumulés
+  accumulatedEditFiles.length = 0;
+  document.getElementById('edit-devoir-nouveaux-fichiers-list').innerHTML = '';
+
+  // Charger et afficher les fichiers existants
+  await loadExistingFiles(id);
+
   toggleModal('edit-devoir-modal', true);
 }
+
+async function loadExistingFiles(devoirId) {
+  const container = document.getElementById('edit-devoir-fichiers-existants');
+  container.innerHTML = '<p style="color: var(--secondary); font-size: 0.9rem;">Chargement...</p>';
+
+  try {
+    const fichiers = await apiCall(`/api/devoirs/${devoirId}/fichiers`);
+
+    if (!fichiers || fichiers.length === 0) {
+      container.innerHTML = '<p style="color: var(--secondary); font-size: 0.9rem;">Aucun fichier PDF</p>';
+      return;
+    }
+
+    let html = '';
+    fichiers.forEach(fichier => {
+      html += `<div style="padding: 0.5rem; background: white; border-radius: 4px; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border);" data-fichier-id="${fichier.id}">`;
+      html += `<div style="flex: 1;">`;
+      html += `<a href="/uploads/${escapeHTML(fichier.filename)}" target="_blank" style="color: var(--primary); text-decoration: none; font-size: 0.9rem;">${escapeHTML(fichier.original_name)}</a>`;
+      html += `<div style="font-size: 0.8rem; color: var(--secondary);">Uploadé par ${escapeHTML(fichier.uploaded_by_username || 'Inconnu')}</div>`;
+      html += `</div>`;
+      html += `<button type="button" class="btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="deleteFichier(${fichier.id}, ${devoirId})">Supprimer</button>`;
+      html += `</div>`;
+    });
+    container.innerHTML = html;
+  } catch (error) {
+    console.error('Erreur lors du chargement des fichiers:', error);
+    container.innerHTML = '<p style="color: var(--danger); font-size: 0.9rem;">Erreur lors du chargement des fichiers</p>';
+  }
+}
+
+window.deleteFichier = async function(fichierId, devoirId) {
+  const confirmed = await showConfirm('Êtes-vous sûr de vouloir supprimer ce fichier ?', 'Confirmation');
+  if (!confirmed) return;
+
+  try {
+    const result = await apiCall(`/api/devoirs/fichiers/${fichierId}`, {
+      method: 'DELETE'
+    });
+
+    if (result.error) {
+      await showAlert(result.error, 'Erreur');
+      return;
+    }
+
+    // Recharger la liste des fichiers
+    await loadExistingFiles(devoirId);
+  } catch (error) {
+    console.error('Erreur lors de la suppression du fichier:', error);
+    await showAlert('Erreur lors de la suppression du fichier', 'Erreur');
+  }
+};
 
 async function handleEditDevoir(e) {
   e.preventDefault();
 
   const id = document.getElementById('edit-devoir-id').value;
+  const submitBtn = document.getElementById('edit-devoir-submit-btn');
+  const originalText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Enregistrement en cours...';
 
-  const data = await apiCall(`/api/devoirs/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify({
-      titre: document.getElementById('edit-devoir-titre').value,
-      description: document.getElementById('edit-devoir-description').value,
-      matiere_id: document.getElementById('edit-devoir-matiere').value,
-      date: document.getElementById('edit-devoir-date-limite').value
-    })
-  });
+  try {
+    const data = await apiCall(`/api/devoirs/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        titre: document.getElementById('edit-devoir-titre').value,
+        description: document.getElementById('edit-devoir-description').value,
+        matiere_id: document.getElementById('edit-devoir-matiere').value,
+        date: document.getElementById('edit-devoir-date-limite').value
+      })
+    });
 
-  if (data.error) {
-    await showAlert(data.error, 'Erreur');
-  } else {
+    if (data.error) {
+      await showAlert(data.error, 'Erreur');
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
+      return;
+    }
+
+    // Upload des nouveaux fichiers si présents
+    if (accumulatedEditFiles && accumulatedEditFiles.length > 0) {
+      submitBtn.textContent = `Upload des fichiers (0/${accumulatedEditFiles.length})...`;
+
+      for (let i = 0; i < accumulatedEditFiles.length; i++) {
+        const formData = new FormData();
+        formData.append('pdf', accumulatedEditFiles[i]);
+
+        try {
+          const uploadResult = await fetch(`/api/devoirs/${id}/upload`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: formData
+          });
+
+          const uploadData = await uploadResult.json();
+          if (uploadData.error) {
+            console.error(`Erreur lors de l'upload de ${accumulatedEditFiles[i].name}:`, uploadData.error);
+          }
+
+          submitBtn.textContent = `Upload des fichiers (${i + 1}/${accumulatedEditFiles.length})...`;
+        } catch (error) {
+          console.error(`Erreur lors de l'upload de ${accumulatedEditFiles[i].name}:`, error);
+        }
+      }
+    }
+
     toggleModal('edit-devoir-modal', false);
     document.getElementById('edit-devoir-form').reset();
+    accumulatedEditFiles.length = 0;
+    document.getElementById('edit-devoir-nouveaux-fichiers-list').innerHTML = '';
+    document.getElementById('edit-devoir-fichiers-existants').innerHTML = '';
     await loadDevoirs();
     renderCalendar();
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
   }
 }
 

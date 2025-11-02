@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documents PDF - ENIV</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+        }
+
+        .upload-section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .upload-area:hover {
+            background: #e9ecef;
+            border-color: #5568d3;
+        }
+
+        .upload-area.dragover {
+            background: #e0e8ff;
+            border-color: #5568d3;
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .upload-text {
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .files-section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .files-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .file-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+
+        .file-icon {
+            font-size: 2em;
+            color: #dc3545;
+            margin-right: 15px;
+        }
+
+        .file-details {
+            flex: 1;
+        }
+
+        .file-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .file-meta {
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .alert.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .alert.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .file-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .file-actions {
+                margin-top: 10px;
+                width: 100%;
+            }
+
+            .btn {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 Documents PDF</h1>
+            <p id="devoirTitle">Chargement...</p>
+        </div>
+
+        <div id="alert" class="alert"></div>
+
+        <div class="upload-section" id="uploadSection" style="display: none;">
+            <h2 style="margin-bottom: 20px; color: #333;">📤 Ajouter un document PDF</h2>
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📄</div>
+                <div class="upload-text">
+                    <strong>Cliquez pour sélectionner un fichier PDF</strong><br>
+                    ou glissez-déposez un fichier ici
+                </div>
+                <small style="color: #999;">Taille maximale : 10 Mo</small>
+                <input type="file" id="fileInput" class="file-input" accept=".pdf,application/pdf">
+            </div>
+            <div style="margin-top: 15px; text-align: center;">
+                <button class="btn btn-primary" id="uploadBtn" style="display: none;">Uploader le fichier</button>
+            </div>
+        </div>
+
+        <div class="files-section">
+            <h2 class="files-title">📚 Documents disponibles</h2>
+            <div id="filesList"></div>
+        </div>
+
+        <div style="margin-top: 30px; text-align: center;">
+            <button class="btn btn-secondary" onclick="goBack()">Retour</button>
+        </div>
+    </div>
+
+    <script>
+        let devoirId = null;
+        let currentFile = null;
+        let userRole = null;
+        let userId = null;
+
+        // Récupérer l'ID du devoir depuis l'URL
+        function getDevoirIdFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('id');
+        }
+
+        // Charger les informations du devoir
+        async function loadDevoirInfo() {
+            try {
+                devoirId = getDevoirIdFromUrl();
+                if (!devoirId) {
+                    showAlert('error', 'Aucun devoir spécifié');
+                    setTimeout(() => window.location.href = '/dashboard', 2000);
+                    return;
+                }
+
+                const response = await fetch(`/api/devoirs/${devoirId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Erreur lors du chargement du devoir');
+                }
+
+                const devoir = await response.json();
+                document.getElementById('devoirTitle').textContent = devoir.titre;
+
+                // Récupérer le rôle de l'utilisateur
+                const userResponse = await fetch('/api/auth/me', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                if (userResponse.ok) {
+                    const userData = await userResponse.json();
+                    userRole = userData.role;
+                    userId = userData.userId;
+
+                    // Afficher la section upload pour tout le monde
+                    document.getElementById('uploadSection').style.display = 'block';
+                }
+
+                loadFiles();
+            } catch (error) {
+                console.error('Erreur:', error);
+                showAlert('error', 'Impossible de charger le devoir');
+                setTimeout(() => window.location.href = '/dashboard', 2000);
+            }
+        }
+
+        // Charger la liste des fichiers
+        async function loadFiles() {
+            try {
+                const response = await fetch(`/api/devoirs/${devoirId}/fichiers`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Erreur lors du chargement des fichiers');
+                }
+
+                const files = await response.json();
+                displayFiles(files);
+            } catch (error) {
+                console.error('Erreur:', error);
+                showAlert('error', 'Impossible de charger les fichiers');
+            }
+        }
+
+        // Afficher les fichiers
+        function displayFiles(files) {
+            const filesList = document.getElementById('filesList');
+
+            if (files.length === 0) {
+                filesList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <p>Aucun document PDF pour le moment</p>
+                    </div>
+                `;
+                return;
+            }
+
+            filesList.innerHTML = files.map(file => {
+                const date = new Date(file.uploaded_at);
+
+                // Afficher qui a uploadé le fichier
+                const uploadedBy = file.uploaded_by_username
+                    ? `par ${file.uploaded_by_username}`
+                    : '';
+
+                // Tout le monde peut supprimer tous les fichiers
+                return `
+                    <div class="file-item">
+                        <div class="file-info">
+                            <div class="file-icon">📄</div>
+                            <div class="file-details">
+                                <div class="file-name">${file.original_name}</div>
+                                <div class="file-meta">Ajouté le ${date.toLocaleDateString('fr-FR')} à ${date.toLocaleTimeString('fr-FR')} ${uploadedBy}</div>
+                            </div>
+                        </div>
+                        <div class="file-actions">
+                            <a href="/uploads/${file.filename}" target="_blank" class="btn btn-primary">Ouvrir</a>
+                            <button class="btn btn-danger" onclick="deleteFile(${file.id})">Supprimer</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Gérer le drag and drop
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        // Gérer la sélection de fichier
+        function handleFileSelect(file) {
+            // Vérifier que c'est un PDF
+            if (file.type !== 'application/pdf') {
+                showAlert('error', 'Seuls les fichiers PDF sont autorisés');
+                return;
+            }
+
+            // Vérifier la taille (10 Mo max)
+            if (file.size > 10 * 1024 * 1024) {
+                showAlert('error', 'Le fichier est trop volumineux (maximum 10 Mo)');
+                return;
+            }
+
+            currentFile = file;
+            document.getElementById('uploadBtn').style.display = 'inline-block';
+            showAlert('info', `Fichier sélectionné: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} Mo)`);
+        }
+
+        // Uploader le fichier
+        document.getElementById('uploadBtn').addEventListener('click', async () => {
+            if (!currentFile) {
+                showAlert('error', 'Aucun fichier sélectionné');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('pdf', currentFile);
+
+            try {
+                document.getElementById('uploadBtn').disabled = true;
+                document.getElementById('uploadBtn').textContent = 'Upload en cours...';
+
+                const response = await fetch(`/api/devoirs/${devoirId}/upload`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('success', 'Fichier uploadé avec succès !');
+                    currentFile = null;
+                    fileInput.value = '';
+                    document.getElementById('uploadBtn').style.display = 'none';
+                    loadFiles();
+                } else {
+                    showAlert('error', data.error || 'Erreur lors de l\'upload');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                showAlert('error', 'Erreur de connexion au serveur');
+            } finally {
+                document.getElementById('uploadBtn').disabled = false;
+                document.getElementById('uploadBtn').textContent = 'Uploader le fichier';
+            }
+        });
+
+        // Supprimer un fichier
+        async function deleteFile(fileId) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer ce fichier ?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/devoirs/fichiers/${fileId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('success', 'Fichier supprimé avec succès');
+                    loadFiles();
+                } else {
+                    showAlert('error', data.error || 'Erreur lors de la suppression');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                showAlert('error', 'Erreur de connexion au serveur');
+            }
+        }
+
+        // Afficher une alerte
+        function showAlert(type, message) {
+            const alert = document.getElementById('alert');
+            alert.className = `alert ${type}`;
+            alert.textContent = message;
+            alert.style.display = 'block';
+
+            if (type === 'success') {
+                setTimeout(() => {
+                    alert.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // Retour au dashboard
+        function goBack() {
+            window.location.href = '/dashboard';
+        }
+
+        // Initialiser au chargement de la page
+        document.addEventListener('DOMContentLoaded', loadDevoirInfo);
+    </script>
+</body>
+</html>

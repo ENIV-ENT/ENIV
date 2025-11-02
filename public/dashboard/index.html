@@ -11,12 +11,118 @@
   <header>
     <h1>Eniv</h1>
     <div class="header-actions">
-      <button id="emploi-temps-btn" class="btn-secondary hidden">Emploi du temps</button>
-      <button id="settings-btn" class="btn-secondary">Paramètres</button>
-      <span id="eleve-info"></span>
-      <button id="logout-btn" class="btn-secondary">Déconnexion</button>
+      <div class="user-menu">
+        <button id="user-menu-btn" class="user-menu-btn">
+          <span id="eleve-info"></span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 0.5rem;">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+        <div id="user-dropdown" class="user-dropdown hidden">
+          <button id="emploi-temps-btn" class="dropdown-item hidden">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            Emploi du temps
+          </button>
+          <button id="settings-btn" class="dropdown-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            Paramètres
+          </button>
+          <button id="logout-btn" class="dropdown-item logout">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            Déconnexion
+          </button>
+        </div>
+      </div>
     </div>
   </header>
+  <style>
+    .user-menu {
+      position: relative;
+    }
+
+    .user-menu-btn {
+      display: flex;
+      align-items: center;
+      padding: 0.5rem 1rem;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: background 0.2s ease;
+    }
+
+    .user-menu-btn:hover {
+      background: var(--primary-dark);
+    }
+
+    .user-dropdown {
+      position: absolute;
+      top: calc(100% + 0.5rem);
+      right: 0;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      min-width: 200px;
+      overflow: hidden;
+      z-index: 1000;
+    }
+
+    .user-dropdown.hidden {
+      display: none;
+    }
+
+    .dropdown-item {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: white;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      font-size: 0.95rem;
+      color: var(--dark);
+      transition: background 0.2s ease;
+      text-align: left;
+    }
+
+    .dropdown-item:last-child {
+      border-bottom: none;
+    }
+
+    .dropdown-item:hover {
+      background: var(--light);
+    }
+
+    .dropdown-item.logout {
+      color: var(--danger);
+    }
+
+    .dropdown-item.logout:hover {
+      background: rgba(220, 53, 69, 0.1);
+    }
+
+    .dropdown-item.hidden {
+      display: none;
+    }
+  </style>
 
   <div class="container">
     <div class="calendar-header">
@@ -63,6 +169,29 @@
           <label for="devoir-date-limite" class="form-label">Pour le</label>
           <input type="date" id="devoir-date-limite" required>
         </div>
+        <div class="form-group">
+          <label class="form-label">Fichiers PDF (optionnel)</label>
+          <div id="devoir-drop-zone" style="
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--light);
+            margin-bottom: 0.5rem;
+          ">
+            <input type="file" id="devoir-fichiers" accept="application/pdf" multiple style="display: none;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto; color: var(--primary);">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <p style="margin: 0.5rem 0 0 0; color: var(--primary); font-weight: 500;">Cliquez ou glissez-déposez vos fichiers PDF ici</p>
+            <small style="color: var(--secondary); font-size: 0.85rem;">10 Mo max par fichier</small>
+          </div>
+          <div id="devoir-fichiers-list" style="margin-top: 0.5rem;"></div>
+        </div>
         <div class="form-actions">
           <button type="submit" id="add-devoir-submit-btn" class="btn-primary">Créer le devoir</button>
           <button type="button" id="cancel-devoir-btn" class="btn-secondary">Annuler</button>
@@ -96,6 +225,33 @@
         <div class="form-group">
           <label for="edit-devoir-date-limite" class="form-label">Pour le</label>
           <input type="date" id="edit-devoir-date-limite" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fichiers PDF existants</label>
+          <div id="edit-devoir-fichiers-existants" style="margin-bottom: 1rem;"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ajouter des fichiers PDF (optionnel)</label>
+          <div id="edit-devoir-drop-zone" style="
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--light);
+            margin-bottom: 0.5rem;
+          ">
+            <input type="file" id="edit-devoir-nouveaux-fichiers" accept="application/pdf" multiple style="display: none;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto; color: var(--primary);">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <p style="margin: 0.5rem 0 0 0; color: var(--primary); font-weight: 500;">Cliquez ou glissez-déposez vos fichiers PDF ici</p>
+            <small style="color: var(--secondary); font-size: 0.85rem;">10 Mo max par fichier</small>
+          </div>
+          <div id="edit-devoir-nouveaux-fichiers-list" style="margin-top: 0.5rem;"></div>
         </div>
         <div class="form-actions">
           <button type="submit" id="edit-devoir-submit-btn" class="btn-primary">Enregistrer</button>

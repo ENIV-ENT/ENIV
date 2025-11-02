@@ -1,0 +1,62 @@
+[
+  {
+    "question": "Quelle est la capitale de la France ?",
+    "options": [
+      "Paris",
+      "Londres",
+      "Berlin",
+      "Madrid"
+    ],
+    "correct": 0,
+    "explanation": "Paris est la capitale et la plus grande ville de France depuis le XIIe siècle.",
+    "example": "Paris compte plus de 2 millions d'habitants intra-muros et environ 12 millions dans l'agglomération."
+  },
+  {
+    "question": "Combien font 2 + 2 ?",
+    "options": [
+      "3",
+      "4",
+      "5",
+      "6"
+    ],
+    "correct": 1,
+    "explanation": "2 + 2 = 4, c'est une addition basique en mathématiques.",
+    "example": "Si vous avez 2 pommes et que vous en ajoutez 2 autres, vous avez 4 pommes au total."
+  },
+  {
+    "question": "Quel est le langage de programmation le plus utilisé pour le web ?",
+    "options": [
+      "Python",
+      "Java",
+      "JavaScript",
+      "C++"
+    ],
+    "correct": 2,
+    "explanation": "JavaScript est le langage de programmation principal pour le développement web côté client. Il est supporté par tous les navigateurs modernes.",
+    "example": "JavaScript permet de créer des sites interactifs : validation de formulaires, animations, applications web complètes (React, Vue, Angular)."
+  },
+  {
+    "question": "Que signifie 'HTML' ?",
+    "options": [
+      "Hyper Text Markup Language",
+      "High Tech Modern Language",
+      "Home Tool Markup Language",
+      "Hyperlinks and Text Markup Language"
+    ],
+    "correct": 0,
+    "explanation": "HTML signifie HyperText Markup Language. C'est le langage de balisage standard pour créer des pages web.",
+    "example": "Une balise HTML basique : <p>Ceci est un paragraphe</p>"
+  },
+  {
+    "question": "Quelle est la fonction principale d'un CSS ?",
+    "options": [
+      "Créer des bases de données",
+      "Gérer la logique de l'application",
+      "Styliser et mettre en forme les pages web",
+      "Créer des animations 3D"
+    ],
+    "correct": 2,
+    "explanation": "CSS (Cascading Style Sheets) est utilisé pour styliser et mettre en forme les éléments HTML d'une page web.",
+    "example": "CSS permet de définir les couleurs, les polices, les espacements, et la disposition des éléments sur une page web."
+  }
+]

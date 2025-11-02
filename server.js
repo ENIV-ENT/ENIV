@@ -36,6 +36,7 @@ app.use('/api/superadmin', require('./backend/routes/superadmin'));
 app.use('/api/admin', require('./backend/routes/admin'));
 app.use('/api/devoirs', require('./backend/routes/devoirs'));
 app.use('/api/invitations', require('./backend/routes/invitations'));
+app.use('/api/quiz', require('./backend/routes/quiz'));
 
 // Route pour le webhook GitHub
 const { handleWebhook } = require('./deploy');
@@ -66,6 +67,18 @@ app.get('/superadmin/dashboard', (req, res) => {
 
 app.get('/register', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'register', 'index.html'));
+});
+
+app.get('/quiz', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'quiz', 'index.html'));
+});
+
+app.get('/quiz/create', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'quiz', 'create.html'));
+});
+
+app.get('/devoir-pdf', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'devoir-pdf', 'index.html'));
 });
 
 app.get('*', (req, res) => {
