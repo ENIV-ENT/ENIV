@@ -1,3 +1,5 @@
+import {escapeHTML} from "../js/utils/dom.js";
+
 // Variables globales
 let quizData = null;
 let currentQuestions = [];
@@ -15,37 +17,22 @@ let devoirId = null;
 // Fonction pour formater le texte avec des blocs de code
 function formatTextWithCode(text) {
     if (!text) return '';
-    
+
     // Remplacer '''code''' par des blocs de code HTML avec coloration syntaxique
     // Support pour ''' (3 apostrophes) et ``` (3 backticks)
     let result = text;
-    
+
+    function replacer(match, code) {
+      const cleanCode = code.trim();
+      const escapedCode = escapeHTML(cleanCode);
+      return `<pre><code>${escapedCode}</code></pre>`;
+    }
+
     // Remplacer '''code''' (3 apostrophes simples)
-    result = result.replace(/'''([\s\S]*?)'''/g, function(match, code) {
-        const cleanCode = code.trim();
-        const escapedCode = cleanCode
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-        
-        return `<pre><code>${escapedCode}</code></pre>`;
-    });
-    
+    result = result.replace(/'''([\s\S]*?)'''/g, replacer);
     // Remplacer ```code``` (3 backticks) au cas où
-    result = result.replace(/```([\s\S]*?)```/g, function(match, code) {
-        const cleanCode = code.trim();
-        const escapedCode = cleanCode
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-        
-        return `<pre><code>${escapedCode}</code></pre>`;
-    });
-    
+    result = result.replace(/```([\s\S]*?)```/g, replacer);
+
     return result;
 }
 
@@ -180,7 +167,7 @@ function loadQuestion() {
                 optionDiv.style.opacity = '0.7';
             }            const letter = String.fromCharCode(65 + index);
             optionDiv.innerHTML = `
-                <div class="option-letter">${letter}</div>
+                <div class="option-letter">${escapeHTML(letter)}</div>
                 <div class="option-text">${formatTextWithCode(option)}</div>
             `;
 
@@ -202,9 +189,9 @@ function loadQuestion() {
 
             // Afficher l'explication
             if (question.explanation) {
-                document.getElementById('explanationText').textContent = question.explanation;
+                document.getElementById('explanationText').innerHTML = formatTextWithCode(question.explanation);
                 if (question.example) {
-                    document.getElementById('exampleText').innerHTML = question.example;
+                    document.getElementById('exampleText').innerHTML = formatTextWithCode(question.example);
                     document.getElementById('example').style.display = 'block';
                 } else {
                     document.getElementById('example').style.display = 'none';
@@ -317,9 +304,9 @@ function validateAnswer() {
 
     // Afficher l'explication si elle existe
     if (question.explanation) {
-        document.getElementById('explanationText').textContent = question.explanation;
+        document.getElementById('explanationText').innerHTML = formatTextWithCode(question.explanation);
         if (question.example) {
-            document.getElementById('exampleText').innerHTML = question.example;
+            document.getElementById('exampleText').innerHTML = formatTextWithCode(question.example);
             document.getElementById('example').style.display = 'block';
         } else {
             document.getElementById('example').style.display = 'none';
@@ -338,7 +325,9 @@ function showAnswer() {
     if (answered || answeredQuestions.has(currentQuestionIndex)) return;
 
     const question = currentQuestions[currentQuestionIndex];
-    answered = true;    const correctAnswerDiv = document.getElementById('correctAnswer');
+    answered = true;
+
+    const correctAnswerDiv = document.getElementById('correctAnswer');
     correctAnswerDiv.innerHTML = `<strong>Réponse correcte:</strong> ${formatTextWithCode(question.options[question.correct])}`;
     correctAnswerDiv.style.display = 'block';
 
@@ -347,9 +336,9 @@ function showAnswer() {
 
     // Afficher l'explication si elle existe
     if (question.explanation) {
-        document.getElementById('explanationText').textContent = question.explanation;
+        document.getElementById('explanationText').innerHTML = formatTextWithCode(question.explanation);
         if (question.example) {
-            document.getElementById('exampleText').innerHTML = question.example;
+            document.getElementById('exampleText').innerHTML = formatTextWithCode(question.example);
             document.getElementById('example').style.display = 'block';
         } else {
             document.getElementById('example').style.display = 'none';
@@ -586,3 +575,13 @@ document.addEventListener('DOMContentLoaded', () => {
     loadQuizData();
     loadUserInfo();
 });
+
+
+window.startQuiz = startQuiz;
+window.showAnswer = showAnswer;
+window.evaluateAnswer = evaluateAnswer;
+window.previousQuestion = previousQuestion;
+window.validateAnswer = validateAnswer;
+window.nextQuestion = nextQuestion;
+window.restartQuiz = restartQuiz;
+window.goBack = goBack;
