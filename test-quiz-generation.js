@@ -19,7 +19,7 @@ const testDevoir = {
 
 // Fichiers de test (simulés)
 const testFichiers = [
-  { filename: '1762117548301-388086541.pdf' } // Assurez-vous qu'un fichier test existe dans backend/uploads/
+  { filename: 'TBFAR312 Multicultural Environments.pdf' } // Assurez-vous qu'un fichier test existe dans backend/uploads/
 ];
 
 async function testGeneration() {
@@ -30,23 +30,21 @@ async function testGeneration() {
 
   try {
     // Test avec Groq (gratuit)
-    console.log('--- Test avec Groq (Standard) ---');
-    const questionsGroq = await generateQuizWithAI(testDevoir, false, testFichiers);
-    console.log('✅ Génération Groq réussie !');
-    console.log(`📝 Nombre de questions: ${questionsGroq.length}`);
-    console.log('\nExemple de question:');
-    console.log(JSON.stringify(questionsGroq[0], null, 2));
-    console.log('\n');
+    // console.log('--- Test avec Groq (Standard) ---');
+    // const questionsGroq = await generateQuizWithAI(testDevoir, false, testFichiers);
+    // console.log('✅ Génération Groq réussie !');
+    // console.log(`📝 Nombre de questions: ${questionsGroq.length}`);
+    // console.log('\nExemple de question:');
+    // console.log(JSON.stringify(questionsGroq[0], null, 2));
+    // console.log('\n');
 
     // Test avec Claude (premium) - décommenter si vous avez une clé Claude
-    /*
     console.log('--- Test avec Claude (Premium) ---');
     const questionsClaude = await generateQuizWithAI(testDevoir, true, testFichiers);
     console.log('✅ Génération Claude réussie !');
     console.log(`📝 Nombre de questions: ${questionsClaude.length}`);
     console.log('\nExemple de question:');
-    console.log(JSON.stringify(questionsClaude[0], null, 2));
-    */
+    console.log(JSON.stringify(questionsClaude, null, 2));
 
     console.log('\n🎉 Tests terminés avec succès !');
   } catch (error) {

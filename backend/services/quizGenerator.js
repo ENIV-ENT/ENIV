@@ -117,17 +117,27 @@ async function generateWithClaude(prompt) {
     apiKey: apiKey
   });
 
-  const message = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 16000,
-    messages: [{
-      role: 'user',
-      content: prompt
-    }]
-  });
+  try {
+    const message = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 16000,
+      messages: [{
+        role: 'user',
+        content: prompt
+      }]
+    });
 
-  const content = message.content[0].text;
-  return extractJSON(content);
+    const content = message.content[0].text;
+    return extractJSON(content);
+  } catch (error) {
+    console.error('❌ Erreur détaillée Claude:', {
+      status: error.status,
+      message: error.message,
+      type: error.type,
+      body: error.body
+    });
+    throw error;
+  }
 }
 
 /**
