@@ -215,6 +215,9 @@ function editEleve(id) {
 
   document.getElementById('edit-eleve-id').value = eleve.id;
   document.getElementById('edit-eleve-username').value = eleve.username;
+  document.getElementById('edit-eleve-email').value = eleve.email;
+  document.getElementById('edit-eleve-nom').value = eleve.nom;
+  document.getElementById('edit-eleve-prenom').value = eleve.prenom;
   document.getElementById('edit-eleve-password').value = '';
   document.getElementById('edit-eleve-password-confirm').value = '';
 
@@ -226,6 +229,9 @@ async function handleEditEleve(e) {
 
   const id = document.getElementById('edit-eleve-id').value;
   const username = document.getElementById('edit-eleve-username').value;
+  const email = document.getElementById('edit-eleve-email').value;
+  const nom = document.getElementById('edit-eleve-nom').value;
+  const prenom = document.getElementById('edit-eleve-prenom').value;
   const password = document.getElementById('edit-eleve-password').value;
   const passwordConfirm = document.getElementById('edit-eleve-password-confirm').value;
 
@@ -238,7 +244,7 @@ async function handleEditEleve(e) {
 
   const data = await apiCall(`/api/admin/eleves/${id}`, {
     method: 'PUT',
-    body: JSON.stringify({ username, password: password || undefined })
+    body: JSON.stringify({ username, email, nom, prenom, password: password || undefined })
   });
 
   if (data.error) {

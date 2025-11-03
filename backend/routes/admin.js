@@ -111,7 +111,7 @@ router.get('/eleves', requireAdmin, async (req, res) => {
     }
 
     const eleves = await db.all(
-      'SELECT id, username, created_at FROM users WHERE role = ? AND classe_id = ?',
+      'SELECT id, username, created_at, email, nom, prenom FROM users WHERE role = ? AND classe_id = ?',
       ['eleve', admin.classe_id]
     );
     res.json(eleves);
@@ -122,7 +122,7 @@ router.get('/eleves', requireAdmin, async (req, res) => {
 
 // Modifier un élève (username et/ou mot de passe)
 router.put('/eleves/:id', requireAdmin, express.json(), async (req, res) => {
-  const { username, password } = req.body;
+  const { username, email, nom, prenom, password } = req.body;
 
   if (!username) {
     return res.status(400).json({ error: 'Nom d\'utilisateur requis' });
@@ -137,13 +137,13 @@ router.put('/eleves/:id', requireAdmin, express.json(), async (req, res) => {
     if (password) {
       const hashedPassword = bcrypt.hashSync(password, 10);
       await db.run(
-        'UPDATE users SET username = ?, password = ? WHERE id = ? AND role = ? AND classe_id = ?',
-        [username, hashedPassword, req.params.id, 'eleve', admin.classe_id]
+        'UPDATE users SET username = ?, email = ?, nom = ?, prenom = ?, password = ? WHERE id = ? AND role = ? AND classe_id = ?',
+        [username, email, nom, prenom, hashedPassword, req.params.id, 'eleve', admin.classe_id]
       );
     } else {
       await db.run(
-        'UPDATE users SET username = ? WHERE id = ? AND role = ? AND classe_id = ?',
-        [username, req.params.id, 'eleve', admin.classe_id]
+        'UPDATE users SET username = ?, email = ?, nom = ?, prenom = ? WHERE id = ? AND role = ? AND classe_id = ?',
+        [username, email, nom, prenom, req.params.id, 'eleve', admin.classe_id]
       );
     }
     res.json({ success: true, message: 'Élève modifié avec succès' });
