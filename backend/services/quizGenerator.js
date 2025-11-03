@@ -53,7 +53,13 @@ function createPrompt(devoir, documentsText) {
     }
   ];
 
-  return `Tu es un assistant pédagogique expert. Tu dois générer un questionnaire complet pour réviser une évaluation.
+  return `Tu es un assistant pédagogique expert. Tu dois générer un questionnaire pour aider les étudiants à RÉVISER le COURS en vue d'une ÉVALUATION.
+
+🎯 OBJECTIF DU QCM :
+Ce QCM a pour but de réviser les connaissances et concepts du COURS afin de se préparer à une évaluation.
+Les documents fournis peuvent être :
+- Des COURS (support principal de révision)
+- Des TRAVAUX PRATIQUES (TPs) qui illustrent l'application des concepts du cours
 
 CONTEXTE DU DEVOIR :
 - Titre : ${devoir.titre}
@@ -61,46 +67,65 @@ CONTEXTE DU DEVOIR :
 - Description : ${devoir.description || 'Non spécifiée'}
 - Date : ${devoir.date || 'Non spécifiée'}
 
-⚠️ IMPORTANT - CONTENU DES DOCUMENTS :
-La matière (${devoir.matiere_nom || 'Non spécifiée'}) est indiquée uniquement pour te donner le contexte.
-Tu dois générer les questions EXCLUSIVEMENT à partir du contenu PÉDAGOGIQUE des documents PDF ci-dessous.
+⚠️ RÈGLES STRICTES CONCERNANT LES TPs :
+- NE POSE JAMAIS de questions du type "Dans le TP2, quelle est..." ou "Selon le TP..."
+- NE POSE PAS de questions spécifiques aux exercices pratiques des TPs
+- NE DEMANDE PAS ce qui a été fait dans tel ou tel TP
+- Les TPs servent UNIQUEMENT d'inspiration pour comprendre quels concepts sont importants
+- Utilise les TPs pour identifier les concepts clés à réviser, mais pose des questions de COURS
 
-RÈGLES STRICTES :
-- Ne génère PAS de questions générales sur la matière
-- Ne génère PAS de questions sur le document lui-même (version, auteur, format, structure, etc.)
-- Ne génère PAS de questions sur les métadonnées (dates de publication, copyright, etc.)
-- Concentre-toi UNIQUEMENT sur le contenu ÉDUCATIF et les CONCEPTS enseignés
-- Chaque question doit porter sur une CONNAISSANCE ou un CONCEPT présent dans les documents
-- Chaque question doit être basée sur une information PRÉCISE et PÉDAGOGIQUE trouvée dans les documents
-- Ignore les pages de couverture, disclaimers, tables des matières, etc.
+✅ CE QU'IL FAUT FAIRE :
+- Poser des questions de COURS sur les concepts théoriques
+- Pour les matières avec du code, n'hésite PAS à proposer des EXEMPLES DE CODE et demander :
+  * Ce que ce code retourne
+  * Quel sera le résultat de l'exécution
+  * Identifier les erreurs dans le code
+  * Expliquer le comportement du code
+- Tester la COMPRÉHENSION des concepts à travers des exemples concrets
+- Créer tes propres exemples de code originaux (pas ceux des TPs)
+
+❌ CE QU'IL NE FAUT PAS FAIRE :
+- Questions générales non liées aux documents
+- Questions sur le document lui-même (version, auteur, format, structure)
+- Questions sur les métadonnées (dates de publication, copyright)
+- Questions spécifiques aux TPs ("Dans le TP1...", "L'exercice 2 du TP...")
+- Pages de couverture, disclaimers, tables des matières
 
 DOCUMENTS DU DEVOIR :
 ${documentsText}
 
 INSTRUCTIONS :
-1. Génère un questionnaire de MINIMUM 20 questions et MAXIMUM 100 questions pour réviser cette évaluation
-2. Base TOUTES les questions sur le contenu PÉDAGOGIQUE et les CONCEPTS enseignés dans les documents
-3. IGNORE complètement les informations sur le document lui-même (version, auteur, structure, copyright, etc.)
-4. Ne crée PAS de questions basées sur des connaissances générales de la matière
-5. Priorise les concepts et informations les plus importants trouvés dans les documents
-6. Crée des questions variées (faciles: 30%, moyennes: 50%, difficiles: 20%)
-7. Chaque question doit avoir 4 options de réponse
-8. Une seule réponse correcte par question
-9. Fournis une explication claire citant le concept ou l'information pédagogique du document
-10. Ajoute un exemple concret lié au concept enseigné si pertinent
-11. Couvre tous les aspects PÉDAGOGIQUES importants des documents fournis
-12. Assure-toi que les questions testent la COMPRÉHENSION et l'APPRENTISSAGE du contenu
+1. Génère un questionnaire de MINIMUM 20 questions et MAXIMUM 100 questions pour RÉVISER le COURS
+2. Base TOUTES les questions sur les CONCEPTS et CONNAISSANCES du COURS présents dans les documents
+3. Si les documents contiennent du CODE :
+   - Propose des exemples de code et demande ce qu'ils retournent
+   - Crée des questions sur le comportement du code
+   - Demande d'identifier les erreurs ou problèmes dans un code
+   - Teste la compréhension de la syntaxe et des concepts de programmation
+4. IGNORE :
+   - Les questions spécifiques aux TPs ("Dans le TP1...", "L'exercice 2...")
+   - Les informations sur le document (version, auteur, structure, copyright)
+   - Les connaissances générales non présentes dans les documents
+5. Crée des questions variées (faciles: 30%, moyennes: 50%, difficiles: 20%)
+6. Chaque question doit avoir 4 options de réponse
+7. Une seule réponse correcte par question
+8. Fournis une explication claire basée sur le COURS
+9. Ajoute un exemple concret si pertinent (surtout pour le code)
+10. Couvre tous les concepts importants du COURS
+11. Teste la COMPRÉHENSION et la capacité à APPLIQUER les concepts
 
 FORMAT DE RÉPONSE :
 Tu dois répondre UNIQUEMENT avec un tableau JSON valide, sans aucun texte avant ou après.
 Format attendu : ${JSON.stringify(exampleQuestions, null, 2)}
 
-IMPORTANT : 
+IMPORTANT :
 - Réponds UNIQUEMENT avec le JSON, pas de texte explicatif
-- Génère MINIMUM 20 questions basées sur le CONTENU PÉDAGOGIQUE des documents
+- Génère MINIMUM 20 questions basées sur les CONCEPTS du COURS
 - Si le contenu le permet, va jusqu'à 100 questions pour une révision complète
-- Chaque question doit tester la COMPRÉHENSION d'un CONCEPT ou d'une CONNAISSANCE
-- IGNORE toutes les informations non-pédagogiques (métadonnées, structure du document, etc.)`;
+- Pour le code : propose des EXEMPLES et teste la COMPRÉHENSION du comportement
+- Chaque question doit tester la COMPRÉHENSION et l'APPLICATION des concepts
+- NE POSE JAMAIS de questions sur "le TP1", "l'exercice 2", etc.
+- Les TPs sont une source d'inspiration pour les concepts, PAS pour les questions directes`;
 }
 
 /**
@@ -211,7 +236,7 @@ function validateQuestionsFormat(questions) {
  * Créer un prompt pour compléter un quiz
  */
 function create_completion_prompt(devoir, documentsText, existing) {
-  return `Tu es un assistant pédagogique expert. Tu as déjà généré ${existing.length} questions pour un quiz, mais il en faut PLUS pour avoir un quiz complet.
+  return `Tu es un assistant pédagogique expert. Tu as déjà généré ${existing.length} questions pour un quiz de RÉVISION du COURS, mais il en faut PLUS.
 
 DEVOIR : ${devoir.titre}
 ${devoir.description ? 'DESCRIPTION : ' + devoir.description : ''}
@@ -238,10 +263,11 @@ Format JSON strict :
 
 RÈGLES STRICTES :
 - MINIMUM 20 nouvelles questions
+- Questions de COURS (pas de "Dans le TP1..." ou "L'exercice 2...")
+- Pour le code : propose des exemples et demande ce qu'ils retournent
 - Questions DIFFÉRENTES de celles déjà générées
-- Basées sur le CONTENU PÉDAGOGIQUE uniquement
-- Pas de questions sur les métadonnées du document
-- Couvre différents aspects du contenu
+- Basées sur les CONCEPTS du COURS uniquement
+- Teste la COMPRÉHENSION et l'APPLICATION des concepts
 - Format JSON valide sans texte avant/après`;
 }
 
