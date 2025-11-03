@@ -121,6 +121,10 @@ INSTRUCTIONS :
 - Évite les réponses évidentes comme "Aucune de ces réponses" ou "Toutes les réponses"
 - Les mauvaises réponses doivent être crédibles et basées sur des erreurs courantes
 - Les réponses doivent tester la compréhension fine, pas juste la mémorisation
+- UNE SEULE réponse correcte par question (pas plusieurs bonnes réponses)
+- NE JAMAIS référencer la position des réponses (A, B, C, D ou 1, 2, 3, 4) dans la question ou l'explication
+- Les réponses sont affichées dans un ORDRE ALÉATOIRE, donc ne dis JAMAIS "la réponse B" ou "la deuxième option"
+- Dans l'explication, désigne la bonne réponse par son CONTENU, pas par sa position
 
 ⚠️ RÈGLES POUR LE CHAMP "example" :
 - Le champ "example" est affiché UNIQUEMENT APRÈS que l'étudiant ait répondu
@@ -153,7 +157,10 @@ IMPORTANT :
 - Les mauvaises réponses doivent être plausibles et basées sur des erreurs de compréhension courantes
 - CHAMP "example" : il est affiché APRÈS la réponse, ne mets JAMAIS du code de la question dedans
 - Si tu dois montrer du code à analyser, mets-le dans "question", pas dans "example"
-- Le champ "example" sert à montrer une APPLICATION ou UTILISATION du concept, pas à poser la question`;
+- Le champ "example" sert à montrer une APPLICATION ou UTILISATION du concept, pas à poser la question
+- UNE SEULE BONNE RÉPONSE : le champ "correct" doit pointer vers UNE SEULE option (0, 1, 2 ou 3)
+- NE RÉFÉRENCE JAMAIS les positions A/B/C/D ou 1/2/3/4 : les réponses sont affichées dans un ordre ALÉATOIRE
+- Dans ton explication, parle du CONTENU de la réponse ("Paris est correct car..."), pas de sa position ("La réponse A est correcte...")`;
 }
 
 /**
@@ -302,7 +309,10 @@ RÈGLES STRICTES :
 - LONGUEUR ÉGALE : toutes les options de réponse doivent avoir une longueur similaire (±10-20%)
 - Les mauvaises réponses doivent être crédibles et basées sur des erreurs courantes
 - CHAMP "example" : affiché APRÈS la réponse, pour montrer l'UTILISATION du concept, pas pour poser la question
-- Si tu veux montrer du code à analyser, mets-le dans "question", JAMAIS dans "example"`;
+- Si tu veux montrer du code à analyser, mets-le dans "question", JAMAIS dans "example"
+- UNE SEULE BONNE RÉPONSE : le champ "correct" doit être 0, 1, 2 ou 3 (une seule valeur)
+- NE RÉFÉRENCE JAMAIS A/B/C/D ou 1/2/3/4 : les réponses sont affichées dans un ORDRE ALÉATOIRE
+- Dans l'explication, parle du CONTENU de la réponse, pas de sa position (pas de "la réponse B" ou "la deuxième option")`;
 }
 
 /**
