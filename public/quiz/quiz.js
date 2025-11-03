@@ -155,20 +155,33 @@ function loadQuestion() {
         const optionsContainer = document.getElementById('options');
         optionsContainer.innerHTML = '';
 
-        question.options.forEach((option, index) => {
+        // Créer un tableau d'options mélangées avec leur index original
+        const shuffledOptions = question.options.map((option, index) => ({
+            text: option,
+            originalIndex: index
+        }));
+        
+        // Mélanger les options seulement si pas déjà répondu
+        if (!isAlreadyAnswered && !question.shuffledOptions) {
+            question.shuffledOptions = shuffleArray(shuffledOptions);
+        } else if (!question.shuffledOptions) {
+            question.shuffledOptions = shuffledOptions;
+        }
+
+        question.shuffledOptions.forEach((option, displayIndex) => {
             const optionDiv = document.createElement('div');
             optionDiv.className = 'option';
 
             // Si déjà répondu, empêcher la sélection
             if (!isAlreadyAnswered) {
-                optionDiv.onclick = () => selectOption(index);
+                optionDiv.onclick = () => selectOption(displayIndex);
             } else {
                 optionDiv.style.cursor = 'not-allowed';
                 optionDiv.style.opacity = '0.7';
-            }            const letter = String.fromCharCode(65 + index);
+            }            const letter = String.fromCharCode(65 + displayIndex);
             optionDiv.innerHTML = `
                 <div class="option-letter">${escapeHTML(letter)}</div>
-                <div class="option-text">${formatTextWithCode(option)}</div>
+                <div class="option-text">${formatTextWithCode(option.text)}</div>
             `;
 
             optionsContainer.appendChild(optionDiv);
@@ -179,12 +192,17 @@ function loadQuestion() {
             const history = answersHistory[currentQuestionIndex];
             const options = document.querySelectorAll('.option');
             
+            // Trouver la position affichée de la bonne réponse
+            const correctDisplayIndex = question.shuffledOptions.findIndex(
+                opt => opt.originalIndex === question.correct
+            );
+            
             // Marquer l'option sélectionnée
             if (history.isCorrect) {
                 options[history.selectedOption].classList.add('correct');
             } else {
                 options[history.selectedOption].classList.add('incorrect');
-                options[question.correct].classList.add('correct');
+                options[correctDisplayIndex].classList.add('correct');
             }
 
             // Afficher l'explication
@@ -283,7 +301,14 @@ function validateAnswer() {
         opt.onclick = null;
     });
 
-    const isCorrect = selectedOption === question.correct;
+    // Vérifier si l'option sélectionnée correspond à la bonne réponse originale
+    const selectedOriginalIndex = question.shuffledOptions[selectedOption].originalIndex;
+    const isCorrect = selectedOriginalIndex === question.correct;
+
+    // Trouver la position affichée de la bonne réponse
+    const correctDisplayIndex = question.shuffledOptions.findIndex(
+        opt => opt.originalIndex === question.correct
+    );
 
     // Sauvegarder dans l'historique
     answersHistory[currentQuestionIndex] = {
@@ -298,7 +323,7 @@ function validateAnswer() {
         correctCount++;
     } else {
         options[selectedOption].classList.add('incorrect');
-        options[question.correct].classList.add('correct');
+        options[correctDisplayIndex].classList.add('correct');
         incorrectCount++;
     }
 
