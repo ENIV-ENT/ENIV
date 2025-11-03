@@ -42,10 +42,10 @@ function createPrompt(devoir, documentsText) {
     {
       "question": "Quelle est la capitale de la France ?",
       "options": [
-        "Paris",
-        "Londres",
-        "Berlin",
-        "Madrid"
+        "Paris est la capitale française",
+        "Lyon est la capitale française",
+        "Marseille est la capitale française",
+        "Toulouse est la capitale française"
       ],
       "correct": 0,
       "explanation": "Paris est la capitale et la plus grande ville de France depuis le XIIe siècle.",
@@ -114,6 +114,14 @@ INSTRUCTIONS :
 10. Couvre tous les concepts importants du COURS
 11. Teste la COMPRÉHENSION et la capacité à APPLIQUER les concepts
 
+⚠️ RÈGLES POUR LES RÉPONSES :
+- Toutes les options de réponse doivent être de longueur approximativement égale (à 10-20% près)
+- Inclus des QUESTIONS PIÈGES avec des réponses plausibles mais incorrectes
+- Certaines mauvaises réponses doivent ressembler à la bonne (exemple: "ça marche" vs "ça ne marche pas")
+- Évite les réponses évidentes comme "Aucune de ces réponses" ou "Toutes les réponses"
+- Les mauvaises réponses doivent être crédibles et basées sur des erreurs courantes
+- Les réponses doivent tester la compréhension fine, pas juste la mémorisation
+
 FORMAT DE RÉPONSE :
 Tu dois répondre UNIQUEMENT avec un tableau JSON valide, sans aucun texte avant ou après.
 Format attendu : ${JSON.stringify(exampleQuestions, null, 2)}
@@ -132,7 +140,10 @@ IMPORTANT :
 - Utilise ''' code ''' pour tout extrait de code dans les questions/réponses/explications
 - Chaque question doit tester la COMPRÉHENSION et l'APPLICATION des concepts
 - NE POSE JAMAIS de questions sur "le TP1", "l'exercice 2", etc.
-- Les TPs sont une source d'inspiration pour les concepts, PAS pour les questions directes`;
+- Les TPs sont une source d'inspiration pour les concepts, PAS pour les questions directes
+- QUESTIONS PIÈGES : inclus des réponses qui semblent correctes mais ne le sont pas (ex: "ça fonctionne" vs "ça ne fonctionne pas")
+- LONGUEUR ÉGALE : toutes les options doivent avoir une longueur similaire (±10-20%)
+- Les mauvaises réponses doivent être plausibles et basées sur des erreurs de compréhension courantes`;
 }
 
 /**
@@ -276,7 +287,10 @@ RÈGLES STRICTES :
 - Basées sur les CONCEPTS du COURS uniquement
 - Teste la COMPRÉHENSION et l'APPLICATION des concepts
 - Format JSON valide sans texte avant/après
-- Si tu inclus du code, utilise ''' code ''' pour le délimiter`;
+- Si tu inclus du code, utilise ''' code ''' pour le délimiter
+- QUESTIONS PIÈGES : inclus des réponses plausibles mais incorrectes (ex: "ça marche" vs "ça ne marche pas")
+- LONGUEUR ÉGALE : toutes les options de réponse doivent avoir une longueur similaire (±10-20%)
+- Les mauvaises réponses doivent être crédibles et basées sur des erreurs courantes`;
 }
 
 /**
