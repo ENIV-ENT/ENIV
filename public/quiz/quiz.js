@@ -17,8 +17,11 @@ function formatTextWithCode(text) {
     if (!text) return '';
     
     // Remplacer '''code''' par des blocs de code HTML avec coloration syntaxique
-    return text.replace(/'''([\s\S]*?)'''/g, function(match, code) {
-        // Nettoyer le code (trim) et échapper le HTML
+    // Support pour ''' (3 apostrophes) et ``` (3 backticks)
+    let result = text;
+    
+    // Remplacer '''code''' (3 apostrophes simples)
+    result = result.replace(/'''([\s\S]*?)'''/g, function(match, code) {
         const cleanCode = code.trim();
         const escapedCode = cleanCode
             .replace(/&/g, '&amp;')
@@ -29,6 +32,21 @@ function formatTextWithCode(text) {
         
         return `<pre><code>${escapedCode}</code></pre>`;
     });
+    
+    // Remplacer ```code``` (3 backticks) au cas où
+    result = result.replace(/```([\s\S]*?)```/g, function(match, code) {
+        const cleanCode = code.trim();
+        const escapedCode = cleanCode
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+        
+        return `<pre><code>${escapedCode}</code></pre>`;
+    });
+    
+    return result;
 }
 
 // Récupérer l'ID du devoir depuis l'URL
