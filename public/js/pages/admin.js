@@ -57,7 +57,8 @@ function renderEleves() {
     item.className = 'list-item';
     item.innerHTML = `
       <div class="list-item-info">
-        <h3>${escapeHTML(eleve.username)}</h3>
+        <h3>${escapeHTML(eleve.prenom)} ${escapeHTML(eleve.nom)}</h3>
+        <p>${escapeHTML(eleve.username)}</p>
         <p>Créé le: ${formatDate(eleve.created_at)}</p>
       </div>
       <div class="list-item-actions">
