@@ -95,10 +95,17 @@ FORMAT DE RÉPONSE :
 Tu dois répondre UNIQUEMENT avec un tableau JSON valide, sans aucun texte avant ou après.
 Format attendu : ${JSON.stringify(exampleQuestions, null, 2)}
 
+IMPORTANT POUR LE CODE :
+- Si tu inclus du code dans les questions, réponses ou explications, tu DOIS le mettre entre ''' code '''
+- Par exemple: '''const x = 5;''' ou '''function hello() { return "world"; }'''
+- Le code sera automatiquement affiché dans un bloc de code formaté avec coloration syntaxique
+- Respecte toujours cette syntaxe pour que le code soit lisible
+
 IMPORTANT : 
 - Réponds UNIQUEMENT avec le JSON, pas de texte explicatif
 - Génère MINIMUM 20 questions basées sur le CONTENU PÉDAGOGIQUE des documents
 - Si le contenu le permet, va jusqu'à 100 questions pour une révision complète
+- Utilise ''' code ''' pour tout extrait de code dans les questions/réponses/explications
 - Chaque question doit tester la COMPRÉHENSION d'un CONCEPT ou d'une CONNAISSANCE
 - IGNORE toutes les informations non-pédagogiques (métadonnées, structure du document, etc.)`;
 }
@@ -242,7 +249,8 @@ RÈGLES STRICTES :
 - Basées sur le CONTENU PÉDAGOGIQUE uniquement
 - Pas de questions sur les métadonnées du document
 - Couvre différents aspects du contenu
-- Format JSON valide sans texte avant/après`;
+- Format JSON valide sans texte avant/après
+- Si tu inclus du code, utilise ''' code ''' pour le délimiter`;
 }
 
 /**

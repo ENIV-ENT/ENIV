@@ -507,6 +507,49 @@ header h1 {
     color: #721c24;
 }
 
+/* Code blocks styling */
+pre {
+    background-color: #2d2d2d;
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 0.75rem 0;
+    overflow-x: auto;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+code {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9em;
+    color: #f8f8f2;
+    line-height: 1.5;
+    display: block;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Style pour les blocs de code dans les options */
+.option-text pre {
+    margin: 0.5rem 0;
+    font-size: 0.85em;
+}
+
+.option-text code {
+    font-size: 0.85em;
+}
+
+/* Style pour les blocs de code dans les explications */
+.explanation-text pre,
+.example-text pre {
+    background-color: #1e1e1e;
+    margin: 1rem 0;
+}
+
+/* Style pour les blocs de code dans les questions */
+.question pre {
+    margin: 1rem 0;
+    background-color: #2d2d2d;
+}
+
 @media (max-width: 768px) {
     header {
         padding: 1rem;

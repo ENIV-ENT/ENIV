@@ -12,6 +12,25 @@ let answeredQuestions = new Set(); // Pour empêcher la modification des ancienn
 let answersHistory = {}; // Stocker l'historique des réponses {questionIndex: {selectedOption, isCorrect, mode}}
 let devoirId = null;
 
+// Fonction pour formater le texte avec des blocs de code
+function formatTextWithCode(text) {
+    if (!text) return '';
+    
+    // Remplacer '''code''' par des blocs de code HTML avec coloration syntaxique
+    return text.replace(/'''([\s\S]*?)'''/g, function(match, code) {
+        // Nettoyer le code (trim) et échapper le HTML
+        const cleanCode = code.trim();
+        const escapedCode = cleanCode
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+        
+        return `<pre><code>${escapedCode}</code></pre>`;
+    });
+}
+
 // Récupérer l'ID du devoir depuis l'URL
 function getDevoirIdFromUrl() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -103,12 +122,10 @@ function loadQuestion() {
     selectedOption = null;
 
     const question = currentQuestions[currentQuestionIndex];
-    const progress = ((currentQuestionIndex + 1) / currentQuestions.length) * 100;
-
-    document.getElementById('progressFill').style.width = progress + '%';
+    const progress = ((currentQuestionIndex + 1) / currentQuestions.length) * 100;    document.getElementById('progressFill').style.width = progress + '%';
     document.getElementById('questionNumber').textContent =
         `Question ${currentQuestionIndex + 1} sur ${currentQuestions.length}`;
-    document.getElementById('question').textContent = question.question;
+    document.getElementById('question').innerHTML = formatTextWithCode(question.question);
 
     document.getElementById('explanation').classList.remove('show');
     document.getElementById('options').style.display = 'none';
@@ -143,12 +160,10 @@ function loadQuestion() {
             } else {
                 optionDiv.style.cursor = 'not-allowed';
                 optionDiv.style.opacity = '0.7';
-            }
-
-            const letter = String.fromCharCode(65 + index);
+            }            const letter = String.fromCharCode(65 + index);
             optionDiv.innerHTML = `
                 <div class="option-letter">${letter}</div>
-                <div class="option-text">${option}</div>
+                <div class="option-text">${formatTextWithCode(option)}</div>
             `;
 
             optionsContainer.appendChild(optionDiv);
@@ -196,22 +211,19 @@ function loadQuestion() {
         // Restaurer l'état si déjà répondu (mode oral)
         if (isAlreadyAnswered && answersHistory[currentQuestionIndex]) {
             const history = answersHistory[currentQuestionIndex];
-            
-            // Afficher la réponse correcte
+              // Afficher la réponse correcte
             const correctAnswerDiv = document.getElementById('correctAnswer');
-            correctAnswerDiv.innerHTML = `<strong>Réponse correcte:</strong> ${question.options[question.correct]}`;
+            correctAnswerDiv.innerHTML = `<strong>Réponse correcte:</strong> ${formatTextWithCode(question.options[question.correct])}`;
             correctAnswerDiv.style.display = 'block';
 
             // Afficher l'auto-évaluation (désactivée)
             document.getElementById('selfEvaluation').style.display = 'block';
             const evalButtons = document.querySelectorAll('.eval-buttons button');
-            evalButtons.forEach(btn => btn.disabled = true);
-
-            // Afficher l'explication
+            evalButtons.forEach(btn => btn.disabled = true);            // Afficher l'explication
             if (question.explanation) {
-                document.getElementById('explanationText').textContent = question.explanation;
+                document.getElementById('explanationText').innerHTML = formatTextWithCode(question.explanation);
                 if (question.example) {
-                    document.getElementById('exampleText').innerHTML = question.example;
+                    document.getElementById('exampleText').innerHTML = formatTextWithCode(question.example);
                     document.getElementById('example').style.display = 'block';
                 } else {
                     document.getElementById('example').style.display = 'none';
@@ -226,9 +238,9 @@ function loadQuestion() {
                 recapDiv.className = 'recap';
                 recapDiv.innerHTML = `
                     <strong>Récapitulatif:</strong>
-                    <p>${question.question}</p>
-                    <p><strong>Réponse:</strong> ${question.options[question.correct]}</p>
-                    ${question.explanation ? `<p>${question.explanation}</p>` : ''}
+                    <p>${formatTextWithCode(question.question)}</p>
+                    <p><strong>Réponse:</strong> ${formatTextWithCode(question.options[question.correct])}</p>
+                    ${question.explanation ? `<p>${formatTextWithCode(question.explanation)}</p>` : ''}
                 `;
                 const correctAnswerDiv = document.getElementById('correctAnswer');
                 correctAnswerDiv.parentNode.insertBefore(recapDiv, correctAnswerDiv.nextSibling);
@@ -308,10 +320,8 @@ function showAnswer() {
     if (answered || answeredQuestions.has(currentQuestionIndex)) return;
 
     const question = currentQuestions[currentQuestionIndex];
-    answered = true;
-
-    const correctAnswerDiv = document.getElementById('correctAnswer');
-    correctAnswerDiv.innerHTML = `<strong>Réponse correcte:</strong> ${question.options[question.correct]}`;
+    answered = true;    const correctAnswerDiv = document.getElementById('correctAnswer');
+    correctAnswerDiv.innerHTML = `<strong>Réponse correcte:</strong> ${formatTextWithCode(question.options[question.correct])}`;
     correctAnswerDiv.style.display = 'block';
 
     document.getElementById('selfEvaluation').style.display = 'block';
@@ -357,15 +367,14 @@ function evaluateAnswer(isCorrect) {
     } else {
         incorrectCount++;
 
-        const question = currentQuestions[currentQuestionIndex];
-        const recapDiv = document.createElement('div');
+        const question = currentQuestions[currentQuestionIndex];        const recapDiv = document.createElement('div');
         recapDiv.id = 'recapDiv';
         recapDiv.className = 'recap';
         recapDiv.innerHTML = `
             <strong>Récapitulatif:</strong>
-            <p>${question.question}</p>
-            <p><strong>Réponse:</strong> ${question.options[question.correct]}</p>
-            ${question.explanation ? `<p>${question.explanation}</p>` : ''}
+            <p>${formatTextWithCode(question.question)}</p>
+            <p><strong>Réponse:</strong> ${formatTextWithCode(question.options[question.correct])}</p>
+            ${question.explanation ? `<p>${formatTextWithCode(question.explanation)}</p>` : ''}
         `;
 
         const correctAnswerDiv = document.getElementById('correctAnswer');
