@@ -20,12 +20,10 @@ function formatTextWithCode(text) {
 
     // Remplacer '''code''' par des blocs de code HTML avec coloration syntaxique
     // Support pour ''' (3 apostrophes) et ``` (3 backticks)
-    let result = text;
+    let result = escapeHTML(text);
 
     function replacer(match, code) {
-      const cleanCode = code.trim();
-      const escapedCode = escapeHTML(cleanCode);
-      return `<pre><code>${escapedCode}</code></pre>`;
+      return `<pre><code>${code.trim()}</code></pre>`;
     }
 
     // Remplacer '''code''' (3 apostrophes simples)
@@ -160,7 +158,7 @@ function loadQuestion() {
             text: option,
             originalIndex: index
         }));
-        
+
         // Mélanger les options seulement si pas déjà répondu
         if (!isAlreadyAnswered && !question.shuffledOptions) {
             question.shuffledOptions = shuffleArray(shuffledOptions);
@@ -178,7 +176,8 @@ function loadQuestion() {
             } else {
                 optionDiv.style.cursor = 'not-allowed';
                 optionDiv.style.opacity = '0.7';
-            }            const letter = String.fromCharCode(65 + displayIndex);
+            }
+            const letter = String.fromCharCode(65 + displayIndex);
             optionDiv.innerHTML = `
                 <div class="option-letter">${escapeHTML(letter)}</div>
                 <div class="option-text">${formatTextWithCode(option.text)}</div>
@@ -196,7 +195,7 @@ function loadQuestion() {
             const correctDisplayIndex = question.shuffledOptions.findIndex(
                 opt => opt.originalIndex === question.correct
             );
-            
+
             // Marquer l'option sélectionnée
             if (history.isCorrect) {
                 options[history.selectedOption].classList.add('correct');
