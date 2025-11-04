@@ -2,25 +2,11 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../models/dbHelper');
+const {requireAuth, verifyToken} = require("../middleware/auth");
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRES_IN = '30d'; // Le token expire dans 30 jours
-
-// Helper pour extraire le user depuis le token
-const getUserFromToken = (req) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
-  }
-
-  const token = authHeader.split(' ')[1];
-  try {
-    return jwt.verify(token, JWT_SECRET);
-  } catch (error) {
-    return null;
-  }
-};
 
 // Login
 router.post('/login', async (req, res) => {
@@ -46,8 +32,6 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       {
         userId: user.id,
-        username: user.username,
-        role: user.role
       },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
@@ -72,34 +56,22 @@ router.post('/logout', (req, res) => {
 });
 
 // Check token / Get user info from token
-router.get('/me', (req, res) => {
-  const authHeader = req.headers.authorization;
+router.get('/me', async (req, res) => {
+  const user = await verifyToken(req);
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.json({ authenticated: false });
-  }
-
-  const token = authHeader.split(' ')[1];
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+  if (user) {
     res.json({
       authenticated: true,
-      userId: decoded.userId,
-      username: decoded.username,
-      role: decoded.role
+      userId: user.id,
+      username: user.username,
+      role: user.role
     });
-  } catch (error) {
+  } else {
     res.json({ authenticated: false });
   }
 });
 
-router.post('/change-password', async (req, res) => {
-  const userToken = getUserFromToken(req);
-  if (!userToken) {
-    return res.status(401).json({ error: 'Non authentifié' });
-  }
-
+router.post('/change-password', requireAuth, async (req, res) => {
   const { oldPassword, newPassword } = req.body;
 
   if (!oldPassword || !newPassword) {
@@ -111,19 +83,13 @@ router.post('/change-password', async (req, res) => {
   }
 
   try {
-    const user = await db.get('SELECT * FROM users WHERE id = ?', [userToken.userId]);
-
-    if (!user) {
-      return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    }
-
-    const validPassword = bcrypt.compareSync(oldPassword, user.password);
+    const validPassword = bcrypt.compareSync(oldPassword, req.user.password);
     if (!validPassword) {
       return res.status(400).json({ error: 'Mot de passe actuel incorrect' });
     }
 
     const hashedPassword = bcrypt.hashSync(newPassword, 10);
-    await db.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userToken.userId]);
+    await db.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, req.session.userId]);
 
     res.json({ success: true, message: 'Mot de passe modifié avec succès' });
   } catch (error) {
@@ -133,12 +99,7 @@ router.post('/change-password', async (req, res) => {
 });
 
 // Update user information
-router.post('/update-info', async (req, res) => {
-  const userToken = getUserFromToken(req);
-  if (!userToken) {
-    return res.status(401).json({ error: 'Non authentifié' });
-  }
-
+router.post('/update-info', requireAuth, async (req, res) => {
   const { email, nom, prenom } = req.body;
 
   if (!email || !nom || !prenom) {
@@ -153,12 +114,12 @@ router.post('/update-info', async (req, res) => {
 
   try {
     // Vérifier si l'email existe déjà pour un autre utilisateur
-    const existingUser = await db.get('SELECT id FROM users WHERE email = ? AND id != ?', [email, userToken.userId]);
+    const existingUser = await db.get('SELECT id FROM users WHERE email = ? AND id != ?', [email, req.session.userId]);
     if (existingUser) {
       return res.status(400).json({ error: 'Cet email est déjà utilisé' });
     }
 
-    await db.run('UPDATE users SET email = ?, nom = ?, prenom = ? WHERE id = ?', [email, nom, prenom, userToken.userId]);
+    await db.run('UPDATE users SET email = ?, nom = ?, prenom = ? WHERE id = ?', [email, nom, prenom, req.session.userId]);
 
     res.json({ success: true, message: 'Informations mises à jour avec succès' });
   } catch (error) {
@@ -168,14 +129,9 @@ router.post('/update-info', async (req, res) => {
 });
 
 // Get user information
-router.get('/user-info', async (req, res) => {
-  const userToken = getUserFromToken(req);
-  if (!userToken) {
-    return res.status(401).json({ error: 'Non authentifié' });
-  }
-
+router.get('/user-info', requireAuth, async (req, res) => {
   try {
-    const user = await db.get('SELECT email, nom, prenom FROM users WHERE id = ?', [userToken.userId]);
+    const user = await db.get('SELECT email, nom, prenom FROM users WHERE id = ?', [req.session.userId]);
 
     if (!user) {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });

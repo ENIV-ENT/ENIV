@@ -60,14 +60,14 @@ router.post('/', express.json(), async (req, res) => {
   }
 
   try {
-    const user = await db.get('SELECT classe_id, username FROM users WHERE id = ?', [req.session.userId]);
-    if (!user || !user.classe_id) {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
     const result = await db.run(
       'INSERT INTO devoirs (titre, description, matiere_id, date, classe_id, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-      [titre, description || null, matiere_id, date || null, user.classe_id, req.session.userId]
+      [titre, description || null, matiere_id, date || null, classeId, req.session.userId]
     );
 
     const devoirId = result.lastInsertRowid;
@@ -76,7 +76,7 @@ router.post('/', express.json(), async (req, res) => {
     const details = JSON.stringify({ titre, description, matiere_id, date });
     await db.run(
       'INSERT INTO devoir_logs (devoir_id, action, user_id, username, classe_id, details) VALUES (?, ?, ?, ?, ?, ?)',
-      [devoirId, 'create', req.session.userId, user.username, user.classe_id, details]
+      [devoirId, 'create', req.session.userId, req.user.username, classeId, details]
     );
 
     res.json({
@@ -92,8 +92,8 @@ router.post('/', express.json(), async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
-    if (!user || !user.classe_id) {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
       return res.json([]);
     }
 
@@ -109,7 +109,7 @@ router.get('/', async (req, res) => {
       LEFT JOIN devoir_statuts ds ON d.id = ds.devoir_id AND ds.user_id = ?
       WHERE d.classe_id = ?
       ORDER BY COALESCE(ds.fait, 0) ASC, d.date ASC, d.created_at DESC`,
-      [req.session.userId, user.classe_id]
+      [req.session.userId, classeId]
     );
 
     res.json(devoirs);
@@ -121,8 +121,8 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
-    if (!user || !user.classe_id) {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
@@ -137,7 +137,7 @@ router.get('/:id', async (req, res) => {
       LEFT JOIN users u ON d.created_by = u.id
       LEFT JOIN devoir_statuts ds ON d.id = ds.devoir_id AND ds.user_id = ?
       WHERE d.id = ? AND d.classe_id = ?`,
-      [req.session.userId, req.params.id, user.classe_id]
+      [req.session.userId, req.params.id, classeId]
     );
 
     if (!devoir) {
@@ -154,20 +154,20 @@ router.put('/:id', express.json(), async (req, res) => {
   const { titre, description, matiere_id, date } = req.body;
 
   try {
-    const user = await db.get('SELECT classe_id, username FROM users WHERE id = ?', [req.session.userId]);
-    if (!user || !user.classe_id) {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
     // Récupérer l'ancien devoir pour le log
-    const oldDevoir = await db.get('SELECT * FROM devoirs WHERE id = ? AND classe_id = ?', [req.params.id, user.classe_id]);
+    const oldDevoir = await db.get('SELECT * FROM devoirs WHERE id = ? AND classe_id = ?', [req.params.id, classeId]);
     if (!oldDevoir) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
     await db.run(
       'UPDATE devoirs SET titre = ?, description = ?, matiere_id = ?, date = ? WHERE id = ? AND classe_id = ?',
-      [titre, description || null, matiere_id, date || null, req.params.id, user.classe_id]
+      [titre, description || null, matiere_id, date || null, req.params.id, classeId]
     );
 
     // Créer un log pour la modification
@@ -177,7 +177,7 @@ router.put('/:id', express.json(), async (req, res) => {
     });
     await db.run(
       'INSERT INTO devoir_logs (devoir_id, action, user_id, username, classe_id, details) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.params.id, 'update', req.session.userId, user.username, user.classe_id, details]
+      [req.params.id, 'update', req.session.userId, req.user.username, classeId, details]
     );
 
     res.json({ success: true, message: 'Devoir mis à jour' });
@@ -189,24 +189,24 @@ router.put('/:id', express.json(), async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
-    const user = await db.get('SELECT classe_id, username FROM users WHERE id = ?', [req.session.userId]);
-    if (!user || !user.classe_id) {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
     // Récupérer le devoir avant de le supprimer pour le log
-    const devoir = await db.get('SELECT * FROM devoirs WHERE id = ? AND classe_id = ?', [req.params.id, user.classe_id]);
+    const devoir = await db.get('SELECT * FROM devoirs WHERE id = ? AND classe_id = ?', [req.params.id, classeId]);
     if (!devoir) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
-    await db.run('DELETE FROM devoirs WHERE id = ? AND classe_id = ?', [req.params.id, user.classe_id]);
+    await db.run('DELETE FROM devoirs WHERE id = ? AND classe_id = ?', [req.params.id, classeId]);
 
     // Créer un log pour la suppression
     const details = JSON.stringify({ titre: devoir.titre, description: devoir.description, matiere_id: devoir.matiere_id, date: devoir.date });
     await db.run(
       'INSERT INTO devoir_logs (devoir_id, action, user_id, username, classe_id, details) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.params.id, 'delete', req.session.userId, user.username, user.classe_id, details]
+      [req.params.id, 'delete', req.session.userId, req.user.username, classeId, details]
     );
 
     res.json({ success: true, message: 'Devoir supprimé' });
@@ -235,13 +235,13 @@ router.post('/:id/statut', express.json(), async (req, res) => {
 
 router.get('/settings/emploi-temps', async (req, res) => {
   try {
-    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
-    if (!user || !user.classe_id) {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
       return res.json({ lien: null });
     }
 
-    const key = `emploi_temps_lien_${user.classe_id}`;
-    const setting = await db.get('SELECT value FROM settings WHERE `key` = ?', [key]);
+    const key = `emploi_temps_lien_${classeId}`;
+    const setting = await db.get('SELECT value FROM settings WHERE `key` = ? AND classe_id = ?', [key, classeId]);
     res.json({ lien: setting ? setting.value : null });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la récupération' });
@@ -255,8 +255,8 @@ router.post('/:id/upload', upload.single('pdf'), async (req, res) => {
       return res.status(400).json({ error: 'Aucun fichier fourni' });
     }
 
-    const user = await db.get('SELECT classe_id, role, username FROM users WHERE id = ?', [req.session.userId]);
-    if (!user || !user.classe_id) {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
       // Supprimer le fichier uploadé
       fs.unlinkSync(req.file.path);
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
@@ -265,7 +265,7 @@ router.post('/:id/upload', upload.single('pdf'), async (req, res) => {
     // Vérifier que le devoir existe et appartient à la même classe
     const devoir = await db.get(
       'SELECT id FROM devoirs WHERE id = ? AND classe_id = ?',
-      [req.params.id, user.classe_id]
+      [req.params.id, classeId]
     );
 
     if (!devoir) {
@@ -301,7 +301,7 @@ router.post('/:id/upload', upload.single('pdf'), async (req, res) => {
     });
     await db.run(
       'INSERT INTO devoir_logs (devoir_id, action, user_id, username, classe_id, details) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.params.id, 'upload_pdf', req.session.userId, user.username, user.classe_id, uploadDetails]
+      [req.params.id, 'upload_pdf', req.session.userId, req.user.username, classeId, uploadDetails]
     );
 
     res.json({
@@ -326,15 +326,15 @@ router.post('/:id/upload', upload.single('pdf'), async (req, res) => {
 // Récupérer les fichiers d'un devoir
 router.get('/:id/fichiers', async (req, res) => {
   try {
-    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
-    if (!user || !user.classe_id) {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
       return res.json([]);
     }
 
     // Vérifier que le devoir existe et appartient à la même classe
     const devoir = await db.get(
       'SELECT id FROM devoirs WHERE id = ? AND classe_id = ?',
-      [req.params.id, user.classe_id]
+      [req.params.id, classeId]
     );
 
     if (!devoir) {
@@ -367,8 +367,8 @@ router.get('/:id/fichiers', async (req, res) => {
 // Servir un fichier en PDF (avec conversion automatique si nécessaire)
 router.get('/fichiers/:fichierId/pdf', async (req, res) => {
   try {
-    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
-    if (!user || !user.classe_id) {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
 
@@ -378,7 +378,7 @@ router.get('/fichiers/:fichierId/pdf', async (req, res) => {
        FROM devoir_fichiers df
        JOIN devoirs d ON df.devoir_id = d.id
        WHERE df.id = ? AND d.classe_id = ?`,
-      [req.params.fichierId, user.classe_id]
+      [req.params.fichierId, classeId]
     );
 
     if (!fichier) {
@@ -415,8 +415,8 @@ router.get('/fichiers/:fichierId/pdf', async (req, res) => {
 // Supprimer un fichier
 router.delete('/fichiers/:fichierId', async (req, res) => {
   try {
-    const user = await db.get('SELECT classe_id, role, username FROM users WHERE id = ?', [req.session.userId]);
-    if (!user || !user.classe_id) {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
@@ -426,7 +426,7 @@ router.delete('/fichiers/:fichierId', async (req, res) => {
        FROM devoir_fichiers df
        JOIN devoirs d ON df.devoir_id = d.id
        WHERE df.id = ? AND d.classe_id = ?`,
-      [req.params.fichierId, user.classe_id]
+      [req.params.fichierId, classeId]
     );
 
     if (!fichier) {
@@ -449,11 +449,11 @@ router.delete('/fichiers/:fichierId', async (req, res) => {
     const deleteDetails = JSON.stringify({
       action: 'delete_pdf',
       filename: fichier.original_name,
-      deleted_by: user.username
+      deleted_by: req.user.username
     });
     await db.run(
       'INSERT INTO devoir_logs (devoir_id, action, user_id, username, classe_id, details) VALUES (?, ?, ?, ?, ?, ?)',
-      [fichier.devoir_id, 'delete_pdf', req.session.userId, user.username, user.classe_id, deleteDetails]
+      [fichier.devoir_id, 'delete_pdf', req.session.userId, req.user.username, classeId, deleteDetails]
     );
 
     res.json({ success: true, message: 'Fichier supprimé' });
@@ -466,14 +466,14 @@ router.delete('/fichiers/:fichierId', async (req, res) => {
 // Vérifier le statut d'un quiz pour un devoir
 router.get('/:id/quiz-status', async (req, res) => {
   try {
-    const user = await db.get('SELECT classe_id, premium FROM users WHERE id = ?', [req.session.userId]);
-    if (!user || !user.classe_id) {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
     const devoir = await db.get(
       'SELECT id FROM devoirs WHERE id = ? AND classe_id = ?',
-      [req.params.id, user.classe_id]
+      [req.params.id, classeId]
     );
 
     if (!devoir) {
@@ -510,7 +510,7 @@ router.get('/:id/quiz-status', async (req, res) => {
       hasDocuments: true,
       hasQuiz: !!quiz,
       isGenerating: generation && generation.status === 'pending',
-      isPremium: !!user.premium
+      isPremium: !!req.user.premium
     });
   } catch (error) {
     console.error(error);
@@ -521,12 +521,8 @@ router.get('/:id/quiz-status', async (req, res) => {
 // Générer un quiz avec l'IA
 router.post('/:id/generate-quiz', express.json(), async (req, res) => {
   try {
-    const user = await db.get(
-      'SELECT id, classe_id, premium, email, username FROM users WHERE id = ?',
-      [req.session.userId]
-    );
-
-    if (!user || !user.classe_id) {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
@@ -535,7 +531,7 @@ router.post('/:id/generate-quiz', express.json(), async (req, res) => {
        FROM devoirs d
        LEFT JOIN matieres m ON d.matiere_id = m.id
        WHERE d.id = ? AND d.classe_id = ?`,
-      [req.params.id, user.classe_id]
+      [req.params.id, classeId]
     );
 
     if (!devoir) {
@@ -585,14 +581,14 @@ router.post('/:id/generate-quiz', express.json(), async (req, res) => {
     // Créer un enregistrement de génération
     await db.run(
       'INSERT INTO devoir_quiz_generation (devoir_id, user_id, status) VALUES (?, ?, ?)',
-      [req.params.id, user.id, 'pending']
+      [req.params.id, req.user.id, 'pending']
     );
 
     // Lancer la génération en arrière-plan
     generateQuizInBackground(
       req.params.id,
       devoir,
-      user,
+      req.user,
       fichiers
     );
 

@@ -383,7 +383,7 @@ async function handleChangePassword(e) {
     return;
   }
 
-  const data = await apiCall('/api/admin/change-password', {
+  const data = await apiCall('/api/auth/change-password', {
     method: 'POST',
     body: JSON.stringify({ oldPassword, newPassword }),
   });
