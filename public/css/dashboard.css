@@ -966,11 +966,6 @@ header h1 {
 }
 
 @media (max-width: 480px) {
-  .header-actions {
-    width: 100%;
-    justify-content: space-between;
-  }
-
   .devoir-actions {
     flex-direction: column;
   }
