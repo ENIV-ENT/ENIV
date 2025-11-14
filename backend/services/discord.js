@@ -238,7 +238,7 @@ async function envoyerRecapitulatifHebdomadaire() {
         .map(([date, devoirs]) => {
           const fields = devoirs.map(devoir => ({
             name: `${devoir.matiere_nom}`,
-            value: devoir.description || devoir.titre,
+            value: `**${devoir.titre}**\n${devoir.description ?? ""}`,
             inline: false
           }));
 
@@ -277,7 +277,7 @@ function creerEmbedRecapitulatif(classeData) {
 
   const fields = classeData.devoirs.map(devoir => ({
     name: `${devoir.matiere_nom}`,
-    value: devoir.description || devoir.titre,
+    value: `**${devoir.titre}**\n${devoir.description ?? ""}`,
     inline: false
   }));
 
