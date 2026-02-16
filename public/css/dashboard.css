@@ -845,6 +845,151 @@ body.dark-theme .calendar-date.today {
   border-color: var(--secondary);
 }
 
+/* User Menu */
+.user-menu {
+  position: relative;
+}
+
+.user-menu-btn {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.user-menu-btn:hover {
+  background: var(--primary-dark);
+}
+
+.user-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+  overflow: hidden;
+  z-index: 1000;
+}
+
+.user-dropdown.hidden {
+  display: none;
+}
+
+.dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: white;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--dark);
+  transition: background 0.2s ease;
+  text-align: left;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background: var(--light);
+}
+
+.dropdown-item.logout {
+  color: var(--danger);
+}
+
+.dropdown-item.logout:hover {
+  background: rgba(220, 53, 69, 0.1);
+}
+
+.dropdown-item.hidden {
+  display: none;
+}
+
+/* Dropdown badge */
+.dropdown-badge {
+  background: var(--danger);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 10px;
+  margin-left: auto;
+}
+
+.dropdown-badge.hidden {
+  display: none;
+}
+
+/* Pending banner */
+.pending-banner {
+  background: #fff3cd;
+  border-bottom: 2px solid #ffc107;
+  padding: 1rem 2rem;
+  text-align: center;
+  color: var(--dark);
+  font-size: 0.9rem;
+}
+
+/* Admin Panel */
+.admin-panel {
+  background: var(--light);
+  border-bottom: 3px solid var(--primary);
+  padding: 2rem 0;
+}
+
+.admin-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.admin-panel-header h2 {
+  color: var(--primary);
+  font-size: 1.4rem;
+}
+
+/* Log badges */
+.log-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.log-create {
+  background: #d4edda;
+  color: #155724;
+}
+
+.log-update {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.log-delete {
+  background: #f8d7da;
+  color: #721c24;
+}
+
 /* Responsive dashboard */
 @media (max-width: 768px) {
   header {

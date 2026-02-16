@@ -56,17 +56,24 @@ router.post('/logout', (req, res) => {
 });
 
 // Check token / Get user info from token
-router.get('/me', async (req, res) => {
-  const user = await verifyToken(req);
+router.get('/me', (req, res) => {
+  const authHeader = req.headers.authorization;
 
-  if (user) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.json({ authenticated: false });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
     res.json({
       authenticated: true,
-      userId: user.id,
-      username: user.username,
-      role: user.role
+      userId: decoded.userId,
+      username: decoded.username,
+      role: decoded.role
     });
-  } else {
+  } catch (error) {
     res.json({ authenticated: false });
   }
 });

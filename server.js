@@ -26,6 +26,7 @@ app.use('/api/admin', require('./backend/routes/admin'));
 app.use('/api/devoirs', require('./backend/routes/devoirs'));
 app.use('/api/invitations', require('./backend/routes/invitations'));
 app.use('/api/quiz', require('./backend/routes/quiz'));
+app.use('/api/registration', require('./backend/routes/registration'));
 
 // Route pour le webhook GitHub
 const { handleWebhook } = require('./deploy');
@@ -46,8 +47,12 @@ app.get('/settings', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'settings', 'index.html'));
 });
 
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
+});
+
 app.get('/admin/dashboard', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin', 'dashboard', 'index.html'));
+  res.redirect('/admin');
 });
 
 app.get('/superadmin/dashboard', (req, res) => {

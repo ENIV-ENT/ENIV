@@ -1,6 +1,5 @@
 export async function apiCall(url, options = {}) {
   try {
-    // Récupérer le token depuis localStorage
     const token = localStorage.getItem('token');
 
     const response = await fetch(url, {
@@ -8,58 +7,73 @@ export async function apiCall(url, options = {}) {
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers,
       },
     });
 
-    // Pour toutes les réponses, essayer de parser le JSON
-    // (même les erreurs 400, 500, etc. peuvent contenir un message d'erreur)
-    const data = await response.json();
-
-    // Si la réponse n'est pas ok, le JSON contient probablement un champ "error"
-    // On le retourne tel quel pour que l'appelant puisse afficher le message
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('API Error:', error);
     return { error: error.message };
   }
 }
 
-export async function checkAuth() {
-  const data = await apiCall('/api/auth/me');
-  let expectedPaths;
-  let returnData;
+function setLoadingScreenVisible(visible) {
+  const loadingScreen = document.getElementById('loading-screen');
+  if (loadingScreen) {
+    loadingScreen.classList.toggle('hidden', !visible);
+  }
+}
 
-  if (data.authenticated) {
-    if (data.role === 'superadmin') {
-      expectedPaths = ["/superadmin/dashboard/"];
-    } else if (data.role === "admin") {
-      expectedPaths = ["/admin/dashboard/"];
-    } else {
-      expectedPaths = ["/dashboard/", "/settings/"];
+function getExpectedPaths(role) {
+  const commonPaths = ["/settings/", "/quiz/", "/devoir-pdf/"];
+
+  if (role === 'superadmin') {
+    return ["/superadmin/dashboard/", ...commonPaths];
+  }
+  if (role === 'admin') {
+    return ["/dashboard/", "/admin/", "/admin/dashboard/", ...commonPaths];
+  }
+  return ["/dashboard/", ...commonPaths];
+}
+
+function normalizePath(path) {
+  return path.endsWith('/') ? path : path + '/';
+}
+
+export async function checkAuth() {
+  setLoadingScreenVisible(true);
+
+  const data = await apiCall('/api/auth/me');
+
+  if (!data.authenticated) {
+    const publicPaths = ["/", "/register/"];
+    if (!publicPaths.includes(normalizePath(window.location.pathname))) {
+      window.location.href = "/";
+      return { authenticated: false };
     }
 
-    returnData = {
-      authenticated: true,
-      userId: data.userId,
-      username: data.username,
-      role: data.role
-    };
-  } else {
-    expectedPaths = ["/"];
-    returnData = { authenticated: false };
-  }
-  if (!expectedPaths.includes(window.location.pathname)) {
-    window.location.href = expectedPaths[0];
+    setLoadingScreenVisible(false);
+    return { authenticated: false };
   }
 
-  return returnData;
+  console.log('User role:', data.role);
+
+  const expectedPaths = getExpectedPaths(data.role);
+  const currentPath = normalizePath(window.location.pathname);
+
+  if (!expectedPaths.includes(currentPath)) {
+    window.location.href = expectedPaths[0];
+    return data;
+  }
+
+  setLoadingScreenVisible(false);
+  return data;
 }
 
 export async function logout() {
   await apiCall('/api/auth/logout', { method: 'POST' });
-  // Supprimer le token du localStorage
   localStorage.removeItem('token');
   window.location.href = '/';
 }

@@ -6,64 +6,196 @@
   <title>Eniv - Inscription</title>
   <link rel="icon" type="image/x-icon" href="/images/logo.ico">
   <link rel="stylesheet" href="/css/register.css">
+  <link rel="stylesheet" href="/css/loading.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
+  <div id="loading-screen">
+    <div class="loading-logo">Eniv</div>
+    <div class="loading-spinner-bar"></div>
+  </div>
+
   <header>
     <h1><a href="/" style="color: inherit; text-decoration: none; cursor: pointer;">Eniv</a></h1>
   </header>
 
   <div class="register-container">
-    <div id="loading-state" class="form-container" style="text-align: center;">
-      <div class="loading-spinner" style="width: 40px; height: 40px; border-width: 4px;"></div>
-      <p>Vérification de votre invitation...</p>
-    </div>
-
-    <div id="error-state" style="display: none;">
-      <div class="error-container">
-        <h2>Invitation invalide</h2>
-        <p id="error-message"></p>
-        <a href="/" class="btn-primary" style="display: inline-block; margin-top: 20px;">Retour à l'accueil</a>
+    <!-- Stepper -->
+    <div class="stepper">
+      <div class="step active" data-step="1">
+        <div class="step-number">1</div>
+        <div class="step-label">Établissement</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step" data-step="2">
+        <div class="step-number">2</div>
+        <div class="step-label">Classe</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step" data-step="3">
+        <div class="step-number">3</div>
+        <div class="step-label">Informations</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step" data-step="4">
+        <div class="step-number">4</div>
+        <div class="step-label">Confirmation</div>
       </div>
     </div>
 
-    <div id="register-form-container" style="display: none;">
-      <form id="register-form" class="form-container">
-        <h2>Finaliser votre inscription</h2>
+    <!-- Étape 1 : Établissement -->
+    <div id="step-1" class="step-content active">
+      <div class="form-container">
+        <h2>Rechercher votre établissement</h2>
+        <p class="step-description">Commencez à taper le nom de votre établissement scolaire</p>
 
         <div class="form-group">
-          <label for="nom" class="form-label">Nom *</label>
-          <input type="text" id="nom" placeholder="Votre nom" required>
+          <label for="etab-search" class="form-label">Nom de l'établissement</label>
+          <input type="text" id="etab-search" placeholder="Ex: Lycée Victor Hugo..." autocomplete="off">
+          <div id="etab-results" class="autocomplete-results"></div>
+        </div>
+
+        <div id="etab-selected" class="selected-card" style="display: none;">
+          <div class="selected-card-info">
+            <h3 id="etab-selected-nom"></h3>
+            <p id="etab-selected-details"></p>
+          </div>
+          <button type="button" id="etab-change-btn" class="btn-secondary btn-sm">Changer</button>
+        </div>
+
+        <div id="map-container" style="display: none;">
+          <div id="map"></div>
+        </div>
+
+        <div class="step-actions">
+          <a href="/" class="btn-secondary">Retour</a>
+          <button type="button" id="step1-next" class="btn-primary" disabled>Suivant</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Étape 2 : Classe -->
+    <div id="step-2" class="step-content">
+      <div class="form-container">
+        <h2>Choisir votre classe</h2>
+        <p class="step-description" id="step2-description">Sélectionnez votre classe ou créez-en une nouvelle</p>
+
+        <div id="classes-list" class="classes-list"></div>
+
+        <div id="no-classes-message" style="display: none;">
+          <p class="info-message">Aucune classe n'existe encore dans cet établissement. Créez la première !</p>
+        </div>
+
+        <div class="separator">
+          <span>ou</span>
         </div>
 
         <div class="form-group">
-          <label for="prenom" class="form-label">Prénom *</label>
-          <input type="text" id="prenom" placeholder="Votre prénom" required>
+          <label for="new-classe-nom" class="form-label">Créer une nouvelle classe</label>
+          <input type="text" id="new-classe-nom" placeholder="Ex: Terminale G2, BTS SIO 1...">
+          <p class="help-text">En créant une classe, vous en deviendrez l'administrateur.</p>
+        </div>
+
+        <div class="step-actions">
+          <button type="button" id="step2-prev" class="btn-secondary">Précédent</button>
+          <button type="button" id="step2-next" class="btn-primary" disabled>Suivant</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Étape 3 : Informations -->
+    <div id="step-3" class="step-content">
+      <div class="form-container">
+        <h2>Vos informations</h2>
+        <p class="step-description">Remplissez vos informations pour créer votre compte</p>
+
+        <div class="form-group">
+          <label for="reg-nom" class="form-label">Nom *</label>
+          <input type="text" id="reg-nom" placeholder="Votre nom" required>
         </div>
 
         <div class="form-group">
-          <label for="username" class="form-label">Nom d'utilisateur *</label>
-          <input type="text" id="username" class="username" placeholder="Choisissez un nom d'utilisateur (min. 3 caractères)" required minlength="3">
+          <label for="reg-prenom" class="form-label">Prénom *</label>
+          <input type="text" id="reg-prenom" placeholder="Votre prénom" required>
+        </div>
+
+        <div class="form-group">
+          <label for="reg-email" class="form-label">Email (optionnel)</label>
+          <input type="email" id="reg-email" placeholder="votre@email.com">
+        </div>
+
+        <div class="form-group">
+          <label for="reg-username" class="form-label">Nom d'utilisateur *</label>
+          <input type="text" id="reg-username" placeholder="Minimum 3 caractères" minlength="3" required>
           <div id="username-feedback" class="username-feedback"></div>
         </div>
 
         <div class="form-group">
-          <label for="password" class="form-label">Mot de passe *</label>
-          <input type="password" id="password" placeholder="Choisissez un mot de passe (min. 4 caractères)" required minlength="4">
+          <label for="reg-password" class="form-label">Mot de passe *</label>
+          <input type="password" id="reg-password" placeholder="Minimum 4 caractères" minlength="4" required>
         </div>
 
         <div class="form-group">
-          <label for="confirm-password" class="form-label">Confirmer le mot de passe *</label>
-          <input type="password" id="confirm-password" placeholder="Retapez votre mot de passe" required>
+          <label for="reg-password-confirm" class="form-label">Confirmer le mot de passe *</label>
+          <input type="password" id="reg-password-confirm" placeholder="Retapez votre mot de passe" required>
         </div>
 
-        <button type="submit" class="btn-primary" id="submit-btn">Créer mon compte</button>
-      </form>
+        <div class="step-actions">
+          <button type="button" id="step3-prev" class="btn-secondary">Précédent</button>
+          <button type="button" id="step3-next" class="btn-primary">Suivant</button>
+        </div>
+      </div>
     </div>
 
+    <!-- Étape 4 : Confirmation -->
+    <div id="step-4" class="step-content">
+      <div class="form-container">
+        <h2>Confirmer votre inscription</h2>
+        <p class="step-description">Vérifiez vos informations avant de valider</p>
+
+        <div class="summary-card">
+          <div class="summary-row">
+            <span class="summary-label">Établissement</span>
+            <span id="summary-etab" class="summary-value"></span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Classe</span>
+            <span id="summary-classe" class="summary-value"></span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Rôle</span>
+            <span id="summary-role" class="summary-value"></span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Nom</span>
+            <span id="summary-nom" class="summary-value"></span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Prénom</span>
+            <span id="summary-prenom" class="summary-value"></span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Nom d'utilisateur</span>
+            <span id="summary-username" class="summary-value"></span>
+          </div>
+        </div>
+
+        <div id="summary-info-message" class="info-message" style="display: none;"></div>
+
+        <div class="step-actions">
+          <button type="button" id="step4-prev" class="btn-secondary">Précédent</button>
+          <button type="button" id="step4-submit" class="btn-primary btn-large">Créer mon compte</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- État de succès -->
     <div id="success-state" style="display: none;">
       <div class="success-container">
-        <h2>Compte créé avec succès !</h2>
-        <p>Votre compte a été créé. Vous pouvez maintenant vous connecter.</p>
+        <div class="success-icon">&#10003;</div>
+        <h2 id="success-title">Compte créé avec succès !</h2>
+        <p id="success-message">Vous pouvez maintenant vous connecter.</p>
         <a href="/" class="btn-primary" style="display: inline-block; margin-top: 20px;">Se connecter</a>
       </div>
     </div>

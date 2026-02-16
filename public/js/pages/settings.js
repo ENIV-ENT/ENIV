@@ -5,10 +5,25 @@ async function init() {
   const auth = await checkAuth();
 
   document.getElementById('user-info').textContent = auth.username;
+  setupAdminButton(auth);
 
   await loadUserInfo();
   await checkEmploiTempsButton();
   setupEventListeners();
+}
+
+function setupAdminButton(auth) {
+  const adminBtn = document.getElementById('admin-btn');
+  if (!adminBtn) return;
+
+  if (auth.is_admin) {
+    adminBtn.classList.remove('hidden');
+    adminBtn.addEventListener('click', () => {
+      window.location.href = '/admin';
+    });
+  } else {
+    adminBtn.classList.add('hidden');
+  }
 }
 
 async function loadUserInfo() {

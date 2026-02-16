@@ -594,10 +594,15 @@ if (logoutBtn) {
     });
 }
 
+function hideLoadingScreen() {
+    const ls = document.getElementById('loading-screen');
+    if (ls) ls.classList.add('hidden');
+}
+
 // Initialiser le quiz au chargement de la page
-document.addEventListener('DOMContentLoaded', () => {
-    loadQuizData();
-    loadUserInfo();
+document.addEventListener('DOMContentLoaded', async () => {
+    await Promise.all([loadQuizData(), loadUserInfo()]);
+    hideLoadingScreen();
 });
 
 

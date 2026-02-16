@@ -6,8 +6,14 @@
   <title>Eniv - Mes Devoirs</title>
   <link rel="icon" type="image/x-icon" href="/images/logo.ico">
   <link rel="stylesheet" href="/css/dashboard.css">
+  <link rel="stylesheet" href="/css/loading.css">
 </head>
 <body>
+  <div id="loading-screen">
+    <div class="loading-logo">Eniv</div>
+    <div class="loading-spinner-bar"></div>
+  </div>
+
   <header>
     <h1><a href="/dashboard" style="color: inherit; text-decoration: none; cursor: pointer;">Eniv</a></h1>
     <div class="header-actions">
@@ -19,6 +25,13 @@
           </svg>
         </button>
         <div id="user-dropdown" class="user-dropdown hidden">
+          <button id="admin-btn" class="dropdown-item hidden">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 1l3 5 5 1-3.5 4 1 5-5.5-2.5L6 17l1-5L3.5 7l5-1z"></path>
+            </svg>
+            Admin
+            <span id="admin-pending-badge" class="dropdown-badge hidden">0</span>
+          </button>
           <button id="emploi-temps-btn" class="dropdown-item hidden">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
@@ -62,6 +75,12 @@
       </div>
     </div>
   </header>
+    <!-- Message d'attente pour les utilisateurs en pending -->
+  <div id="pending-banner" class="pending-banner" style="display: none;">
+    <p>Votre demande d'adhésion est en attente d'approbation par l'administrateur de la classe <strong id="pending-classe-name"></strong>.</p>
+  </div>
+
+  <!-- Calendrier -->
   <style>
     .user-menu {
       position: relative;
@@ -83,18 +102,19 @@
 
     .user-menu-btn:hover {
       background: var(--primary-dark);
-    }    .user-dropdown {
+    }
+
+    .user-dropdown {
       position: absolute;
       top: calc(100% + 0.5rem);
       right: 0;
-      background: var(--bg-primary);
+      background: white;
       border: 1px solid var(--border);
       border-radius: 8px;
-      box-shadow: 0 4px 12px var(--shadow);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       min-width: 200px;
       overflow: hidden;
       z-index: 1000;
-      transition: background-color 0.3s ease, border-color 0.3s ease;
     }
 
     .user-dropdown.hidden {
@@ -107,13 +127,13 @@
       align-items: center;
       gap: 0.75rem;
       padding: 0.75rem 1rem;
-      background: var(--bg-primary);
+      background: white;
       border: none;
       border-bottom: 1px solid var(--border);
       cursor: pointer;
       font-size: 0.95rem;
-      color: var(--text);
-      transition: background 0.2s ease, color 0.2s ease;
+      color: var(--dark);
+      transition: background 0.2s ease;
       text-align: left;
     }
 
@@ -122,7 +142,7 @@
     }
 
     .dropdown-item:hover {
-      background: var(--bg-secondary);
+      background: var(--light);
     }
 
     .dropdown-item.logout {
@@ -133,33 +153,8 @@
       background: rgba(220, 53, 69, 0.1);
     }
 
-    body.dark-theme .dropdown-item.logout:hover {
-      background: rgba(220, 53, 69, 0.2);
-    }
-
     .dropdown-item.hidden {
       display: none;
-    }
-
-    /* Améliorer la visibilité des SVG dans le menu déroulant en mode sombre */
-    body.dark-theme .dropdown-item svg {
-      stroke: var(--text);
-    }
-
-    body.dark-theme .dropdown-item svg path,
-    body.dark-theme .dropdown-item svg polyline,
-    body.dark-theme .dropdown-item svg line,
-    body.dark-theme .dropdown-item svg circle {
-      stroke: currentColor;
-    }
-
-    body.dark-theme .dropdown-item svg path[fill] {
-      fill: currentColor;
-    }
-
-    /* Style spécial pour le bouton logout en mode sombre */
-    body.dark-theme .dropdown-item.logout svg {
-      stroke: var(--danger);
     }
   </style>
 
@@ -173,6 +168,7 @@
     <div id="calendar" class="calendar"></div>
   </div>
 
+  <!-- Modals pour les devoirs (gardés identiques) -->
   <div id="devoir-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
@@ -210,23 +206,14 @@
         </div>
         <div class="form-group">
           <label class="form-label">Fichiers PDF (optionnel)</label>
-          <div id="devoir-drop-zone" style="
-            border: 2px dashed var(--border);
-            border-radius: 8px;
-            padding: 2rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            background: var(--light);
-            margin-bottom: 0.5rem;
-          ">
-            <input type="file" id="devoir-fichiers" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" multiple style="display: none;">
+          <div id="devoir-drop-zone" style="border: 2px dashed var(--border); border-radius: 8px; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.3s ease; background: var(--light); margin-bottom: 0.5rem;">
+            <input type="file" id="devoir-fichiers" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls" multiple style="display: none;">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto; color: var(--primary);">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="17 8 12 3 7 8"></polyline>
               <line x1="12" y1="3" x2="12" y2="15"></line>
             </svg>
-            <p style="margin: 0.5rem 0 0 0; color: var(--primary); font-weight: 500;">Cliquez ou glissez-déposez vos fichiers (PDF, Word...)</p>
+            <p style="margin: 0.5rem 0 0 0; color: var(--primary); font-weight: 500;">Cliquez ou glissez-déposez vos fichiers</p>
             <small style="color: var(--secondary); font-size: 0.85rem;">10 Mo max par fichier</small>
           </div>
           <div id="devoir-fichiers-list" style="margin-top: 0.5rem;"></div>
@@ -249,7 +236,7 @@
         <input type="hidden" id="edit-devoir-id">
         <div class="form-group">
           <label for="edit-devoir-titre" class="form-label">Titre du devoir</label>
-          <input type="text" id="edit-devoir-titre" placeholder="Ex: Exercices de mathématiques" required>
+          <input type="text" id="edit-devoir-titre" required>
         </div>
         <div class="form-group">
           <label for="edit-devoir-matiere" class="form-label">Matière</label>
@@ -259,7 +246,7 @@
         </div>
         <div class="form-group">
           <label for="edit-devoir-description" class="form-label">Description (optionnel)</label>
-          <textarea id="edit-devoir-description" placeholder="Détails du devoir..." rows="3"></textarea>
+          <textarea id="edit-devoir-description" rows="3"></textarea>
         </div>
         <div class="form-group">
           <label for="edit-devoir-date-limite" class="form-label">Pour le</label>
@@ -267,24 +254,15 @@
         </div>
         <div id="edit-devoir-fichiers-existants" style="margin-bottom: 1rem;"></div>
         <div class="form-group">
-          <label class="form-label">Ajouter des fichiers PDF (optionnel)</label>
-          <div id="edit-devoir-drop-zone" style="
-            border: 2px dashed var(--border);
-            border-radius: 8px;
-            padding: 2rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            background: var(--light);
-            margin-bottom: 0.5rem;
-          ">
-            <input type="file" id="edit-devoir-nouveaux-fichiers" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" multiple style="display: none;">
+          <label class="form-label">Ajouter des fichiers (optionnel)</label>
+          <div id="edit-devoir-drop-zone" style="border: 2px dashed var(--border); border-radius: 8px; padding: 2rem; text-align: center; cursor: pointer; background: var(--light); margin-bottom: 0.5rem;">
+            <input type="file" id="edit-devoir-nouveaux-fichiers" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls" multiple style="display: none;">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto; color: var(--primary);">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="17 8 12 3 7 8"></polyline>
               <line x1="12" y1="3" x2="12" y2="15"></line>
             </svg>
-            <p style="margin: 0.5rem 0 0 0; color: var(--primary); font-weight: 500;">Cliquez ou glissez-déposez vos fichiers (PDF, Word...)</p>
+            <p style="margin: 0.5rem 0 0 0; color: var(--primary); font-weight: 500;">Cliquez ou glissez-déposez vos fichiers</p>
             <small style="color: var(--secondary); font-size: 0.85rem;">10 Mo max par fichier</small>
           </div>
           <div id="edit-devoir-nouveaux-fichiers-list" style="margin-top: 0.5rem;"></div>

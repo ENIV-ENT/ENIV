@@ -1,0 +1,64 @@
+/* Loading Screen */
+#loading-screen {
+  position: fixed;
+  inset: 0;
+  background: #f8f9fa;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+
+#loading-screen.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+#loading-screen .loading-logo {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #4a90e2;
+  animation: loadingPulse 1.5s ease-in-out infinite;
+  margin-bottom: 1.5rem;
+}
+
+#loading-screen .loading-spinner-bar {
+  width: 200px;
+  height: 4px;
+  background: #dee2e6;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+#loading-screen .loading-spinner-bar::after {
+  content: '';
+  display: block;
+  width: 60px;
+  height: 100%;
+  background: #4a90e2;
+  border-radius: 2px;
+  animation: loadingSlide 1.2s ease-in-out infinite;
+}
+
+@keyframes loadingPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+}
+
+@keyframes loadingSlide {
+  0% {
+    transform: translateX(-60px);
+  }
+  100% {
+    transform: translateX(200px);
+  }
+}

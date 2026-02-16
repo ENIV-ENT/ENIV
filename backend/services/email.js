@@ -8,6 +8,145 @@ apiKey.apiKey = process.env.BREVO_API_KEY;
 
 const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 
+// --- Shared email helpers ---
+
+const EMAIL_STYLES = `
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  .container {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 30px;
+    margin: 20px 0;
+  }
+  .header {
+    text-align: center;
+    margin-bottom: 30px;
+  }
+  .header h1 {
+    color: #2c3e50;
+    margin: 0;
+  }
+  .content {
+    background: white;
+    padding: 25px;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .button {
+    display: inline-block;
+    padding: 12px 30px;
+    background: #4CAF50;
+    color: white !important;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: bold;
+    margin: 20px 0;
+    text-align: center;
+  }
+  .button:hover {
+    background: #45a049;
+  }
+  .footer {
+    text-align: center;
+    margin-top: 30px;
+    color: #666;
+    font-size: 0.9em;
+  }
+  .warning {
+    color: #e74c3c;
+    font-size: 0.9em;
+    margin-top: 15px;
+  }
+`;
+
+/**
+ * Build an info-box with a specific color theme.
+ * @param {string} innerHtml - HTML content inside the box
+ * @param {{ background: string, border: string }} colors - Box color theme
+ */
+function buildInfoBox(innerHtml, colors) {
+  return `
+    <div style="background: ${colors.background}; padding: 15px; border-radius: 4px; margin: 20px 0; border-left: 4px solid ${colors.border};">
+      ${innerHtml}
+    </div>`;
+}
+
+/**
+ * Wrap body content in the shared HTML email layout.
+ * @param {string} headerTitle - Text for the header h1
+ * @param {string} bodyHtml - Inner HTML for the .content section
+ * @param {string} [extraStyles] - Additional CSS rules appended after base styles
+ * @param {{ showCopyright?: boolean }} [options]
+ */
+function buildEmailHtml(headerTitle, bodyHtml, extraStyles = '', options = {}) {
+  const { showCopyright = true } = options;
+  const copyrightLine = showCopyright
+    ? '<p>&copy; 2025 Eniv - Tous droits réservés</p>'
+    : '';
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>${EMAIL_STYLES}${extraStyles}</style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>${headerTitle}</h1>
+        </div>
+        <div class="content">
+          ${bodyHtml}
+        </div>
+        <div class="footer">
+          <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
+          ${copyrightLine}
+        </div>
+      </div>
+    </body>
+    </html>`;
+}
+
+/**
+ * Send a transactional email via Brevo.
+ * @param {string} recipientEmail
+ * @param {string} subject
+ * @param {string} htmlContent
+ * @param {string} textContent
+ * @param {string} logLabel - Label used in log messages
+ */
+async function sendEmail(recipientEmail, subject, htmlContent, textContent, logLabel) {
+  const sendSmtpEmail = {
+    to: [{ email: recipientEmail }],
+    sender: {
+      email: process.env.BREVO_SENDER_EMAIL,
+      name: process.env.BREVO_SENDER_NAME
+    },
+    subject,
+    htmlContent,
+    textContent
+  };
+
+  try {
+    const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    console.log(`${logLabel} envoyé avec succès à:`, recipientEmail);
+    return { success: true, messageId: result.messageId };
+  } catch (error) {
+    console.error(`Erreur lors de l'envoi (${logLabel}):`, error);
+    throw new Error(`Impossible d'envoyer l'email (${logLabel})`);
+  }
+}
+
+// --- Public email functions ---
+
 /**
  * Envoyer un email d'invitation pour créer un compte
  * @param {string} email - Email du destinataire
@@ -17,132 +156,32 @@ const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
  */
 async function sendInvitationEmail(email, token, role, className = null) {
   const invitationUrl = `${process.env.BASE_URL}/register?token=${token}`;
-
   const roleText = role === 'admin' ? 'Administrateur' : 'Élève';
-  const classeInfo = className ? `<p><strong>Classe :</strong> ${className}</p>` : '';
 
-  const sendSmtpEmail = {
-    to: [{ email }],
-    sender: {
-      email: process.env.BREVO_SENDER_EMAIL,
-      name: process.env.BREVO_SENDER_NAME
-    },
-    subject: `Invitation à rejoindre Eniv - ${roleText}`,
-    htmlContent: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-          }
-          .container {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 30px;
-            margin: 20px 0;
-          }
-          .header {
-            text-align: center;
-            margin-bottom: 30px;
-          }
-          .header h1 {
-            color: #2c3e50;
-            margin: 0;
-          }
-          .content {
-            background: white;
-            padding: 25px;
-            border-radius: 6px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-          }
-          .info-box {
-            background: #e3f2fd;
-            padding: 15px;
-            border-radius: 4px;
-            margin: 20px 0;
-            border-left: 4px solid #2196f3;
-          }
-          .button {
-            display: inline-block;
-            padding: 12px 30px;
-            background: #4CAF50;
-            color: white !important;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: bold;
-            margin: 20px 0;
-            text-align: center;
-          }
-          .button:hover {
-            background: #45a049;
-          }
-          .footer {
-            text-align: center;
-            margin-top: 30px;
-            color: #666;
-            font-size: 0.9em;
-          }
-          .warning {
-            color: #e74c3c;
-            font-size: 0.9em;
-            margin-top: 15px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Eniv</h1>
-          </div>
+  const infoLines = `<p style="margin: 5px 0;"><strong>Rôle :</strong> ${roleText}</p>`
+    + (className ? `<p style="margin: 5px 0;"><strong>Classe :</strong> ${className}</p>` : '');
 
-          <div class="content">
-            <h2>Vous êtes invité(e) à rejoindre Eniv !</h2>
+  const bodyHtml = `
+    <h2>Vous êtes invité(e) à rejoindre Eniv !</h2>
+    <p>Bonjour,</p>
+    <p>Vous avez été invité(e) à créer un compte sur la plateforme Eniv.</p>
+    ${buildInfoBox(infoLines, { background: '#e3f2fd', border: '#2196f3' })}
+    <p>Pour finaliser votre inscription, cliquez sur le bouton ci-dessous et remplissez le formulaire avec vos informations :</p>
+    <ul>
+      <li>Nom</li>
+      <li>Prénom</li>
+      <li>Nom d'utilisateur</li>
+      <li>Mot de passe</li>
+    </ul>
+    <div style="text-align: center;">
+      <a href="${invitationUrl}" class="button">Créer mon compte</a>
+    </div>
+    <p class="warning">
+      ⚠️ Ce lien est valable pendant 7 jours et ne peut être utilisé qu'une seule fois.
+    </p>
+    <p>Si vous n'avez pas demandé cette invitation, vous pouvez ignorer ce message.</p>`;
 
-            <p>Bonjour,</p>
-
-            <p>Vous avez été invité(e) à créer un compte sur la plateforme Eniv.</p>
-
-            <div class="info-box">
-              <p style="margin: 5px 0;"><strong>Rôle :</strong> ${roleText}</p>
-              ${classeInfo}
-            </div>
-
-            <p>Pour finaliser votre inscription, cliquez sur le bouton ci-dessous et remplissez le formulaire avec vos informations :</p>
-
-            <ul>
-              <li>Nom</li>
-              <li>Prénom</li>
-              <li>Nom d'utilisateur</li>
-              <li>Mot de passe</li>
-            </ul>
-
-            <div style="text-align: center;">
-              <a href="${invitationUrl}" class="button">Créer mon compte</a>
-            </div>
-
-            <p class="warning">
-              ⚠️ Ce lien est valable pendant 7 jours et ne peut être utilisé qu'une seule fois.
-            </p>
-
-            <p>Si vous n'avez pas demandé cette invitation, vous pouvez ignorer ce message.</p>
-          </div>
-
-          <div class="footer">
-            <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
-            <p>&copy; 2025 Eniv - Tous droits réservés</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
-    textContent: `
+  const textContent = `
 Vous êtes invité(e) à rejoindre Eniv !
 
 Rôle : ${roleText}
@@ -160,17 +199,10 @@ Vous devrez renseigner :
 Ce lien est valable pendant 7 jours et ne peut être utilisé qu'une seule fois.
 
 Si vous n'avez pas demandé cette invitation, vous pouvez ignorer ce message.
-    `
-  };
+    `;
 
-  try {
-    const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
-    console.log('Email d\'invitation envoyé avec succès à:', email);
-    return { success: true, messageId: result.messageId };
-  } catch (error) {
-    console.error('Erreur lors de l\'envoi de l\'email:', error);
-    throw new Error('Impossible d\'envoyer l\'email d\'invitation');
-  }
+  const htmlContent = buildEmailHtml('Eniv', bodyHtml);
+  return sendEmail(email, `Invitation à rejoindre Eniv - ${roleText}`, htmlContent, textContent, 'Email d\'invitation');
 }
 
 /**
@@ -182,111 +214,20 @@ Si vous n'avez pas demandé cette invitation, vous pouvez ignorer ce message.
 async function sendQuizReadyEmail(email, devoirTitle, devoirId) {
   const quizUrl = `${process.env.BASE_URL}/quiz?id=${devoirId}`;
 
-  const sendSmtpEmail = {
-    to: [{ email }],
-    sender: {
-      email: process.env.BREVO_SENDER_EMAIL,
-      name: process.env.BREVO_SENDER_NAME
-    },
-    subject: `Votre quiz est prêt : ${devoirTitle}`,
-    htmlContent: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-          }
-          .container {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 30px;
-            margin: 20px 0;
-          }
-          .header {
-            text-align: center;
-            margin-bottom: 30px;
-          }
-          .header h1 {
-            color: #2c3e50;
-            margin: 0;
-          }
-          .content {
-            background: white;
-            padding: 25px;
-            border-radius: 6px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-          }
-          .info-box {
-            background: #e8f5e9;
-            padding: 15px;
-            border-radius: 4px;
-            margin: 20px 0;
-            border-left: 4px solid #4caf50;
-          }
-          .button {
-            display: inline-block;
-            padding: 12px 30px;
-            background: #4CAF50;
-            color: white !important;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: bold;
-            margin: 20px 0;
-            text-align: center;
-          }
-          .button:hover {
-            background: #45a049;
-          }
-          .footer {
-            text-align: center;
-            margin-top: 30px;
-            color: #666;
-            font-size: 0.9em;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>✅ Votre quiz est prêt !</h1>
-          </div>
+  const infoLines = `<p style="margin: 5px 0;"><strong>Devoir :</strong> ${devoirTitle}</p>`;
 
-          <div class="content">
-            <h2>Quiz de révision disponible</h2>
+  const bodyHtml = `
+    <h2>Quiz de révision disponible</h2>
+    <p>Bonjour,</p>
+    <p>Bonne nouvelle ! Le quiz de révision pour votre devoir est maintenant disponible.</p>
+    ${buildInfoBox(infoLines, { background: '#e8f5e9', border: '#4caf50' })}
+    <p>Le quiz a été généré automatiquement à partir des documents du devoir. Vous pouvez maintenant vous entraîner et réviser efficacement.</p>
+    <div style="text-align: center;">
+      <a href="${quizUrl}" class="button">Commencer le quiz</a>
+    </div>
+    <p>Bon courage pour vos révisions ! 💪</p>`;
 
-            <p>Bonjour,</p>
-
-            <p>Bonne nouvelle ! Le quiz de révision pour votre devoir est maintenant disponible.</p>
-
-            <div class="info-box">
-              <p style="margin: 5px 0;"><strong>Devoir :</strong> ${devoirTitle}</p>
-            </div>
-
-            <p>Le quiz a été généré automatiquement à partir des documents du devoir. Vous pouvez maintenant vous entraîner et réviser efficacement.</p>
-
-            <div style="text-align: center;">
-              <a href="${quizUrl}" class="button">Commencer le quiz</a>
-            </div>
-
-            <p>Bon courage pour vos révisions ! 💪</p>
-          </div>
-
-          <div class="footer">
-            <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
-            <p>&copy; 2025 Eniv - Tous droits réservés</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
-    textContent: `
+  const textContent = `
 Votre quiz est prêt !
 
 Le quiz de révision pour votre devoir "${devoirTitle}" est maintenant disponible.
@@ -295,20 +236,89 @@ Pour commencer le quiz, accédez au lien suivant :
 ${quizUrl}
 
 Bon courage pour vos révisions !
-    `
-  };
+    `;
 
-  try {
-    const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
-    console.log('Email de notification quiz envoyé avec succès à:', email);
-    return { success: true, messageId: result.messageId };
-  } catch (error) {
-    console.error('Erreur lors de l\'envoi de l\'email:', error);
-    throw new Error('Impossible d\'envoyer l\'email de notification');
-  }
+  const htmlContent = buildEmailHtml('✅ Votre quiz est prêt !', bodyHtml);
+  return sendEmail(email, `Votre quiz est prêt : ${devoirTitle}`, htmlContent, textContent, 'Email notification quiz');
+}
+
+/**
+ * Envoyer un email pour notifier l'admin d'une nouvelle demande d'adhésion
+ * @param {string} adminEmail - Email de l'admin
+ * @param {string} studentName - Nom complet de l'élève
+ * @param {string} className - Nom de la classe
+ */
+async function sendJoinRequestEmail(adminEmail, studentName, className) {
+  const dashboardUrl = `${process.env.BASE_URL}/dashboard/`;
+
+  const infoLines = `
+    <p style="margin: 5px 0;"><strong>Nom :</strong> ${studentName}</p>
+    <p style="margin: 5px 0;"><strong>Classe :</strong> ${className}</p>`;
+
+  const bodyHtml = `
+    <h2>Nouvelle demande d'adhésion</h2>
+    <p>Bonjour,</p>
+    <p>Un nouvel utilisateur souhaite rejoindre votre classe.</p>
+    ${buildInfoBox(infoLines, { background: '#fff3cd', border: '#ffc107' })}
+    <p>Vous pouvez accepter ou refuser cette demande depuis votre tableau de bord.</p>
+    <div style="text-align: center;">
+      <a href="${dashboardUrl}" class="button">Voir les demandes</a>
+    </div>`;
+
+  const textContent = `
+Nouvelle demande d'adhésion - ${className}
+
+${studentName} souhaite rejoindre votre classe "${className}".
+
+Connectez-vous à votre tableau de bord pour accepter ou refuser la demande :
+${dashboardUrl}
+    `;
+
+  const htmlContent = buildEmailHtml('Eniv', bodyHtml, '', { showCopyright: false });
+  return sendEmail(adminEmail, `Nouvelle demande d'adhésion - ${className}`, htmlContent, textContent, 'Email demande adhésion');
+}
+
+/**
+ * Envoyer un email à l'élève quand sa demande d'adhésion est acceptée
+ * @param {string} studentEmail - Email de l'élève
+ * @param {string} studentName - Nom complet de l'élève
+ * @param {string} className - Nom de la classe
+ */
+async function sendJoinRequestAcceptedEmail(studentEmail, studentName, className) {
+  const dashboardUrl = `${process.env.BASE_URL}/dashboard/`;
+
+  const infoLines = `
+    <p style="margin: 5px 0;"><strong>Élève :</strong> ${studentName}</p>
+    <p style="margin: 5px 0;"><strong>Classe :</strong> ${className}</p>`;
+
+  const bodyHtml = `
+    <h2>Demande d'adhésion acceptée</h2>
+    <p>Bonjour ${studentName},</p>
+    <p>Bonne nouvelle ! Votre demande d'adhésion a été acceptée.</p>
+    ${buildInfoBox(infoLines, { background: '#e8f5e9', border: '#4caf50' })}
+    <p>Vous pouvez maintenant accéder à votre tableau de bord.</p>
+    <div style="text-align: center;">
+      <a href="${dashboardUrl}" class="button">Accéder au tableau de bord</a>
+    </div>`;
+
+  const textContent = `
+Demande d'adhésion acceptée - ${className}
+
+Bonjour ${studentName},
+
+Votre demande d'adhésion à la classe "${className}" a été acceptée.
+
+Accédez à votre tableau de bord :
+${dashboardUrl}
+  `;
+
+  const htmlContent = buildEmailHtml('Bienvenue sur Eniv', bodyHtml, '', { showCopyright: false });
+  return sendEmail(studentEmail, `Demande acceptée - ${className}`, htmlContent, textContent, 'Email acceptation adhésion');
 }
 
 module.exports = {
   sendInvitationEmail,
-  sendQuizReadyEmail
+  sendQuizReadyEmail,
+  sendJoinRequestEmail,
+  sendJoinRequestAcceptedEmail
 };
