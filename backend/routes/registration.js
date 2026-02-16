@@ -79,7 +79,7 @@ router.get('/classes', async (req, res) => {
     const classes = await db.all(
       `SELECT c.id, c.nom,
         (SELECT COUNT(*) FROM users u WHERE u.classe_id = c.id AND u.role = 'eleve') as nb_eleves,
-        (SELECT u.username FROM users u WHERE u.id = c.admin_id) as admin_username
+        (SELECT GROUP_CONCAT(u.username SEPARATOR ', ') FROM users u WHERE u.role = 'admin' AND u.classe_id = c.id) as admin_username
        FROM classes c
        WHERE c.etablissement_id = ?
        ORDER BY c.nom`,
@@ -92,22 +92,26 @@ router.get('/classes', async (req, res) => {
   }
 });
 
-async function notifyClassAdmin(classe, prenom, nom, classeId) {
-  if (!classe.admin_id) return;
+async function notifyClassAdmin(classeId, prenom, nom) {
+  const admins = await db.all(
+    'SELECT email FROM users WHERE role = ? AND classe_id = ? AND email IS NOT NULL',
+    ['admin', classeId]
+  );
 
-  const admin = await db.get('SELECT email FROM users WHERE id = ?', [classe.admin_id]);
+  if (!admins.length) return;
+
   const classeInfo = await db.get('SELECT nom FROM classes WHERE id = ?', [classeId]);
 
-  if (admin && admin.email) {
-    await sendJoinRequestEmail(admin.email, `${prenom} ${nom}`, classeInfo.nom);
-  }
+  await Promise.all(
+    admins.map(admin => sendJoinRequestEmail(admin.email, `${prenom} ${nom}`, classeInfo.nom))
+  );
 }
 
 async function createUserWithJoinRequest(fields) {
   const { username, hashedPassword, email, nom, prenom, classe_id, etablissement_id } = fields;
 
   const classe = await db.get(
-    'SELECT id, admin_id FROM classes WHERE id = ? AND etablissement_id = ?',
+    'SELECT id FROM classes WHERE id = ? AND etablissement_id = ?',
     [classe_id, etablissement_id]
   );
   if (!classe) {
@@ -124,7 +128,7 @@ async function createUserWithJoinRequest(fields) {
     [result.lastInsertRowid, classe_id]
   );
 
-  await notifyClassAdmin(classe, prenom, nom, classe_id).catch(err => {
+  await notifyClassAdmin(classe_id, prenom, nom).catch(err => {
     console.error('Erreur envoi email notification:', err);
   });
 
@@ -149,8 +153,8 @@ async function createUserWithNewClasse(fields) {
   const userId = result.lastInsertRowid;
 
   const classeResult = await db.run(
-    'INSERT INTO classes (nom, etablissement_id, admin_id) VALUES (?, ?, ?)',
-    [classe_nom, etablissement_id, userId]
+    'INSERT INTO classes (nom, etablissement_id) VALUES (?, ?)',
+    [classe_nom, etablissement_id]
   );
 
   await db.run('UPDATE users SET classe_id = ? WHERE id = ?', [classeResult.lastInsertRowid, userId]);
