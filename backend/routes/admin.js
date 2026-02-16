@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const db = require('../models/dbHelper');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { sendJoinRequestAcceptedEmail } = require('../services/email');
 const router = express.Router();
 
 // Palette de couleurs prédéfinies
@@ -370,6 +371,101 @@ router.get('/logs/devoirs', requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error retrieving logs:', error);
     res.status(500).json({ error: 'Erreur lors de la récupération des logs' });
+  }
+});
+
+// Lister les demandes d'adhésion en attente
+router.get('/join-requests', requireAdmin, async (req, res) => {
+  try {
+    const admin = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
+    if (!admin || !admin.classe_id) {
+      return res.json([]);
+    }
+
+    const requests = await db.all(
+      `SELECT jr.id, jr.status, jr.created_at,
+        u.id as user_id, u.username, u.nom, u.prenom, u.email
+       FROM join_requests jr
+       JOIN users u ON jr.user_id = u.id
+       WHERE jr.classe_id = ? AND jr.status = 'pending'
+       ORDER BY jr.created_at DESC`,
+      [admin.classe_id]
+    );
+    res.json(requests);
+  } catch (error) {
+    console.error('Error fetching join requests:', error);
+    res.status(500).json({ error: 'Erreur lors de la récupération des demandes' });
+  }
+});
+
+// Traiter une demande d'adhésion (accepter ou rejeter)
+async function handleJoinRequest(req, res, newStatus) {
+  try {
+    const admin = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
+    if (!admin || !admin.classe_id) {
+      return res.status(400).json({ error: 'Admin non associé à une classe' });
+    }
+
+    const request = await db.get(
+      'SELECT * FROM join_requests WHERE id = ? AND classe_id = ? AND status = ?',
+      [req.params.id, admin.classe_id, 'pending']
+    );
+
+    if (!request) {
+      return res.status(404).json({ error: 'Demande introuvable' });
+    }
+
+    await db.run('UPDATE join_requests SET status = ? WHERE id = ?', [newStatus, req.params.id]);
+
+    if (newStatus === 'accepted') {
+      await db.run('UPDATE users SET classe_id = ? WHERE id = ?', [admin.classe_id, request.user_id]);
+
+      const [student, classe] = await Promise.all([
+        db.get('SELECT email, nom, prenom FROM users WHERE id = ?', [request.user_id]),
+        db.get('SELECT nom FROM classes WHERE id = ?', [admin.classe_id])
+      ]);
+
+      if (student && student.email && classe && classe.nom) {
+        const studentName = `${student.prenom || ''} ${student.nom || ''}`.trim() || 'élève';
+        await sendJoinRequestAcceptedEmail(student.email, studentName, classe.nom);
+      }
+    }
+
+    const label = newStatus === 'accepted' ? 'acceptée' : 'rejetée';
+    res.json({ success: true, message: `Demande ${label}` });
+  } catch (error) {
+    console.error(`Error ${newStatus === 'accepted' ? 'accepting' : 'rejecting'} join request:`, error);
+    const label = newStatus === 'accepted' ? "l'acceptation" : 'du rejet';
+    res.status(500).json({ error: `Erreur lors de ${label}` });
+  }
+}
+
+// Accepter une demande d'adhésion
+router.post('/join-requests/:id/accept', requireAdmin, (req, res) => handleJoinRequest(req, res, 'accepted'));
+
+// Rejeter une demande d'adhésion
+router.post('/join-requests/:id/reject', requireAdmin, (req, res) => handleJoinRequest(req, res, 'rejected'));
+
+// Générer/récupérer le lien d'invitation pré-rempli
+router.get('/invite-link', requireAdmin, async (req, res) => {
+  try {
+    const admin = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
+    if (!admin || !admin.classe_id) {
+      return res.status(400).json({ error: 'Admin non associé à une classe' });
+    }
+
+    const classe = await db.get('SELECT id, etablissement_id FROM classes WHERE id = ?', [admin.classe_id]);
+    if (!classe || !classe.etablissement_id) {
+      return res.json({ link: null, message: 'Aucun établissement associé à cette classe' });
+    }
+
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    const link = `${baseUrl}/register?classe_id=${classe.id}&etab_id=${classe.etablissement_id}`;
+
+    res.json({ link });
+  } catch (error) {
+    console.error('Error generating invite link:', error);
+    res.status(500).json({ error: 'Erreur lors de la génération du lien' });
   }
 });
 

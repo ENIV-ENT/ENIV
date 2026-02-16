@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eniv - Gestion de classe</title>
+  <link rel="icon" type="image/x-icon" href="/images/logo.ico">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <link rel="stylesheet" href="/css/loading.css">
+  <style>
+    /* Admin specific overrides */
+    body {
+      background-color: var(--background);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .admin-container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      flex: 1;
+      width: 100%;
+    }
+
+    .admin-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+
+    /* Tabs styling adjustment for full page */
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      padding: 0.75rem 1.25rem;
+      cursor: pointer;
+      font-weight: 500;
+      color: var(--secondary);
+      border-radius: 6px;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      background-color: var(--light);
+      color: var(--text);
+    }
+
+    .tab-btn.active {
+      background-color: var(--primary-light);
+      color: var(--primary);
+    }
+
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div id="loading-screen">
+    <div class="loading-logo">Eniv</div>
+    <div class="loading-spinner-bar"></div>
+  </div>
+
+  <header>
+    <h1><a href="/dashboard" style="color: inherit; text-decoration: none; cursor: pointer;">Eniv</a> <span style="font-size: 0.6em; opacity: 0.7; font-weight: normal;">/ Admin</span></h1>
+    <div class="header-actions">
+      <div class="user-menu">
+        <button id="user-menu-btn" class="user-menu-btn">
+          <span id="user-info">Admin</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 0.5rem;">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+        <div id="user-dropdown" class="user-dropdown hidden">
+          <button id="dashboard-btn" class="dropdown-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            Tableau de bord
+          </button>
+          <button id="settings-btn" class="dropdown-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            Paramètres
+          </button>
+          <button id="logout-btn" class="dropdown-item logout">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            Déconnexion
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="admin-container">
+    <div class="admin-header">
+      <h2>Gestion de classe</h2>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="eleves">Élèves</button>
+      <button class="tab-btn" data-tab="matieres">Matières</button>
+      <button class="tab-btn" data-tab="demandes">Demandes <span id="pending-badge" class="badge hidden">0</span></button>
+      <button class="tab-btn" data-tab="invitations">Invitations</button>
+      <button class="tab-btn" data-tab="logs">Historique</button>
+      <button class="tab-btn" data-tab="settings">Paramètres</button>
+    </div>
+
+    <!-- Élèves -->
+    <div id="tab-eleves" class="tab-content active">
+      <div class="section-header">
+        <h3>Gestion des élèves</h3>
+        <button id="add-eleve-btn" class="btn-primary">Inviter un élève</button>
+      </div>
+      <div id="eleves-list" class="list"></div>
+    </div>
+
+    <!-- Matières -->
+    <div id="tab-matieres" class="tab-content">
+      <div class="section-header">
+        <h3>Gestion des matières</h3>
+        <button id="add-matiere-btn" class="btn-primary">Ajouter une matière</button>
+      </div>
+      <div id="matieres-list" class="list"></div>
+    </div>
+
+    <!-- Demandes -->
+    <div id="tab-demandes" class="tab-content">
+      <div class="section-header">
+        <h3>Demandes d'adhésion</h3>
+      </div>
+      <div id="join-requests-list" class="list"></div>
+    </div>
+
+    <!-- Invitations -->
+    <div id="tab-invitations" class="tab-content">
+      <div class="section-header">
+        <h3>Invitations en attente</h3>
+      </div>
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label>Lien d'inscription directe</label>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <input type="text" id="invite-link-input" readonly style="flex: 1; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; font-size: 0.9rem;">
+          <button id="copy-invite-link" class="btn-secondary">Copier</button>
+        </div>
+        <p style="color: var(--secondary); font-size: 0.85rem; margin-top: 0.5rem;">Partagez ce lien pour que les élèves s'inscrivent directement dans votre classe.</p>
+      </div>
+      <div id="invitations-list" class="list"></div>
+    </div>
+
+    <!-- Logs -->
+    <div id="tab-logs" class="tab-content">
+      <div class="section-header">
+        <h3>Historique des activités</h3>
+      </div>
+      <div id="logs-list" class="list"></div>
+    </div>
+
+    <!-- Paramètres -->
+    <div id="tab-settings" class="tab-content">
+      <div style="max-width: 600px;">
+        <div class="section-header">
+          <h3>Paramètres de la classe</h3>
+        </div>
+
+        <form id="emploi-temps-form" class="form-container" style="margin-bottom: 2rem;">
+          <h4>Lien emploi du temps</h4>
+          <div class="form-group">
+            <input type="url" id="emploi-temps-lien" placeholder="URL de l'emploi du temps">
+          </div>
+          <button type="submit" class="btn-primary">Enregistrer</button>
+        </form>
+
+        <form id="discord-webhook-form" class="form-container" style="margin-bottom: 2rem;">
+          <h4>Webhook Discord</h4>
+          <p style="color: var(--secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+            Recevez un récapitulatif quotidien des devoirs à 18h sur Discord.
+          </p>
+          <div class="form-group">
+            <input type="url" id="discord-webhook-url" placeholder="https://discord.com/api/webhooks/...">
+          </div>
+          <button type="submit" class="btn-primary">Enregistrer le webhook</button>
+        </form>
+        
+        <form id="password-form" class="form-container">
+          <h4>Changer mon mot de passe</h4>
+          <div class="form-group">
+            <input type="password" id="old-password" placeholder="Mot de passe actuel" required>
+          </div>
+          <div class="form-group">
+            <input type="password" id="new-password" placeholder="Nouveau mot de passe" required>
+          </div>
+          <div class="form-group">
+            <input type="password" id="confirm-password" placeholder="Confirmer le nouveau mot de passe" required>
+          </div>
+          <button type="submit" class="btn-secondary">Modifier le mot de passe</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modals -->
+  <div id="add-eleve-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Inviter un élève</h2>
+        <button class="modal-close" id="close-add-eleve-modal">&times;</button>
+      </div>
+      <p style="color: var(--secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+        L'élève recevra un email avec un lien pour finaliser son inscription.
+      </p>
+      <form id="add-eleve-form">
+        <div class="form-group">
+          <label for="eleve-email" class="form-label">Email de l'élève</label>
+          <input type="email" id="eleve-email" placeholder="exemple@email.com" required>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Envoyer l'invitation</button>
+          <button type="button" id="cancel-add-eleve" class="btn-secondary">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="edit-eleve-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Modifier l'élève</h2>
+        <button class="modal-close" id="close-edit-eleve-modal">&times;</button>
+      </div>
+      <form id="edit-eleve-form">
+        <input type="hidden" id="edit-eleve-id">
+        <div class="form-group">
+          <label for="edit-eleve-username" class="form-label">Nom d'utilisateur</label>
+          <input type="text" id="edit-eleve-username" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-eleve-email" class="form-label">Email</label>
+          <input type="text" id="edit-eleve-email">
+        </div>
+        <div class="form-group">
+          <label for="edit-eleve-nom" class="form-label">Nom</label>
+          <input type="text" id="edit-eleve-nom">
+        </div>
+        <div class="form-group">
+          <label for="edit-eleve-prenom" class="form-label">Prénom</label>
+          <input type="text" id="edit-eleve-prenom">
+        </div>
+        <div class="form-group">
+          <label for="edit-eleve-password" class="form-label">Nouveau mot de passe</label>
+          <input type="password" id="edit-eleve-password" placeholder="Laisser vide pour ne pas changer">
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Enregistrer</button>
+          <button type="button" id="cancel-edit-eleve" class="btn-secondary">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="add-matiere-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Nouvelle matière</h2>
+        <button class="modal-close" id="close-add-matiere-modal">&times;</button>
+      </div>
+      <form id="add-matiere-form">
+        <div class="form-group">
+          <label for="add-matiere-nom" class="form-label">Nom</label>
+          <input type="text" id="add-matiere-nom" required>
+        </div>
+        <div class="form-group">
+          <label for="add-matiere-lien" class="form-label">Lien (optionnel)</label>
+          <input type="url" id="add-matiere-lien" placeholder="https://...">
+        </div>
+        <div class="form-group">
+          <label for="add-matiere-couleur" class="form-label">Couleur</label>
+          <input type="color" id="add-matiere-couleur" value="#4a90e2" style="width: 80px; height: 50px; border: 2px solid var(--border); border-radius: 8px; cursor: pointer;">
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Créer</button>
+          <button type="button" id="cancel-add-matiere" class="btn-secondary">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="edit-matiere-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Modifier la matière</h2>
+        <button class="modal-close" id="close-edit-matiere-modal">&times;</button>
+      </div>
+      <form id="edit-matiere-form">
+        <input type="hidden" id="edit-matiere-id">
+        <div class="form-group">
+          <label for="edit-matiere-nom" class="form-label">Nom</label>
+          <input type="text" id="edit-matiere-nom" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-matiere-lien" class="form-label">Lien (optionnel)</label>
+          <input type="url" id="edit-matiere-lien" placeholder="https://...">
+        </div>
+        <div class="form-group">
+          <label for="edit-matiere-couleur" class="form-label">Couleur</label>
+          <input type="color" id="edit-matiere-couleur" style="width: 80px; height: 50px; border: 2px solid var(--border); border-radius: 8px; cursor: pointer;">
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Enregistrer</button>
+          <button type="button" id="cancel-edit-matiere" class="btn-secondary">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="/js/pages/admin.js"></script>
+</body>
+</html>

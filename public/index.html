@@ -6,8 +6,13 @@
     <title>Eniv - Connexion</title>
     <link rel="icon" type="image/x-icon" href="/images/logo.ico">
     <link rel="stylesheet" href="/css/login.css" />
+    <link rel="stylesheet" href="/css/loading.css" />
   </head>
   <body>
+    <div id="loading-screen">
+      <div class="loading-logo">Eniv</div>
+      <div class="loading-spinner-bar"></div>
+    </div>
     <div class="login-container">
       <h1>Eniv</h1>
       <form id="login-form">
@@ -18,6 +23,9 @@
       </form>
       <div class="forgot-password-container">
         <a href="#" id="forgot-password-link">Mot de passe oublié ?</a>
+      </div>
+      <div class="forgot-password-container" style="margin-top: 0.5rem;">
+        <a href="/register">Créer un compte</a>
       </div>
     </div>
 

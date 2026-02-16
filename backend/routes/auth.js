@@ -72,7 +72,7 @@ router.post('/logout', (req, res) => {
 });
 
 // Check token / Get user info from token
-router.get('/me', (req, res) => {
+router.get('/me', async (req, res) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -83,11 +83,46 @@ router.get('/me', (req, res) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+
+    // Enrichir avec les infos DB
+    const user = await db.get(
+      `SELECT u.id, u.username, u.role, u.classe_id, u.nom, u.prenom,
+        c.nom as classe_nom, c.admin_id as classe_admin_id
+       FROM users u
+       LEFT JOIN classes c ON u.classe_id = c.id
+       WHERE u.id = ?`,
+      [decoded.userId]
+    );
+
+    if (!user) {
+      return res.json({ authenticated: false });
+    }
+
+    const isAdmin = user.role === 'admin';
+
+    // Vérifier si l'utilisateur a une demande en attente
+    let pendingRequest = null;
+    if (!user.classe_id && user.role === 'eleve') {
+      pendingRequest = await db.get(
+        `SELECT jr.id, jr.status, c.nom as classe_nom
+         FROM join_requests jr
+         JOIN classes c ON jr.classe_id = c.id
+         WHERE jr.user_id = ? AND jr.status = 'pending'`,
+        [user.id]
+      );
+    }
+
     res.json({
       authenticated: true,
-      userId: decoded.userId,
-      username: decoded.username,
-      role: decoded.role
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      nom: user.nom,
+      prenom: user.prenom,
+      classe_id: user.classe_id,
+      classe_nom: user.classe_nom,
+      is_admin: isAdmin,
+      pending_request: pendingRequest
     });
   } catch (error) {
     res.json({ authenticated: false });

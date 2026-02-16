@@ -44,9 +44,6 @@ async function init() {
         case "superadmin":
           window.location.href = "/superadmin/dashboard/";
           break;
-        case "admin":
-          window.location.href = "/admin/dashboard/";
-          break;
         default:
           window.location.href = "/dashboard/";
           break;

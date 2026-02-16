@@ -6,8 +6,13 @@
   <title>Eniv - Paramètres</title>
   <link rel="icon" type="image/x-icon" href="/images/logo.ico">
   <link rel="stylesheet" href="/css/settings.css">
+  <link rel="stylesheet" href="/css/loading.css">
 </head>
 <body>
+  <div id="loading-screen">
+    <div class="loading-logo">Eniv</div>
+    <div class="loading-spinner-bar"></div>
+  </div>
   <header>
     <h1><a href="/dashboard" style="color: inherit; text-decoration: none; cursor: pointer;">Eniv</a></h1>
     <div class="header-actions">
@@ -19,6 +24,12 @@
           </svg>
         </button>
         <div id="user-dropdown" class="user-dropdown hidden">
+          <button id="admin-btn" class="dropdown-item hidden">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 1l3 5 5 1-3.5 4 1 5-5.5-2.5L6 17l1-5L3.5 7l5-1z"></path>
+            </svg>
+            Admin
+          </button>
           <button id="emploi-temps-btn" class="dropdown-item hidden">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
