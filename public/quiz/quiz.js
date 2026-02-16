@@ -554,10 +554,44 @@ async function loadUserInfo() {
     }
 }
 
+function loadThemePreference() {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark-theme');
+        updateThemeButton(true);
+    } else {
+        document.body.classList.remove('dark-theme');
+        updateThemeButton(false);
+    }
+}
+
+function toggleTheme() {
+    const isDark = document.body.classList.toggle('dark-theme');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    updateThemeButton(isDark);
+}
+
+function updateThemeButton(isDark) {
+    const themeIcon = document.getElementById('theme-icon');
+    const themeText = document.getElementById('theme-text');
+
+    if (!themeIcon || !themeText) return;
+
+    if (isDark) {
+        themeIcon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
+        themeText.textContent = 'Theme clair';
+    } else {
+        themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+        themeText.textContent = 'Theme sombre';
+    }
+}
+
 // Gestion du dropdown menu
 const userMenuBtn = document.getElementById('user-menu-btn');
 const userDropdown = document.getElementById('user-dropdown');
 const settingsBtn = document.getElementById('settings-btn');
+const notesBtn = document.getElementById('notes-btn');
+const themeToggleBtn = document.getElementById('theme-toggle-btn');
 const logoutBtn = document.getElementById('logout-btn');
 
 if (userMenuBtn && userDropdown) {
@@ -586,6 +620,19 @@ if (settingsBtn) {
     });
 }
 
+if (notesBtn) {
+    notesBtn.addEventListener('click', () => {
+        window.open('https://iut-notes.unice.fr', '_blank');
+        if (userDropdown) {
+            userDropdown.classList.add('hidden');
+        }
+    });
+}
+
+if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', toggleTheme);
+}
+
 // Bouton déconnexion
 if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
@@ -601,6 +648,7 @@ function hideLoadingScreen() {
 
 // Initialiser le quiz au chargement de la page
 document.addEventListener('DOMContentLoaded', async () => {
+    loadThemePreference();
     await Promise.all([loadQuizData(), loadUserInfo()]);
     hideLoadingScreen();
 });
