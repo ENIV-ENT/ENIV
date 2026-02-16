@@ -33,11 +33,8 @@ router.post('/create', requireAuth, async (req, res) => {
   try {
     // Récupérer la classe de l'utilisateur créateur si c'est un admin
     let finalClasseId = classe_id;
-    if (creatorRole === 'admin' && !classe_id) {
-      const creator = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
-      if (creator && creator.classe_id) {
-        finalClasseId = creator.classe_id;
-      }
+    if (creatorRole === 'admin') {
+      finalClasseId = req.user.classe_id;
     }
 
     // Vérifier si l'email existe déjà

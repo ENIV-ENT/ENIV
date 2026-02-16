@@ -40,16 +40,16 @@ async function extractTextFromPDF(filePath) {
 function createPrompt(devoir, documentsText) {
   const exampleQuestions = [
     {
-      "question": "Quelle est la capitale de la France ?",
+      "question": "Quel est le rôle principal de Paris dans l'organisation territoriale française ?",
       "options": [
-        "Paris",
-        "Londres",
-        "Berlin",
-        "Madrid"
+        "Paris est la capitale administrative et politique de la France",
+        "Paris est uniquement une ville touristique sans rôle politique",
+        "Paris est la deuxième ville la plus importante après Lyon",
+        "Paris est seulement un centre économique sans rôle politique"
       ],
       "correct": 0,
-      "explanation": "Paris est la capitale et la plus grande ville de France depuis le XIIe siècle.",
-      "example": "Paris compte plus de 2 millions d'habitants intra-muros et environ 12 millions dans l'agglomération."
+      "explanation": "Paris est la capitale et la plus grande ville de France depuis le XIIe siècle. Elle concentre les institutions politiques, administratives et culturelles du pays.",
+      "example": "Les principales institutions comme l'Élysée, Matignon et l'Assemblée nationale sont toutes situées à Paris, illustrant son rôle de capitale politique."
     }
   ];
 
@@ -114,6 +114,25 @@ INSTRUCTIONS :
 10. Couvre tous les concepts importants du COURS
 11. Teste la COMPRÉHENSION et la capacité à APPLIQUER les concepts
 
+⚠️ RÈGLES POUR LES RÉPONSES :
+- Toutes les options de réponse doivent être de longueur approximativement égale (à 10-20% près)
+- Inclus des QUESTIONS PIÈGES avec des réponses plausibles mais incorrectes
+- Certaines mauvaises réponses doivent ressembler à la bonne (exemple: "ça marche" vs "ça ne marche pas")
+- Évite les réponses évidentes comme "Aucune de ces réponses" ou "Toutes les réponses"
+- Les mauvaises réponses doivent être crédibles et basées sur des erreurs courantes
+- Les réponses doivent tester la compréhension fine, pas juste la mémorisation
+- UNE SEULE réponse correcte par question (pas plusieurs bonnes réponses)
+- NE JAMAIS référencer la position des réponses (A, B, C, D ou 1, 2, 3, 4) dans la question ou l'explication
+- Les réponses sont affichées dans un ORDRE ALÉATOIRE, donc ne dis JAMAIS "la réponse B" ou "la deuxième option"
+- Dans l'explication, désigne la bonne réponse par son CONTENU, pas par sa position
+
+⚠️ RÈGLES POUR LE CHAMP "example" :
+- Le champ "example" est affiché UNIQUEMENT APRÈS que l'étudiant ait répondu
+- Il sert à montrer un EXEMPLE D'APPLICATION ou d'UTILISATION du concept
+- NE METS JAMAIS une partie de la question dans "example"
+- Si ta question contient du code à analyser, mets ce code dans "question", PAS dans "example"
+- Le champ "example" doit apporter une valeur ajoutée APRÈS avoir compris la réponse
+
 FORMAT DE RÉPONSE :
 Tu dois répondre UNIQUEMENT avec un tableau JSON valide, sans aucun texte avant ou après.
 Format attendu : ${JSON.stringify(exampleQuestions, null, 2)}
@@ -132,7 +151,16 @@ IMPORTANT :
 - Utilise ''' code ''' pour tout extrait de code dans les questions/réponses/explications
 - Chaque question doit tester la COMPRÉHENSION et l'APPLICATION des concepts
 - NE POSE JAMAIS de questions sur "le TP1", "l'exercice 2", etc.
-- Les TPs sont une source d'inspiration pour les concepts, PAS pour les questions directes`;
+- Les TPs sont une source d'inspiration pour les concepts, PAS pour les questions directes
+- QUESTIONS PIÈGES : inclus des réponses qui semblent correctes mais ne le sont pas (ex: "ça fonctionne" vs "ça ne fonctionne pas")
+- LONGUEUR ÉGALE : toutes les options doivent avoir une longueur similaire (±10-20%)
+- Les mauvaises réponses doivent être plausibles et basées sur des erreurs de compréhension courantes
+- CHAMP "example" : il est affiché APRÈS la réponse, ne mets JAMAIS du code de la question dedans
+- Si tu dois montrer du code à analyser, mets-le dans "question", pas dans "example"
+- Le champ "example" sert à montrer une APPLICATION ou UTILISATION du concept, pas à poser la question
+- UNE SEULE BONNE RÉPONSE : le champ "correct" doit pointer vers UNE SEULE option (0, 1, 2 ou 3)
+- NE RÉFÉRENCE JAMAIS les positions A/B/C/D ou 1/2/3/4 : les réponses sont affichées dans un ordre ALÉATOIRE
+- Dans ton explication, parle du CONTENU de la réponse ("Paris est correct car..."), pas de sa position ("La réponse A est correcte...")`;
 }
 
 /**
@@ -260,11 +288,11 @@ Plus tu en génères, mieux c'est (tu peux aller jusqu'à 50-100 si le contenu l
 Format JSON strict :
 [
   {
-    "question": "Question claire",
+    "question": "Question claire (mets le code ici si besoin)",
     "options": ["Option A", "Option B", "Option C", "Option D"],
     "correct": 0,
     "explanation": "Explication de la bonne réponse",
-    "example": "Exemple concret (optionnel)"
+    "example": "Exemple d'APPLICATION du concept (optionnel, JAMAIS le code de la question)"
   }
 ]
 
@@ -276,7 +304,15 @@ RÈGLES STRICTES :
 - Basées sur les CONCEPTS du COURS uniquement
 - Teste la COMPRÉHENSION et l'APPLICATION des concepts
 - Format JSON valide sans texte avant/après
-- Si tu inclus du code, utilise ''' code ''' pour le délimiter`;
+- Si tu inclus du code, utilise ''' code ''' pour le délimiter
+- QUESTIONS PIÈGES : inclus des réponses plausibles mais incorrectes (ex: "ça marche" vs "ça ne marche pas")
+- LONGUEUR ÉGALE : toutes les options de réponse doivent avoir une longueur similaire (±10-20%)
+- Les mauvaises réponses doivent être crédibles et basées sur des erreurs courantes
+- CHAMP "example" : affiché APRÈS la réponse, pour montrer l'UTILISATION du concept, pas pour poser la question
+- Si tu veux montrer du code à analyser, mets-le dans "question", JAMAIS dans "example"
+- UNE SEULE BONNE RÉPONSE : le champ "correct" doit être 0, 1, 2 ou 3 (une seule valeur)
+- NE RÉFÉRENCE JAMAIS A/B/C/D ou 1/2/3/4 : les réponses sont affichées dans un ORDRE ALÉATOIRE
+- Dans l'explication, parle du CONTENU de la réponse, pas de sa position (pas de "la réponse B" ou "la deuxième option")`;
 }
 
 /**

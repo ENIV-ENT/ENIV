@@ -164,6 +164,10 @@ function setupEventListeners() {
     }
     renderCalendar();
   });
+  document.getElementById('notes-btn').addEventListener('click', () => {
+    userDropdown.classList.add('hidden');
+    window.open('https://iut-notes.unice.fr', '_blank');
+  });
 
   document.getElementById('next-month').addEventListener('click', () => {
     if (isMobileView) {

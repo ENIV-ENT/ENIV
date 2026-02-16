@@ -14,15 +14,15 @@ router.get('/:devoirId', async (req, res) => {
     const { devoirId } = req.params;
 
     // Vérifier que l'utilisateur a accès à ce devoir
-    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
-    if (!user || !user.classe_id) {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
       return res.status(403).json({ error: 'Utilisateur non associé à une classe' });
     }
 
     // Récupérer le devoir
     const devoir = await db.get(
       'SELECT d.*, dq.questions_json, dq.mode FROM devoirs d LEFT JOIN devoir_quiz dq ON d.id = dq.devoir_id WHERE d.id = ? AND d.classe_id = ?',
-      [devoirId, user.classe_id]
+      [devoirId, classeId]
     );
 
     if (!devoir) {
@@ -68,15 +68,15 @@ router.post('/results', express.json(), async (req, res) => {
     }
 
     // Vérifier que l'utilisateur a accès à ce devoir
-    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
-    if (!user || !user.classe_id) {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
       return res.status(403).json({ error: 'Utilisateur non associé à une classe' });
     }
 
     // Récupérer le quiz
     const quiz = await db.get(
       'SELECT dq.id FROM devoir_quiz dq JOIN devoirs d ON dq.devoir_id = d.id WHERE d.id = ? AND d.classe_id = ?',
-      [devoirId, user.classe_id]
+      [devoirId, classeId]
     );
 
     if (!quiz) {
@@ -140,15 +140,15 @@ router.post('/create', requireAdmin, express.json(), async (req, res) => {
     }
 
     // Vérifier que l'utilisateur a accès à ce devoir
-    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
-    if (!user || !user.classe_id) {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
       return res.status(403).json({ error: 'Utilisateur non associé à une classe' });
     }
 
     // Vérifier que le devoir existe et appartient à la même classe
     const devoir = await db.get(
       'SELECT id FROM devoirs WHERE id = ? AND classe_id = ?',
-      [devoirId, user.classe_id]
+      [devoirId, classeId]
     );
 
     if (!devoir) {
@@ -192,15 +192,15 @@ router.delete('/:devoirId', requireAdmin, async (req, res) => {
     const { devoirId } = req.params;
 
     // Vérifier que l'utilisateur a accès à ce devoir
-    const user = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
-    if (!user || !user.classe_id) {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
       return res.status(403).json({ error: 'Utilisateur non associé à une classe' });
     }
 
     // Vérifier que le devoir existe et appartient à la même classe
     const devoir = await db.get(
       'SELECT id FROM devoirs WHERE id = ? AND classe_id = ?',
-      [devoirId, user.classe_id]
+      [devoirId, classeId]
     );
 
     if (!devoir) {

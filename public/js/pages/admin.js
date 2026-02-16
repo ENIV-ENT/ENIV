@@ -369,6 +369,9 @@ function renderJoinRequests() {
         await loadEleves();
       }
     });
+  const data = await apiCall('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ oldPassword, newPassword }),
   });
 
   list.querySelectorAll('.reject-request-btn').forEach(btn => {

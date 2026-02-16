@@ -1,9 +1,10 @@
 const jwt = require('jsonwebtoken');
+const db = require("../models/dbHelper");
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // Helper pour extraire et vérifier le token
-const verifyToken = (req) => {
+const verifyToken = async (req) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -11,99 +12,58 @@ const verifyToken = (req) => {
   }
 
   const token = authHeader.split(' ')[1];
+  let tokenPayload;
 
   try {
-    return jwt.verify(token, JWT_SECRET);
+    tokenPayload = jwt.verify(token, JWT_SECRET);
   } catch (error) {
     return null;
   }
-};
 
-const requireAuth = (req, res, next) => {
-  const user = verifyToken(req);
-
+  const user = await db.get(
+    'SELECT * FROM users WHERE id = ?',
+    [tokenPayload.userId]
+  );
   if (!user) {
-    return res.status(401).json({ error: 'Non authentifié' });
+    return null;
   }
-
-  // Attacher les infos user à req pour les utiliser dans les routes
-  req.user = user;
-  // Créer un objet session compatible avec le code existant
-  req.session = {
-    userId: user.userId,
-    username: user.username,
-    role: user.role,
-    // Ajouter les méthodes stub pour éviter les erreurs
-    touch: () => {},
-    regenerate: (cb) => cb && cb(),
-    destroy: (cb) => cb && cb(),
-    reload: (cb) => cb && cb(),
-    save: (cb) => cb && cb(),
-  };
-  next();
+  return user;
 };
 
-const requireAdmin = (req, res, next) => {
-  const user = verifyToken(req);
+function authChecker(predicate, errorMessage) {
+  return async (req, res, next) => {
+    const user = await verifyToken(req);
 
-  if (!user || user.role !== 'admin') {
-    return res.status(403).json({ error: 'Accès refusé - Admin requis' });
+    if (!user) {
+      return res.status(401).json({error: 'Non authentifié'});
+    }
+
+    if (!predicate(user)) {
+      return res.status(403).json({error: errorMessage});
+    }
+
+    // Attacher les infos user à req pour les utiliser dans les routes
+    req.user = user;
+    // Créer un objet session compatible avec le code existant
+    req.session = {
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      // Ajouter les méthodes stub pour éviter les erreurs
+      touch: () => {
+      },
+      regenerate: (cb) => cb && cb(),
+      destroy: (cb) => cb && cb(),
+      reload: (cb) => cb && cb(),
+      save: (cb) => cb && cb(),
+    };
+    await next();
   }
+}
 
-  req.user = user;
-  req.session = {
-    userId: user.userId,
-    username: user.username,
-    role: user.role,
-    touch: () => {},
-    regenerate: (cb) => cb && cb(),
-    destroy: (cb) => cb && cb(),
-    reload: (cb) => cb && cb(),
-    save: (cb) => cb && cb(),
-  };
-  next();
-};
+const requireAuth = authChecker(() => true, "Non authentifié");
+const requireAdmin = authChecker((user) => user.role === "admin", "Accès refusé - Admin requis");
+const requireEleve = authChecker((user) => user.role === "eleve", "Accès refusé - Élève requis");
+const requireSuperAdmin = authChecker((user) => user.role === "superadmin", "Accès refusé - SuperAdmin requis");
 
-const requireEleve = (req, res, next) => {
-  const user = verifyToken(req);
-
-  if (!user || user.role !== 'eleve') {
-    return res.status(403).json({ error: 'Accès refusé - Élève requis' });
-  }
-
-  req.user = user;
-  req.session = {
-    userId: user.userId,
-    username: user.username,
-    role: user.role,
-    touch: () => {},
-    regenerate: (cb) => cb && cb(),
-    destroy: (cb) => cb && cb(),
-    reload: (cb) => cb && cb(),
-    save: (cb) => cb && cb(),
-  };
-  next();
-};
-
-const requireSuperAdmin = (req, res, next) => {
-  const user = verifyToken(req);
-
-  if (!user || user.role !== 'superadmin') {
-    return res.status(403).json({ error: 'Accès refusé - SuperAdmin requis' });
-  }
-
-  req.user = user;
-  req.session = {
-    userId: user.userId,
-    username: user.username,
-    role: user.role,
-    touch: () => {},
-    regenerate: (cb) => cb && cb(),
-    destroy: (cb) => cb && cb(),
-    reload: (cb) => cb && cb(),
-    save: (cb) => cb && cb(),
-  };
-  next();
-};
-
-module.exports = { requireAuth, requireAdmin, requireEleve, requireSuperAdmin };
+module.exports = {verifyToken, requireAuth, requireAdmin, requireEleve, requireSuperAdmin};

@@ -147,37 +147,4 @@ router.delete('/admins/:id', requireSuperAdmin, async (req, res) => {
   }
 });
 
-router.post('/change-password', requireSuperAdmin, express.json(), async (req, res) => {
-  const { oldPassword, newPassword } = req.body;
-
-  if (!oldPassword || !newPassword) {
-    return res.status(400).json({ error: 'Ancien et nouveau mot de passe requis' });
-  }
-
-  if (newPassword.length < 4) {
-    return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 4 caractères' });
-  }
-
-  try {
-    const user = await db.get('SELECT * FROM users WHERE id = ?', [req.session.userId]);
-
-    if (!user) {
-      return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    }
-
-    const validPassword = bcrypt.compareSync(oldPassword, user.password);
-    if (!validPassword) {
-      return res.status(400).json({ error: 'Mot de passe actuel incorrect' });
-    }
-
-    const hashedPassword = bcrypt.hashSync(newPassword, 10);
-    await db.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, req.session.userId]);
-
-    res.json({ success: true, message: 'Mot de passe modifié avec succès' });
-  } catch (error) {
-    console.error('Error changing password:', error);
-    res.status(500).json({ error: 'Erreur lors de la modification du mot de passe' });
-  }
-});
-
 module.exports = router;
