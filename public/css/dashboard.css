@@ -18,14 +18,62 @@
   --border: #dee2e6;
   --surface: white;
   --text: #343a40;
+  --bg-primary: white;
+  --bg-secondary: #f8f9fa;
+  --text-primary: #343a40;
+  --text-secondary: #6c757d;
+  --shadow: rgba(0, 0, 0, 0.1);
+}
+
+body.dark-theme {
+  --light: #1a1a1a;
+  --dark: #e4e4e4;
+  --border: #404040;
+  --surface: #2d2d2d;
+  --text: #e4e4e4;
+  --bg-primary: #2d2d2d;
+  --bg-secondary: #1a1a1a;
+  --text-primary: #e4e4e4;
+  --text-secondary: #a0a0a0;
+  --shadow: rgba(0, 0, 0, 0.3);
+}
+
+body.dark-theme .calendar-date.today {
+  background: #1a4d6d;
+}
+
+/* Améliorer le contraste des SVG en mode sombre */
+body.dark-theme svg {
+  filter: brightness(0.9);
+}
+
+body.dark-theme .dropdown-item svg path,
+body.dark-theme .user-menu-btn svg {
+  fill: currentColor;
+  stroke: currentColor;
+}
+
+/* Améliorer les couleurs des éléments de formulaire en mode sombre */
+body.dark-theme input::placeholder,
+body.dark-theme textarea::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+/* Améliorer la zone de drop des fichiers en mode sombre */
+body.dark-theme #devoir-drop-zone,
+body.dark-theme #edit-devoir-drop-zone {
+  background: var(--bg-secondary) !important;
+  border-color: var(--border) !important;
 }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
     Ubuntu, Cantarell, sans-serif;
   background: var(--light);
-  color: var(--dark);
+  color: var(--text);
   line-height: 1.6;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .page {
@@ -42,13 +90,14 @@ body {
 
 /* Header */
 header {
-  background: white;
+  background: var(--bg-primary);
   padding: 1rem 2rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--shadow);
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 header h1 {
@@ -119,11 +168,12 @@ header h1 {
 
 /* Formulaires */
 .form-container {
-  background: white;
+  background: var(--bg-primary);
   padding: 1.5rem;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--shadow);
   margin-bottom: 2rem;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .form-container h3 {
@@ -141,6 +191,8 @@ header h1 {
   font-size: 1rem;
   font-family: inherit;
   transition: border-color 0.3s, box-shadow 0.3s;
+  background: var(--bg-primary);
+  color: var(--text);
 }
 
 .form-container input:focus,
@@ -187,15 +239,16 @@ header h1 {
 
 .tab-btn {
   padding: 0.75rem 1.5rem;
-  background: white;
+  background: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.3s;
+  color: var(--text);
 }
 
 .tab-btn:hover {
-  background: var(--light);
+  background: var(--bg-secondary);
 }
 
 .tab-btn.active {
@@ -234,15 +287,16 @@ header h1 {
 }
 
 .list-item {
-  background: white;
+  background: var(--bg-primary);
   padding: 1rem;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--shadow);
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 1rem;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .list-item-info {
@@ -273,9 +327,10 @@ header h1 {
   align-items: center;
   margin-bottom: 2rem;
   padding: 1rem;
-  background: white;
+  background: var(--bg-primary);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--shadow);
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .calendar-header h2 {
@@ -286,10 +341,11 @@ header h1 {
 
 /* Calendar */
 .calendar {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--shadow);
   padding: 1rem;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .calendar-days {
@@ -326,7 +382,7 @@ header h1 {
 }
 
 .calendar-date {
-  background: white;
+  background: var(--bg-primary);
   padding: 0.5rem;
   min-height: 100px;
   max-height: 150px;
@@ -344,16 +400,19 @@ header h1 {
 }
 
 .calendar-date:hover {
-  background: var(--light);
+  background: var(--bg-secondary);
 }
 
 .calendar-date.other-month {
-  background: #fafafa;
-  color: #999;
+  opacity: 0.5;
 }
 
 .calendar-date.today {
   background: #e3f2fd;
+}
+
+body.dark-theme .calendar-date.today {
+  background: #1a4d6d;
 }
 
 .date-number {
@@ -400,11 +459,11 @@ header h1 {
 }
 
 .devoir-card {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px var(--shadow);
   overflow: hidden;
-  transition: transform 0.3s, box-shadow 0.3s;
+  transition: transform 0.3s, box-shadow 0.3s, background-color 0.3s;
   display: flex;
   flex-direction: column;
 }
@@ -585,7 +644,7 @@ header h1 {
 }
 
 .modal-content {
-  background: white;
+  background: var(--bg-primary);
   padding: 2rem;
   border-radius: 16px;
   max-width: 600px;
@@ -594,6 +653,7 @@ header h1 {
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: modalSlideIn 0.3s ease-out;
+  transition: background-color 0.3s ease;
 
   /* Masquer la scrollbar tout en gardant le scroll */
   scrollbar-width: none; /* Firefox */
@@ -697,6 +757,8 @@ header h1 {
   font-size: 1rem;
   font-family: inherit;
   transition: border-color 0.3s, box-shadow 0.3s;
+  background: var(--bg-primary);
+  color: var(--text);
 }
 
 .modal-content input[type="text"]:focus,
@@ -728,7 +790,7 @@ header h1 {
 .modal-content .file-label span {
   display: block;
   padding: 0.875rem 1rem;
-  background: var(--light);
+  background: var(--bg-secondary);
   border: 2px dashed var(--border);
   border-radius: 8px;
   cursor: pointer;
@@ -739,7 +801,7 @@ header h1 {
 }
 
 .modal-content .file-label span:hover {
-  background: white;
+  background: var(--bg-primary);
   border-color: var(--primary);
   color: var(--primary);
 }
@@ -773,13 +835,13 @@ header h1 {
 }
 
 .modal-content .btn-secondary {
-  background: white;
+  background: var(--bg-primary);
   color: var(--secondary);
   border: 2px solid var(--border);
 }
 
 .modal-content .btn-secondary:hover {
-  background: var(--light);
+  background: var(--bg-secondary);
   border-color: var(--secondary);
 }
 
@@ -855,13 +917,13 @@ header h1 {
   .mobile-view {
     display: block !important;
   }
-
   .week-day-card {
-    background: white;
+    background: var(--bg-primary);
     margin-bottom: 0.75rem;
     border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px var(--shadow);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
   }
 
   .week-day-header {

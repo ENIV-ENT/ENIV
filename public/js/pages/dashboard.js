@@ -18,11 +18,49 @@ async function init() {
 
   document.getElementById('eleve-info').textContent = auth.username;
 
+  // Charger le thème sauvegardé
+  loadThemePreference();
+
   await loadData();
 
   setupEventListeners();
   checkViewport();
   renderCalendar();
+}
+
+// Fonction pour charger la préférence de thème depuis le localStorage
+function loadThemePreference() {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'dark') {
+    document.body.classList.add('dark-theme');
+    updateThemeButton(true);
+  } else {
+    document.body.classList.remove('dark-theme');
+    updateThemeButton(false);
+  }
+}
+
+// Fonction pour basculer le thème
+function toggleTheme() {
+  const isDark = document.body.classList.toggle('dark-theme');
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  updateThemeButton(isDark);
+}
+
+// Fonction pour mettre à jour l'icône et le texte du bouton de thème
+function updateThemeButton(isDark) {
+  const themeIcon = document.getElementById('theme-icon');
+  const themeText = document.getElementById('theme-text');
+  
+  if (isDark) {
+    // Icône de soleil pour mode sombre
+    themeIcon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
+    themeText.textContent = 'Thème clair';
+  } else {
+    // Icône de lune pour mode clair
+    themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+    themeText.textContent = 'Thème sombre';
+  }
 }
 
 async function loadData() {
@@ -104,10 +142,15 @@ function setupEventListeners() {
     userDropdown.classList.add('hidden');
     logout();
   });
-
   document.getElementById('settings-btn').addEventListener('click', () => {
     userDropdown.classList.add('hidden');
     window.location.href = '/settings';
+  });
+
+  // Bouton de basculement de thème
+  document.getElementById('theme-toggle-btn').addEventListener('click', () => {
+    toggleTheme();
+    userDropdown.classList.add('hidden');
   });
 
   document.getElementById('prev-month').addEventListener('click', () => {
