@@ -56,22 +56,40 @@ router.post('/logout', (req, res) => {
 });
 
 // Check token / Get user info from token
-router.get('/me', (req, res) => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.json({ authenticated: false });
-  }
-
-  const token = authHeader.split(' ')[1];
-
+router.get('/me', async (req, res) => {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await verifyToken(req);
+    if (!user) {
+      return res.json({ authenticated: false });
+    }
+
+    let pendingRequest = null;
+    if (!user.classe_id && user.role === 'eleve') {
+      pendingRequest = await db.get(
+        `SELECT jr.id, jr.status, c.nom AS classe_nom
+         FROM join_requests jr
+         JOIN classes c ON jr.classe_id = c.id
+         WHERE jr.user_id = ? AND jr.status = 'pending'
+         ORDER BY jr.created_at DESC
+         LIMIT 1`,
+        [user.id]
+      );
+    }
+
     res.json({
       authenticated: true,
-      userId: decoded.userId,
-      username: decoded.username,
-      role: decoded.role
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      classe_id: user.classe_id || null,
+      is_admin: user.role === 'admin',
+      pending_request: pendingRequest
+        ? {
+            id: pendingRequest.id,
+            status: pendingRequest.status,
+            classe_nom: pendingRequest.classe_nom
+          }
+        : null
     });
   } catch (error) {
     res.json({ authenticated: false });
