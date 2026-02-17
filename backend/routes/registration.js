@@ -16,7 +16,7 @@ async function searchCachedEtablissements(query) {
 
 async function cacheEtablissementSup(record) {
   const uai = record.uai;
-  const nom = record.uo_lib;
+  const nom = record.implantation_lib || record.uo_lib;
   const commune = record.com_nom;
   const codePostal = record.code_postal_uai;
   const latitude = record.coordonnees ? record.coordonnees.lat : null;
@@ -54,7 +54,7 @@ router.get('/etablissements', async (req, res) => {
 
   try {
     const encodedQuery = encodeURIComponent(q);
-    const apiUrl = `https://data.enseignementsup-recherche.gouv.fr/api/explore/v2.1/catalog/datasets/fr-esr-principaux-etablissements-enseignement-superieur/records?where=search(uo_lib,"${encodedQuery}")&limit=${API_LIMIT}&select=uai,uo_lib,com_nom,code_postal_uai,coordonnees`;
+    const apiUrl = `https://data.enseignementsup-recherche.gouv.fr/api/explore/v2.1/catalog/datasets/fr-esr-implantations_etablissements_d_enseignement_superieur_publics/records?where=search(implantation_lib,"${encodedQuery}")&limit=${API_LIMIT}&select=uai,implantation_lib,com_nom,code_postal_uai,coordonnees`;
 
     const response = await fetch(apiUrl);
     const data = await response.json();
