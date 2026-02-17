@@ -14,8 +14,13 @@ async function searchCachedEtablissements(query) {
   );
 }
 
-async function cacheEtablissement(record) {
-  const { identifiant_de_l_etablissement: uai, nom_etablissement: nom, nom_commune: commune, code_postal: codePostal, latitude, longitude } = record;
+async function cacheEtablissementSup(record) {
+  const uai = record.uai;
+  const nom = record.uo_lib;
+  const commune = record.com_nom;
+  const codePostal = record.code_postal_uai;
+  const latitude = record.coordonnees ? record.coordonnees.lat : null;
+  const longitude = record.coordonnees ? record.coordonnees.lon : null;
 
   if (!uai || !nom) return null;
 
@@ -49,7 +54,7 @@ router.get('/etablissements', async (req, res) => {
 
   try {
     const encodedQuery = encodeURIComponent(q);
-    const apiUrl = `https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/records?where=search(nom_etablissement,"${encodedQuery}")&limit=${API_LIMIT}&select=identifiant_de_l_etablissement,nom_etablissement,nom_commune,code_postal,latitude,longitude`;
+    const apiUrl = `https://data.enseignementsup-recherche.gouv.fr/api/explore/v2.1/catalog/datasets/fr-esr-principaux-etablissements-enseignement-superieur/records?where=search(uo_lib,"${encodedQuery}")&limit=${API_LIMIT}&select=uai,uo_lib,com_nom,code_postal_uai,coordonnees`;
 
     const response = await fetch(apiUrl);
     const data = await response.json();
@@ -58,7 +63,7 @@ router.get('/etablissements', async (req, res) => {
       return res.json(await searchCachedEtablissements(q));
     }
 
-    const results = await Promise.all(data.results.map(cacheEtablissement));
+    const results = await Promise.all(data.results.map(cacheEtablissementSup));
     return res.json(results.filter(Boolean));
   } catch (error) {
     console.error('Erreur recherche etablissements:', error);
