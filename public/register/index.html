@@ -68,6 +68,40 @@
           <div id="map"></div>
         </div>
 
+        <div id="etab-not-found" style="display: none; margin-top: 1rem;">
+          <p style="color: var(--secondary); text-align: center;">
+            <a href="#" id="etab-request-link" style="color: var(--primary); text-decoration: underline; cursor: pointer;">
+              Votre établissement n'apparaît pas ? Faites une demande d'ajout
+            </a>
+          </p>
+        </div>
+
+        <div id="etab-request-form" style="display: none; margin-top: 1.5rem; padding: 1.5rem; background: var(--bg-secondary, #f8f9fa); border-radius: 8px;">
+          <h3 style="margin: 0 0 1rem 0;">Demander l'ajout d'un établissement</h3>
+          <div class="form-group">
+            <label for="request-etab-nom" class="form-label">Nom de l'établissement *</label>
+            <input type="text" id="request-etab-nom" placeholder="Ex: Université de Lyon...">
+          </div>
+          <div class="form-group">
+            <label for="request-etab-commune" class="form-label">Commune</label>
+            <input type="text" id="request-etab-commune" placeholder="Ex: Lyon">
+          </div>
+          <div class="form-group">
+            <label for="request-etab-cp" class="form-label">Code postal</label>
+            <input type="text" id="request-etab-cp" placeholder="Ex: 69000" maxlength="10">
+          </div>
+          <div class="form-group">
+            <label for="request-etab-email" class="form-label">Votre email de contact *</label>
+            <input type="email" id="request-etab-email" placeholder="votre@email.com">
+          </div>
+          <button type="button" id="request-etab-submit" class="btn-primary" style="width: 100%;">Envoyer la demande</button>
+        </div>
+
+        <div id="etab-request-success" style="display: none; margin-top: 1.5rem; padding: 1.5rem; background: #e8f5e9; border-radius: 8px; text-align: center;">
+          <p style="color: #2e7d32; font-weight: bold;">Demande envoyée avec succès !</p>
+          <p style="color: #555;">Vous serez informé par email de la suite donnée à votre demande.</p>
+        </div>
+
         <div class="step-actions">
           <a href="/" class="btn-secondary">Retour</a>
           <button type="button" id="step1-next" class="btn-primary" disabled>Suivant</button>

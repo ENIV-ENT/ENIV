@@ -209,6 +209,21 @@ function setupEventListeners() {
     });
   }
 
+  // Demande d'ajout d'établissement
+  const etabRequestLink = document.getElementById('etab-request-link');
+  if (etabRequestLink) {
+    etabRequestLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('etab-request-form').style.display = 'block';
+      document.getElementById('etab-not-found').style.display = 'none';
+    });
+  }
+
+  const etabRequestSubmit = document.getElementById('request-etab-submit');
+  if (etabRequestSubmit) {
+    etabRequestSubmit.addEventListener('click', handleEtabRequest);
+  }
+
   // Fermer l'autocomplete quand on clique ailleurs
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.form-group')) {
@@ -227,6 +242,9 @@ async function searchEtablissements(query) {
     if (!data || data.length === 0) {
       resultsDiv.innerHTML = '<div class="autocomplete-item"><div class="autocomplete-item-name">Aucun résultat</div></div>';
       resultsDiv.classList.add('visible');
+      // Afficher le lien "Votre établissement n'apparaît pas ?"
+      const notFoundDiv = document.getElementById('etab-not-found');
+      if (notFoundDiv) notFoundDiv.style.display = 'block';
       return;
     }
 
@@ -506,6 +524,43 @@ async function handleSubmit() {
     console.error('Erreur inscription:', error);
     await showAlert('Erreur lors de la création du compte', 'Erreur');
     resetSubmitBtn();
+  }
+}
+
+async function handleEtabRequest() {
+  const nom = document.getElementById('request-etab-nom').value.trim();
+  const commune = document.getElementById('request-etab-commune').value.trim();
+  const code_postal = document.getElementById('request-etab-cp').value.trim();
+  const email_demandeur = document.getElementById('request-etab-email').value.trim();
+
+  if (!nom || !email_demandeur) {
+    await showAlert('Le nom de l\'établissement et votre email sont requis.', 'Erreur');
+    return;
+  }
+
+  const submitBtn = document.getElementById('request-etab-submit');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Envoi en cours...';
+
+  try {
+    const data = await apiCall('/api/registration/etablissement-request', {
+      method: 'POST',
+      body: JSON.stringify({ nom, commune, code_postal, email_demandeur })
+    });
+
+    if (data.success) {
+      document.getElementById('etab-request-form').style.display = 'none';
+      document.getElementById('etab-request-success').style.display = 'block';
+    } else if (data.error) {
+      await showAlert(data.error, 'Erreur');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Envoyer la demande';
+    }
+  } catch (error) {
+    console.error('Erreur demande etablissement:', error);
+    await showAlert('Erreur lors de l\'envoi de la demande', 'Erreur');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Envoyer la demande';
   }
 }
 

@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const db = require('../models/dbHelper');
-const { sendJoinRequestEmail } = require('../services/email');
+const { sendJoinRequestEmail, sendEtablissementRequestEmail } = require('../services/email');
 const router = express.Router();
 
 const SEARCH_LIMIT = 10;
@@ -263,6 +263,35 @@ router.get('/invite-info', async (req, res) => {
     res.json({ classe, etablissement: etab });
   } catch (error) {
     res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Demande d'ajout d'etablissement
+router.post('/etablissement-request', async (req, res) => {
+  const { nom, commune, code_postal, email_demandeur } = req.body;
+
+  if (!nom || !email_demandeur) {
+    return res.status(400).json({ error: 'Le nom de l\'etablissement et l\'email sont requis' });
+  }
+
+  try {
+    await db.run(
+      'INSERT INTO etablissement_requests (nom, commune, code_postal, email_demandeur) VALUES (?, ?, ?, ?)',
+      [nom, commune || null, code_postal || null, email_demandeur]
+    );
+
+    // Envoyer un email au superadmin
+    const superadmin = await db.get('SELECT email FROM users WHERE role = ? AND email IS NOT NULL', ['superadmin']);
+    if (superadmin && superadmin.email) {
+      await sendEtablissementRequestEmail(superadmin.email, nom, email_demandeur).catch(err => {
+        console.error('Erreur envoi email demande etablissement:', err);
+      });
+    }
+
+    res.json({ success: true, message: 'Votre demande a bien ete envoyee. Vous serez informe par email de la suite donnee.' });
+  } catch (error) {
+    console.error('Erreur demande etablissement:', error);
+    res.status(500).json({ error: 'Erreur lors de l\'envoi de la demande' });
   }
 });
 

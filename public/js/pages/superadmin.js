@@ -4,6 +4,7 @@ import { escapeHTML, toggleModal, setupModalClose, showAlert, showConfirm } from
 let classes = [];
 let admins = [];
 let invitations = [];
+let etabRequests = [];
 
 async function init() {
   const auth = await checkAuth();
@@ -17,10 +18,12 @@ async function init() {
   setupTabs();
   setupClasseModal();
   setupAdminModal();
+  setupEtabRequestModal();
 
   await loadClasses();
   await loadAdmins();
   await loadInvitations();
+  await loadEtabRequests();
 }
 
 function setupTabs() {
@@ -414,6 +417,115 @@ async function deleteInvitation(id) {
     await loadInvitations();
   } else if (data.error) {
     await showAlert(data.error, 'Erreur');
+  }
+}
+
+// --- Etablissement requests ---
+
+function setupEtabRequestModal() {
+  const acceptForm = document.getElementById("accept-etab-form");
+
+  setupModalClose("accept-etab-modal", "close-accept-etab-modal");
+
+  document
+    .getElementById("cancel-accept-etab-btn")
+    .addEventListener("click", () => {
+      toggleModal("accept-etab-modal", false);
+    });
+
+  acceptForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const id = document.getElementById("accept-etab-id").value;
+    const nom = document.getElementById("accept-etab-nom").value;
+    const commune = document.getElementById("accept-etab-commune").value;
+    const code_postal = document.getElementById("accept-etab-cp").value;
+
+    const data = await apiCall(`/api/superadmin/etablissement-requests/${id}/accept`, {
+      method: "POST",
+      body: JSON.stringify({ nom, commune, code_postal }),
+    });
+
+    if (data.success) {
+      toggleModal("accept-etab-modal", false);
+      await showAlert("Établissement créé avec succès", "Succès");
+      await loadEtabRequests();
+    } else if (data.error) {
+      await showAlert(data.error, "Erreur");
+    }
+  });
+}
+
+async function loadEtabRequests() {
+  const data = await apiCall("/api/superadmin/etablissement-requests");
+  if (data.requests) {
+    etabRequests = data.requests;
+    renderEtabRequests();
+  }
+}
+
+function renderEtabRequests() {
+  const container = document.getElementById("etab-requests-list");
+  container.innerHTML = "";
+
+  if (etabRequests.length === 0) {
+    container.innerHTML = "<p>Aucune demande en attente.</p>";
+    return;
+  }
+
+  etabRequests.forEach((request) => {
+    const item = document.createElement("div");
+    item.className = "list-item";
+
+    const createdDate = new Date(request.created_at).toLocaleDateString("fr-FR");
+
+    item.innerHTML = `
+      <div class="list-item-info">
+        <h3>${escapeHTML(request.nom)}</h3>
+        <p>${escapeHTML(request.commune || "")} ${request.code_postal ? "(" + escapeHTML(request.code_postal) + ")" : ""}</p>
+        <p style="font-size: 0.85rem; color: var(--secondary);">
+          Demandeur : ${escapeHTML(request.email_demandeur || "")} - ${createdDate}
+        </p>
+      </div>
+      <div class="list-item-actions">
+        <button class="btn-primary accept-etab-btn" data-id="${request.id}">Accepter</button>
+        <button class="btn-danger reject-etab-btn" data-id="${request.id}">Refuser</button>
+      </div>
+    `;
+    container.appendChild(item);
+  });
+
+  document.querySelectorAll(".accept-etab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => openAcceptEtabModal(parseInt(btn.dataset.id)));
+  });
+
+  document.querySelectorAll(".reject-etab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => rejectEtabRequest(parseInt(btn.dataset.id)));
+  });
+}
+
+function openAcceptEtabModal(id) {
+  const request = etabRequests.find((r) => r.id === id);
+  if (!request) return;
+
+  document.getElementById("accept-etab-id").value = request.id;
+  document.getElementById("accept-etab-nom").value = request.nom;
+  document.getElementById("accept-etab-commune").value = request.commune || "";
+  document.getElementById("accept-etab-cp").value = request.code_postal || "";
+  toggleModal("accept-etab-modal", true);
+}
+
+async function rejectEtabRequest(id) {
+  const confirmed = await showConfirm("Êtes-vous sûr de vouloir refuser cette demande ?", "Confirmation");
+  if (!confirmed) return;
+
+  const data = await apiCall(`/api/superadmin/etablissement-requests/${id}/reject`, {
+    method: "POST",
+  });
+
+  if (data.success) {
+    await loadEtabRequests();
+  } else if (data.error) {
+    await showAlert(data.error, "Erreur");
   }
 }
 

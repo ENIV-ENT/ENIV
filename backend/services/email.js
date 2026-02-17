@@ -316,9 +316,47 @@ ${dashboardUrl}
   return sendEmail(studentEmail, `Demande acceptée - ${className}`, htmlContent, textContent, 'Email acceptation adhésion');
 }
 
+/**
+ * Envoyer un email au superadmin pour une demande d'ajout d'etablissement
+ * @param {string} superadminEmail - Email du superadmin
+ * @param {string} etablissementNom - Nom de l'etablissement demande
+ * @param {string} demandeurEmail - Email du demandeur
+ */
+async function sendEtablissementRequestEmail(superadminEmail, etablissementNom, demandeurEmail) {
+  const dashboardUrl = `${process.env.BASE_URL}/superadmin/dashboard/`;
+
+  const infoLines = `
+    <p style="margin: 5px 0;"><strong>Établissement :</strong> ${etablissementNom}</p>
+    <p style="margin: 5px 0;"><strong>Email du demandeur :</strong> ${demandeurEmail}</p>`;
+
+  const bodyHtml = `
+    <h2>Nouvelle demande d'ajout d'établissement</h2>
+    <p>Bonjour,</p>
+    <p>Un utilisateur a soumis une demande d'ajout d'établissement qui n'existe pas encore dans la base.</p>
+    ${buildInfoBox(infoLines, { background: '#fff3cd', border: '#ffc107' })}
+    <p>Vous pouvez accepter ou refuser cette demande depuis votre tableau de bord.</p>
+    <div style="text-align: center;">
+      <a href="${dashboardUrl}" class="button">Voir les demandes</a>
+    </div>`;
+
+  const textContent = `
+Nouvelle demande d'ajout d'établissement
+
+Un utilisateur souhaite ajouter l'établissement "${etablissementNom}".
+Email du demandeur : ${demandeurEmail}
+
+Connectez-vous à votre tableau de bord pour accepter ou refuser la demande :
+${dashboardUrl}
+  `;
+
+  const htmlContent = buildEmailHtml('Eniv', bodyHtml, '', { showCopyright: false });
+  return sendEmail(superadminEmail, `Nouvelle demande d'établissement - ${etablissementNom}`, htmlContent, textContent, 'Email demande etablissement');
+}
+
 module.exports = {
   sendInvitationEmail,
   sendQuizReadyEmail,
   sendJoinRequestEmail,
-  sendJoinRequestAcceptedEmail
+  sendJoinRequestAcceptedEmail,
+  sendEtablissementRequestEmail
 };
