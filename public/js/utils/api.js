@@ -45,11 +45,25 @@ function normalizePath(path) {
 export async function checkAuth() {
   setLoadingScreenVisible(true);
 
-  const data = await apiCall('/api/auth/me');
+  const AUTH_TIMEOUT_MS = 8000;
 
-  if (!data.authenticated) {
+  let data;
+  try {
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), AUTH_TIMEOUT_MS)
+    );
+    data = await Promise.race([apiCall('/api/auth/me'), timeout]);
+  } catch {
+    // Timeout ou erreur réseau : déconnecter l'utilisateur
+    localStorage.removeItem('token');
+    window.location.href = '/';
+    return { authenticated: false };
+  }
+
+  if (!data || !data.authenticated || data.error) {
     const publicPaths = ["/", "/register/"];
     if (!publicPaths.includes(normalizePath(window.location.pathname))) {
+      localStorage.removeItem('token');
       window.location.href = "/";
       return { authenticated: false };
     }
