@@ -1,4 +1,4 @@
-import { apiCall, checkAuth } from "../utils/api.js";
+import { apiCall, checkAuth } from "../utils/api.js?v=2";
 
 const loginForm = document.getElementById("login-form");
 const loginError = document.getElementById("login-error");

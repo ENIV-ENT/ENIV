@@ -1,5 +1,5 @@
-import { apiCall, checkAuth, logout } from '../utils/api.js';
-import { escapeHTML, localDate, formatDate, toInputDate, toggleModal, setupModalClose, showAlert, showConfirm, getContrastColor } from '../utils/dom.js';
+import { apiCall, checkAuth, logout } from '../utils/api.js?v=2';
+import { escapeHTML, localDate, formatDate, toInputDate, toggleModal, setupModalClose, showAlert, showConfirm, getContrastColor } from '../utils/dom.js?v=2';
 
 let matieres = [];
 let devoirs = [];

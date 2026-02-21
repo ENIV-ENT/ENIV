@@ -1,5 +1,5 @@
-import { apiCall, checkAuth, logout } from '../utils/api.js';
-import { showAlert } from '../utils/dom.js';
+import { apiCall, checkAuth, logout } from '../utils/api.js?v=2';
+import { showAlert } from '../utils/dom.js?v=2';
 
 async function init() {
   const auth = await checkAuth();

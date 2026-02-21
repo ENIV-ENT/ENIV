@@ -1,5 +1,5 @@
-import { apiCall } from '../utils/api.js';
-import { escapeHTML, showAlert } from '../utils/dom.js';
+import { apiCall } from '../utils/api.js?v=2';
+import { escapeHTML, showAlert } from '../utils/dom.js?v=2';
 
 let currentStep = 1;
 let selectedEtab = null;
