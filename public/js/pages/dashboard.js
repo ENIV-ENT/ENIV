@@ -1,5 +1,5 @@
-import { apiCall, checkAuth, logout } from '../utils/api.js';
-import { escapeHTML, localDate, formatDate, toInputDate, toggleModal, setupModalClose, showAlert, showConfirm, getContrastColor } from '../utils/dom.js';
+import { apiCall, checkAuth, logout } from '../utils/api.js?v=2';
+import { escapeHTML, localDate, formatDate, toInputDate, toggleModal, setupModalClose, showAlert, showConfirm, getContrastColor } from '../utils/dom.js?v=2';
 
 let matieres = [];
 let devoirs = [];
@@ -114,6 +114,19 @@ function setupUserMenu() {
     window.location.href = '/settings';
   });
 
+  const notesBtn = document.getElementById('notes-btn');
+  if (notesBtn) {
+    notesBtn.addEventListener('click', () => {
+      dropdown.classList.add('hidden');
+      window.open('https://iut-notes.unice.fr', '_blank');
+    });
+  }
+
+  const themeToggleBtn = document.getElementById('theme-toggle-btn');
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', toggleTheme);
+  }
+
   // Admin panel toggle
   const adminBtn = document.getElementById('admin-btn');
   if (adminBtn) {
@@ -201,10 +214,6 @@ function setupEventListeners() {
       if (currentMonth < 0) { currentMonth = 11; currentYear--; }
     }
     renderCalendar();
-  });
-  document.getElementById('notes-btn').addEventListener('click', () => {
-    userDropdown.classList.add('hidden');
-    window.open('https://iut-notes.unice.fr', '_blank');
   });
 
   document.getElementById('next-month').addEventListener('click', () => {

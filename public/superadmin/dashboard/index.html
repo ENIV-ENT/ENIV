@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Eniv - Super Administration</title>
     <link rel="icon" type="image/x-icon" href="/images/logo.ico" />
-    <link rel="stylesheet" href="/css/superadmin.css" />
-    <link rel="stylesheet" href="/css/loading.css" />
+    <link rel="stylesheet" href="/css/superadmin.css?v=2" />
+    <link rel="stylesheet" href="/css/loading.css?v=2" />
   </head>
   <body>
     <div id="loading-screen">
@@ -26,6 +26,7 @@
         <button class="tab-btn active" data-tab="classes">Classes</button>
         <button class="tab-btn" data-tab="admins">Administrateurs</button>
         <button class="tab-btn" data-tab="invitations">Invitations</button>
+        <button class="tab-btn" data-tab="etablissements">Établissements</button>
       </div>
 
       <div id="tab-classes" class="tab-content active">
@@ -56,6 +57,44 @@
         </div>
 
         <div id="invitations-list" class="list"></div>
+      </div>
+      <div id="tab-etablissements" class="tab-content">
+        <div class="section-header">
+          <h2>Demandes d'établissements</h2>
+        </div>
+
+        <div id="etab-requests-list" class="list"></div>
+      </div>
+    </div>
+
+    <div id="accept-etab-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Accepter la demande</h2>
+          <button class="modal-close" id="close-accept-etab-modal">&times;</button>
+        </div>
+        <p style="color: var(--secondary); font-size: 0.9rem; margin: 0 0 1.5rem 0;">
+          Vous pouvez modifier les informations avant de créer l'établissement.
+        </p>
+        <form id="accept-etab-form">
+          <input type="hidden" id="accept-etab-id" />
+          <div class="form-group">
+            <label for="accept-etab-nom" class="form-label">Nom de l'établissement</label>
+            <input type="text" id="accept-etab-nom" required />
+          </div>
+          <div class="form-group">
+            <label for="accept-etab-commune" class="form-label">Commune</label>
+            <input type="text" id="accept-etab-commune" />
+          </div>
+          <div class="form-group">
+            <label for="accept-etab-cp" class="form-label">Code postal</label>
+            <input type="text" id="accept-etab-cp" maxlength="10" />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Créer l'établissement</button>
+            <button type="button" id="cancel-accept-etab-btn" class="btn-secondary">Annuler</button>
+          </div>
+        </form>
       </div>
     </div>
 
@@ -207,6 +246,6 @@
       </div>
     </div>
 
-    <script type="module" src="/js/pages/superadmin.js"></script>
+    <script type="module" src="/js/pages/superadmin.js?v=2"></script>
   </body>
 </html>

@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const db = require('../models/dbHelper');
-const { sendJoinRequestEmail } = require('../services/email');
+const { sendJoinRequestEmail, sendEtablissementRequestEmail } = require('../services/email');
 const router = express.Router();
 
 const SEARCH_LIMIT = 10;
@@ -14,8 +14,13 @@ async function searchCachedEtablissements(query) {
   );
 }
 
-async function cacheEtablissement(record) {
-  const { identifiant_de_l_etablissement: uai, nom_etablissement: nom, nom_commune: commune, code_postal: codePostal, latitude, longitude } = record;
+async function cacheEtablissementSup(record) {
+  const uai = record.uai;
+  const nom = record.implantation_lib || record.uo_lib;
+  const commune = record.com_nom;
+  const codePostal = record.code_postal_uai;
+  const latitude = record.coordonnees ? record.coordonnees.lat : null;
+  const longitude = record.coordonnees ? record.coordonnees.lon : null;
 
   if (!uai || !nom) return null;
 
@@ -49,7 +54,7 @@ router.get('/etablissements', async (req, res) => {
 
   try {
     const encodedQuery = encodeURIComponent(q);
-    const apiUrl = `https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/records?where=search(nom_etablissement,"${encodedQuery}")&limit=${API_LIMIT}&select=identifiant_de_l_etablissement,nom_etablissement,nom_commune,code_postal,latitude,longitude`;
+    const apiUrl = `https://data.enseignementsup-recherche.gouv.fr/api/explore/v2.1/catalog/datasets/fr-esr-implantations_etablissements_d_enseignement_superieur_publics/records?where=search(implantation_lib,"${encodedQuery}")&limit=${API_LIMIT}&select=uai,implantation_lib,com_nom,code_postal_uai,coordonnees`;
 
     const response = await fetch(apiUrl);
     const data = await response.json();
@@ -58,7 +63,7 @@ router.get('/etablissements', async (req, res) => {
       return res.json(await searchCachedEtablissements(q));
     }
 
-    const results = await Promise.all(data.results.map(cacheEtablissement));
+    const results = await Promise.all(data.results.map(cacheEtablissementSup));
     return res.json(results.filter(Boolean));
   } catch (error) {
     console.error('Erreur recherche etablissements:', error);
@@ -79,7 +84,7 @@ router.get('/classes', async (req, res) => {
     const classes = await db.all(
       `SELECT c.id, c.nom,
         (SELECT COUNT(*) FROM users u WHERE u.classe_id = c.id AND u.role = 'eleve') as nb_eleves,
-        (SELECT u.username FROM users u WHERE u.id = c.admin_id) as admin_username
+        (SELECT GROUP_CONCAT(u.username SEPARATOR ', ') FROM users u WHERE u.role = 'admin' AND u.classe_id = c.id) as admin_username
        FROM classes c
        WHERE c.etablissement_id = ?
        ORDER BY c.nom`,
@@ -92,22 +97,26 @@ router.get('/classes', async (req, res) => {
   }
 });
 
-async function notifyClassAdmin(classe, prenom, nom, classeId) {
-  if (!classe.admin_id) return;
+async function notifyClassAdmin(classeId, prenom, nom) {
+  const admins = await db.all(
+    'SELECT email FROM users WHERE role = ? AND classe_id = ? AND email IS NOT NULL',
+    ['admin', classeId]
+  );
 
-  const admin = await db.get('SELECT email FROM users WHERE id = ?', [classe.admin_id]);
+  if (!admins.length) return;
+
   const classeInfo = await db.get('SELECT nom FROM classes WHERE id = ?', [classeId]);
 
-  if (admin && admin.email) {
-    await sendJoinRequestEmail(admin.email, `${prenom} ${nom}`, classeInfo.nom);
-  }
+  await Promise.all(
+    admins.map(admin => sendJoinRequestEmail(admin.email, `${prenom} ${nom}`, classeInfo.nom))
+  );
 }
 
 async function createUserWithJoinRequest(fields) {
   const { username, hashedPassword, email, nom, prenom, classe_id, etablissement_id } = fields;
 
   const classe = await db.get(
-    'SELECT id, admin_id FROM classes WHERE id = ? AND etablissement_id = ?',
+    'SELECT id FROM classes WHERE id = ? AND etablissement_id = ?',
     [classe_id, etablissement_id]
   );
   if (!classe) {
@@ -124,7 +133,7 @@ async function createUserWithJoinRequest(fields) {
     [result.lastInsertRowid, classe_id]
   );
 
-  await notifyClassAdmin(classe, prenom, nom, classe_id).catch(err => {
+  await notifyClassAdmin(classe_id, prenom, nom).catch(err => {
     console.error('Erreur envoi email notification:', err);
   });
 
@@ -149,8 +158,8 @@ async function createUserWithNewClasse(fields) {
   const userId = result.lastInsertRowid;
 
   const classeResult = await db.run(
-    'INSERT INTO classes (nom, etablissement_id, admin_id) VALUES (?, ?, ?)',
-    [classe_nom, etablissement_id, userId]
+    'INSERT INTO classes (nom, etablissement_id) VALUES (?, ?)',
+    [classe_nom, etablissement_id]
   );
 
   await db.run('UPDATE users SET classe_id = ? WHERE id = ?', [classeResult.lastInsertRowid, userId]);
@@ -254,6 +263,35 @@ router.get('/invite-info', async (req, res) => {
     res.json({ classe, etablissement: etab });
   } catch (error) {
     res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Demande d'ajout d'etablissement
+router.post('/etablissement-request', async (req, res) => {
+  const { nom, commune, code_postal, email_demandeur } = req.body;
+
+  if (!nom || !email_demandeur) {
+    return res.status(400).json({ error: 'Le nom de l\'etablissement et l\'email sont requis' });
+  }
+
+  try {
+    await db.run(
+      'INSERT INTO etablissement_requests (nom, commune, code_postal, email_demandeur) VALUES (?, ?, ?, ?)',
+      [nom, commune || null, code_postal || null, email_demandeur]
+    );
+
+    // Envoyer un email au superadmin
+    const superadmin = await db.get('SELECT email FROM users WHERE role = ? AND email IS NOT NULL', ['superadmin']);
+    if (superadmin && superadmin.email) {
+      await sendEtablissementRequestEmail(superadmin.email, nom, email_demandeur).catch(err => {
+        console.error('Erreur envoi email demande etablissement:', err);
+      });
+    }
+
+    res.json({ success: true, message: 'Votre demande a bien ete envoyee. Vous serez informe par email de la suite donnee.' });
+  } catch (error) {
+    console.error('Erreur demande etablissement:', error);
+    res.status(500).json({ error: 'Erreur lors de l\'envoi de la demande' });
   }
 });
 

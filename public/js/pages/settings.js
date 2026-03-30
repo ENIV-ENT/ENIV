@@ -1,5 +1,5 @@
-import { apiCall, checkAuth, logout } from '../utils/api.js';
-import { showAlert } from '../utils/dom.js';
+import { apiCall, checkAuth, logout } from '../utils/api.js?v=2';
+import { showAlert } from '../utils/dom.js?v=2';
 
 async function init() {
   const auth = await checkAuth();
@@ -7,9 +7,43 @@ async function init() {
   document.getElementById('user-info').textContent = auth.username;
   setupAdminButton(auth);
 
+  loadThemePreference();
+
   await loadUserInfo();
   await checkEmploiTempsButton();
   setupEventListeners();
+}
+
+function loadThemePreference() {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'dark') {
+    document.body.classList.add('dark-theme');
+    updateThemeButton(true);
+  } else {
+    document.body.classList.remove('dark-theme');
+    updateThemeButton(false);
+  }
+}
+
+function toggleTheme() {
+  const isDark = document.body.classList.toggle('dark-theme');
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  updateThemeButton(isDark);
+}
+
+function updateThemeButton(isDark) {
+  const themeIcon = document.getElementById('theme-icon');
+  const themeText = document.getElementById('theme-text');
+
+  if (!themeIcon || !themeText) return;
+
+  if (isDark) {
+    themeIcon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
+    themeText.textContent = 'Theme clair';
+  } else {
+    themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+    themeText.textContent = 'Theme sombre';
+  }
 }
 
 function setupAdminButton(auth) {
@@ -77,6 +111,26 @@ function setupEventListeners() {
     dashboardBtn.addEventListener('click', () => {
       window.location.href = '/dashboard';
     });
+  }
+
+  const settingsBtn = document.getElementById('settings-btn');
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => {
+      window.location.href = '/settings';
+    });
+  }
+
+  const notesBtn = document.getElementById('notes-btn');
+  if (notesBtn) {
+    notesBtn.addEventListener('click', () => {
+      window.open('https://iut-notes.unice.fr', '_blank');
+      document.getElementById('user-dropdown').classList.add('hidden');
+    });
+  }
+
+  const themeToggleBtn = document.getElementById('theme-toggle-btn');
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', toggleTheme);
   }
 
   document.getElementById('logout-btn').addEventListener('click', logout);

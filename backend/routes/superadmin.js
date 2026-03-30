@@ -147,4 +147,70 @@ router.delete('/admins/:id', requireSuperAdmin, async (req, res) => {
   }
 });
 
+// --- Etablissement requests ---
+
+router.get('/etablissement-requests', requireSuperAdmin, async (req, res) => {
+  const status = req.query.status || 'pending';
+  try {
+    const requests = await db.all(
+      'SELECT * FROM etablissement_requests WHERE status = ? ORDER BY created_at DESC',
+      [status]
+    );
+    res.json({ requests });
+  } catch (error) {
+    console.error('Error fetching etablissement requests:', error);
+    res.status(500).json({ error: 'Erreur lors de la récupération des demandes' });
+  }
+});
+
+router.post('/etablissement-requests/:id/accept', requireSuperAdmin, express.json(), async (req, res) => {
+  const { nom, commune, code_postal } = req.body;
+  const requestId = req.params.id;
+
+  try {
+    const request = await db.get('SELECT * FROM etablissement_requests WHERE id = ? AND status = ?', [requestId, 'pending']);
+    if (!request) {
+      return res.status(404).json({ error: 'Demande introuvable ou déjà traitée' });
+    }
+
+    const etabNom = nom || request.nom;
+    const etabCommune = commune || request.commune;
+    const etabCp = code_postal || request.code_postal;
+
+    const result = await db.run(
+      'INSERT INTO etablissements (nom, commune, code_postal) VALUES (?, ?, ?)',
+      [etabNom, etabCommune || null, etabCp || null]
+    );
+
+    await db.run('UPDATE etablissement_requests SET status = ? WHERE id = ?', ['accepted', requestId]);
+
+    res.json({
+      success: true,
+      etablissementId: result.lastInsertRowid,
+      message: 'Établissement créé avec succès'
+    });
+  } catch (error) {
+    console.error('Error accepting etablissement request:', error);
+    res.status(500).json({ error: 'Erreur lors de l\'acceptation de la demande' });
+  }
+});
+
+router.post('/etablissement-requests/:id/reject', requireSuperAdmin, async (req, res) => {
+  const requestId = req.params.id;
+
+  try {
+    const request = await db.get('SELECT * FROM etablissement_requests WHERE id = ? AND status = ?', [requestId, 'pending']);
+    if (!request) {
+      return res.status(404).json({ error: 'Demande introuvable ou déjà traitée' });
+    }
+
+    await db.run('UPDATE etablissement_requests SET status = ? WHERE id = ?', ['rejected', requestId]);
+
+    res.json({ success: true, message: 'Demande refusée' });
+  } catch (error) {
+    console.error('Error rejecting etablissement request:', error);
+    res.status(500).json({ error: 'Erreur lors du refus de la demande' });
+  }
+});
+
 module.exports = router;
