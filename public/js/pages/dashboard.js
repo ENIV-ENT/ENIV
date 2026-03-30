@@ -57,6 +57,7 @@ async function init() {
   setupEventListeners();
   checkViewport();
   renderCalendar();
+  ouvrirDevoirDepuisURL();
 }
 
 // Fonction pour charger la préférence de thème depuis le localStorage
@@ -517,6 +518,7 @@ async function showDevoirModal(devoirId) {
   html += `<div id="devoir-quiz-section"></div>`;
   html += `<div class="modal-actions">
     <label class="checkbox-container"><input type="checkbox" ${devoir.fait ? 'checked' : ''} id="devoir-statut-${devoir.id}"><span>Marquer comme fait</span></label>
+    <button class="btn-secondary" id="export-devoir-${devoir.id}">Exporter / Partager</button>
     <button class="btn-secondary" id="edit-devoir-${devoir.id}">Modifier</button>
     <button class="btn-danger" id="delete-devoir-${devoir.id}">Supprimer</button>
   </div>`;
@@ -529,10 +531,71 @@ async function showDevoirModal(devoirId) {
     await toggleDevoirStatut(devoir.id, this.checked);
     toggleModal('devoir-modal', false);
   });
+
+  document.getElementById(`export-devoir-${devoir.id}`).addEventListener('click', async () => {
+    await partagerDevoir(devoir);
+  });
+
   document.getElementById(`edit-devoir-${devoir.id}`).addEventListener('click', () => editDevoir(devoir.id));
   document.getElementById(`delete-devoir-${devoir.id}`).addEventListener('click', () => deleteDevoir(devoir.id));
 
   toggleModal('devoir-modal', true);
+}
+
+// Partage un lien vers une page "test" (ouvre le devoir depuis l'URL)
+async function partagerDevoir(devoir) {
+  const url = new URL('/dashboard', window.location.origin);
+  url.searchParams.set('devoir', String(devoir.id)); // lien à envoyer
+
+  const shareData = {
+    title: `Devoir: ${devoir.titre || ''}`,
+    text: `Ouvre ce lien pour voir le devoir "${devoir.titre || ''}"`,
+    url: url.toString()
+  };
+
+  try {
+    if (navigator.share) {
+      await navigator.share(shareData);
+      return;
+    }
+
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(shareData.url);
+      await showAlert('Lien copié dans le presse-papier.', 'Partager');
+      return;
+    }
+
+    // fallback très basique
+    prompt('Copie ce lien :', shareData.url);
+  } catch (e) {
+    console.error('Partager devoir erreur:', e);
+    await showAlert('Impossible de partager pour le moment.', 'Erreur');
+  }
+}
+
+// Auto-ouvre le modal si on arrive avec ?devoir=123
+function ouvrirDevoirDepuisURL() {
+  const params = new URLSearchParams(window.location.search);
+  const devoirId = parseInt(params.get('devoir'), 10);
+  if (!Number.isFinite(devoirId)) return;
+
+  // Si les devoirs ne sont pas encore chargés, on retente un peu
+  const tryOpen = () => {
+    const exists = devoirs.some(d => d.id === devoirId);
+    if (exists) {
+      showDevoirModal(devoirId);
+      return true;
+    }
+    return false;
+  };
+
+  if (tryOpen()) return;
+
+  let attempts = 0;
+  const timer = setInterval(() => {
+    attempts++;
+    if (tryOpen() || attempts > 20) clearInterval(timer); // ~4s max
+  }, 200);
 }
 
 async function loadDevoirModalFichiers(devoirId) {
