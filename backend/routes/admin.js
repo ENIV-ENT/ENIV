@@ -79,8 +79,8 @@ router.get('/eleves', requireAdmin, async (req, res) => {
     }
 
     const eleves = await db.all(
-      'SELECT id, username, created_at, email, nom, prenom FROM users WHERE role = ? AND classe_id = ?',
-      ['eleve', classeId]
+      'SELECT id, username, created_at, email, nom, prenom FROM users WHERE classe_id = ?',
+      [classeId]
     );
     res.json(eleves);
   } catch (error) {
