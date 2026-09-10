@@ -6,7 +6,15 @@ const db = require('../models/dbHelper');
 const { requireAuth } = require('../middleware/auth');
 const { convertToPDF } = require('../services/fileConverter');
 const { check_before_upload } = require('../services/fileCleanup');
+const { snapshotDevoir, diffSnapshots, logDevoirAction } = require('../services/devoirLogger');
 const router = express.Router();
+
+// Devoir avec le nom de sa matière, utilisé pour construire les instantanés des logs
+const DEVOIR_WITH_MATIERE_SQL = `
+  SELECT d.*, m.nom as matiere_nom
+  FROM devoirs d
+  LEFT JOIN matieres m ON d.matiere_id = m.id
+  WHERE d.id = ? AND d.classe_id = ?`;
 
 // Configuration de multer pour l'upload de fichiers PDF
 const storage = multer.diskStorage({
@@ -72,12 +80,14 @@ router.post('/', express.json(), async (req, res) => {
 
     const devoirId = result.lastInsertRowid;
 
-    // Créer un log pour la création
-    const details = JSON.stringify({ titre, description, matiere_id, date });
-    await db.run(
-      'INSERT INTO devoir_logs (devoir_id, action, user_id, username, classe_id, details) VALUES (?, ?, ?, ?, ?, ?)',
-      [devoirId, 'create', req.session.userId, req.user.username, classeId, details]
-    );
+    // Journaliser la création avec l'état complet du devoir tel qu'enregistré
+    const created = await db.get(DEVOIR_WITH_MATIERE_SQL, [devoirId, classeId]);
+    const snapshot = snapshotDevoir(created || { titre, description, matiere_id, date });
+    await logDevoirAction(req, {
+      devoirId,
+      action: 'create',
+      details: { titre: snapshot.titre, devoir: snapshot }
+    });
 
     res.json({
       success: true,
@@ -159,8 +169,8 @@ router.put('/:id', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
-    // Récupérer l'ancien devoir pour le log
-    const oldDevoir = await db.get('SELECT * FROM devoirs WHERE id = ? AND classe_id = ?', [req.params.id, classeId]);
+    // Récupérer l'état avant modification pour le log
+    const oldDevoir = await db.get(DEVOIR_WITH_MATIERE_SQL, [req.params.id, classeId]);
     if (!oldDevoir) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
@@ -170,15 +180,20 @@ router.put('/:id', express.json(), async (req, res) => {
       [titre, description || null, matiere_id, date || null, req.params.id, classeId]
     );
 
-    // Créer un log pour la modification
-    const details = JSON.stringify({
-      old: { titre: oldDevoir.titre, description: oldDevoir.description, matiere_id: oldDevoir.matiere_id, date: oldDevoir.date },
-      new: { titre, description, matiere_id, date }
-    });
-    await db.run(
-      'INSERT INTO devoir_logs (devoir_id, action, user_id, username, classe_id, details) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.params.id, 'update', req.session.userId, req.user.username, classeId, details]
-    );
+    // Relire le devoir plutôt que de se fier au corps de la requête : on compare
+    // ainsi ce qui est réellement stocké, sans fausse modification due au format
+    const newDevoir = await db.get(DEVOIR_WITH_MATIERE_SQL, [req.params.id, classeId]);
+    const after = snapshotDevoir(newDevoir || {});
+    const changes = diffSnapshots(snapshotDevoir(oldDevoir), after);
+
+    // Journaliser uniquement si quelque chose a effectivement changé
+    if (changes.length > 0) {
+      await logDevoirAction(req, {
+        devoirId: req.params.id,
+        action: 'update',
+        details: { titre: after.titre, changes }
+      });
+    }
 
     res.json({ success: true, message: 'Devoir mis à jour' });
   } catch (error) {
@@ -195,19 +210,30 @@ router.delete('/:id', async (req, res) => {
     }
 
     // Récupérer le devoir avant de le supprimer pour le log
-    const devoir = await db.get('SELECT * FROM devoirs WHERE id = ? AND classe_id = ?', [req.params.id, classeId]);
+    const devoir = await db.get(DEVOIR_WITH_MATIERE_SQL, [req.params.id, classeId]);
     if (!devoir) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
+    // Les documents joints partent avec le devoir : les lister avant la suppression
+    const fichiers = await db.all(
+      `SELECT df.original_name, df.uploaded_at, u.username as uploaded_by_username
+       FROM devoir_fichiers df
+       LEFT JOIN users u ON df.uploaded_by = u.id
+       WHERE df.devoir_id = ?
+       ORDER BY df.uploaded_at ASC`,
+      [req.params.id]
+    );
+
     await db.run('DELETE FROM devoirs WHERE id = ? AND classe_id = ?', [req.params.id, classeId]);
 
-    // Créer un log pour la suppression
-    const details = JSON.stringify({ titre: devoir.titre, description: devoir.description, matiere_id: devoir.matiere_id, date: devoir.date });
-    await db.run(
-      'INSERT INTO devoir_logs (devoir_id, action, user_id, username, classe_id, details) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.params.id, 'delete', req.session.userId, req.user.username, classeId, details]
-    );
+    // Journaliser la suppression avec l'état complet du devoir perdu
+    const snapshot = snapshotDevoir(devoir);
+    await logDevoirAction(req, {
+      devoirId: req.params.id,
+      action: 'delete',
+      details: { titre: snapshot.titre, devoir: snapshot, fichiers }
+    });
 
     res.json({ success: true, message: 'Devoir supprimé' });
   } catch (error) {
@@ -264,7 +290,7 @@ router.post('/:id/upload', upload.single('pdf'), async (req, res) => {
 
     // Vérifier que le devoir existe et appartient à la même classe
     const devoir = await db.get(
-      'SELECT id FROM devoirs WHERE id = ? AND classe_id = ?',
+      'SELECT id, titre FROM devoirs WHERE id = ? AND classe_id = ?',
       [req.params.id, classeId]
     );
 
@@ -293,16 +319,20 @@ router.post('/:id/upload', upload.single('pdf'), async (req, res) => {
       [req.params.id, req.file.filename, req.file.originalname, req.session.userId]
     );
 
-    // Créer un log pour l'upload du fichier
-    const uploadDetails = JSON.stringify({
+    // Journaliser l'ajout du document avec ses caractéristiques
+    await logDevoirAction(req, {
+      devoirId: req.params.id,
       action: 'upload_pdf',
-      filename: req.file.originalname,
-      size: req.file.size
+      details: {
+        titre: devoir.titre,
+        fichier: {
+          original_name: req.file.originalname,
+          stored_name: req.file.filename,
+          size: req.file.size,
+          mimetype: req.file.mimetype
+        }
+      }
     });
-    await db.run(
-      'INSERT INTO devoir_logs (devoir_id, action, user_id, username, classe_id, details) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.params.id, 'upload_pdf', req.session.userId, req.user.username, classeId, uploadDetails]
-    );
 
     res.json({
       success: true,
@@ -422,9 +452,10 @@ router.delete('/fichiers/:fichierId', async (req, res) => {
 
     // Récupérer le fichier avec vérification de la classe
     const fichier = await db.get(
-      `SELECT df.*, d.classe_id
+      `SELECT df.*, d.classe_id, d.titre as devoir_titre, u.username as uploaded_by_username
        FROM devoir_fichiers df
        JOIN devoirs d ON df.devoir_id = d.id
+       LEFT JOIN users u ON df.uploaded_by = u.id
        WHERE df.id = ? AND d.classe_id = ?`,
       [req.params.fichierId, classeId]
     );
@@ -436,25 +467,32 @@ router.delete('/fichiers/:fichierId', async (req, res) => {
     // Tout le monde peut supprimer tous les fichiers de sa classe
     // Pas de vérification de propriétaire nécessaire
 
-    // Supprimer le fichier du système de fichiers
+    // Supprimer le fichier du système de fichiers, en relevant sa taille pour le log
     const filePath = path.join(__dirname, '../uploads', fichier.filename);
+    let fileSize = null;
     if (fs.existsSync(filePath)) {
+      fileSize = fs.statSync(filePath).size;
       fs.unlinkSync(filePath);
     }
 
     // Supprimer l'enregistrement de la base de données
     await db.run('DELETE FROM devoir_fichiers WHERE id = ?', [req.params.fichierId]);
 
-    // Créer un log pour la suppression du fichier
-    const deleteDetails = JSON.stringify({
+    // Journaliser la suppression du document, y compris son auteur d'origine
+    await logDevoirAction(req, {
+      devoirId: fichier.devoir_id,
       action: 'delete_pdf',
-      filename: fichier.original_name,
-      deleted_by: req.user.username
+      details: {
+        titre: fichier.devoir_titre,
+        fichier: {
+          original_name: fichier.original_name,
+          stored_name: fichier.filename,
+          size: fileSize,
+          uploaded_at: fichier.uploaded_at,
+          uploaded_by_username: fichier.uploaded_by_username
+        }
+      }
     });
-    await db.run(
-      'INSERT INTO devoir_logs (devoir_id, action, user_id, username, classe_id, details) VALUES (?, ?, ?, ?, ?, ?)',
-      [fichier.devoir_id, 'delete_pdf', req.session.userId, req.user.username, classeId, deleteDetails]
-    );
 
     res.json({ success: true, message: 'Fichier supprimé' });
   } catch (error) {

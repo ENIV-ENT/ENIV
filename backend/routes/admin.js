@@ -395,12 +395,18 @@ router.get('/logs/devoirs', requireAdmin, async (req, res) => {
     const logs = await db.all(
       `SELECT
         l.*,
-        m.nom as matiere_nom
+        m.nom as matiere_nom,
+        d.titre as devoir_titre,
+        d.id IS NOT NULL as devoir_existe,
+        u.nom as user_nom,
+        u.prenom as user_prenom,
+        u.role as user_role
       FROM devoir_logs l
       LEFT JOIN devoirs d ON l.devoir_id = d.id
       LEFT JOIN matieres m ON d.matiere_id = m.id
+      LEFT JOIN users u ON l.user_id = u.id
       WHERE l.classe_id = ?
-      ORDER BY l.created_at DESC
+      ORDER BY l.created_at DESC, l.id DESC
       LIMIT 100`,
       [classeId]
     );

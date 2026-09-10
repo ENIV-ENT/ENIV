@@ -474,3 +474,111 @@ input[type="color"] {
   background: #f8d7da;
   color: #721c24;
 }
+
+/* Historique détaillé des activités */
+.log-item {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.log-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.log-date,
+.log-note,
+.log-link {
+  font-size: 0.8rem;
+}
+
+.log-date,
+.log-note {
+  color: var(--secondary);
+}
+
+.log-note {
+  font-style: italic;
+}
+
+.log-link {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.log-link:hover {
+  text-decoration: underline;
+}
+
+.log-summary {
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.log-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--border);
+  font-size: 0.875rem;
+}
+
+.log-detail {
+  display: grid;
+  grid-template-columns: 7rem 1fr;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.log-detail-label {
+  color: var(--secondary);
+  font-weight: 600;
+}
+
+.log-detail-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.log-value {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.log-value-before {
+  color: var(--secondary);
+  text-decoration: line-through;
+}
+
+.log-value-after {
+  font-weight: 600;
+}
+
+.log-arrow {
+  color: var(--secondary);
+}
+
+.log-empty {
+  color: var(--secondary);
+  font-style: italic;
+}
+
+.log-file-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  list-style: disc;
+}
+
+@media (max-width: 768px) {
+  .log-detail {
+    grid-template-columns: 1fr;
+    gap: 0.1rem;
+  }
+}

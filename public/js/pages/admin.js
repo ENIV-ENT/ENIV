@@ -552,6 +552,27 @@ function renderInvitations() {
 
 // ==== LOGS ====
 
+// Actions journalisées : libellé du badge, style et formulation de la phrase
+const LOG_ACTIONS = {
+  create: { badge: 'création', badgeClass: 'log-create', verbe: 'a créé', cible: 'devoir' },
+  update: { badge: 'modification', badgeClass: 'log-update', verbe: 'a modifié', cible: 'devoir' },
+  delete: { badge: 'suppression', badgeClass: 'log-delete', verbe: 'a supprimé', cible: 'devoir' },
+  upload_pdf: { badge: 'document ajouté', badgeClass: 'log-create', verbe: 'a ajouté', cible: 'fichier', preposition: 'au devoir' },
+  delete_pdf: { badge: 'document supprimé', badgeClass: 'log-delete', verbe: 'a supprimé', cible: 'fichier', preposition: 'du devoir' }
+};
+
+// Champs du devoir suivis dans l'historique, dans l'ordre d'affichage
+const LOG_FIELDS = [
+  { field: 'titre', label: 'Titre' },
+  { field: 'description', label: 'Description' },
+  { field: 'matiere_id', label: 'Matière' },
+  { field: 'date', label: 'Pour le' }
+];
+
+const LOG_FIELD_LABELS = Object.fromEntries(LOG_FIELDS.map(({ field, label }) => [field, label]));
+
+const LOG_EMPTY_VALUE = '<em class="log-empty">vide</em>';
+
 async function loadLogs() {
   const data = await apiCall('/api/admin/logs/devoirs');
   if (!data.error) {
@@ -560,49 +581,253 @@ async function loadLogs() {
   }
 }
 
+function formatLogDateTime(value) {
+  if (!value) return '';
+  return new Date(value).toLocaleDateString('fr-FR', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+}
+
+/**
+ * Taille de fichier lisible (o, Ko, Mo, Go)
+ * @param {number} size - Taille en octets
+ * @returns {string|null} Null si la taille n'a pas été enregistrée
+ */
+function formatFileSize(size) {
+  if (typeof size !== 'number' || !Number.isFinite(size) || size < 0) return null;
+
+  const units = ['o', 'Ko', 'Mo', 'Go'];
+  let value = size;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+
+  const rounded = unit === 0 ? value : Math.round(value * 10) / 10;
+  return `${rounded.toLocaleString('fr-FR')} ${units[unit]}`;
+}
+
+/**
+ * Nom affichable de l'auteur d'une action : nom complet si connu, sinon username
+ */
+function formatLogAuthor(log, details) {
+  const author = details.author || {};
+  const nomComplet = [author.prenom || log.user_prenom, author.nom || log.user_nom].filter(Boolean).join(' ');
+
+  if (!log.username) return nomComplet || 'Utilisateur supprimé';
+  return nomComplet ? `${nomComplet} (${log.username})` : log.username;
+}
+
+/**
+ * Met en forme la valeur d'un champ de devoir, prête à être insérée dans le HTML
+ * @param {string} field - Nom du champ
+ * @param {*} value - Valeur brute enregistrée
+ * @param {string} [matiereNom] - Nom de la matière, utilisé pour le champ matiere_id
+ * @returns {string} HTML échappé
+ */
+function formatLogFieldValue(field, value, matiereNom) {
+  if (field === 'matiere_id') {
+    const nom = matiereNom || (value ? `Matière n° ${value}` : null);
+    return nom ? escapeHTML(nom) : LOG_EMPTY_VALUE;
+  }
+
+  if (field === 'date') {
+    return value ? escapeHTML(formatDate(value)) : LOG_EMPTY_VALUE;
+  }
+
+  if (value === null || value === undefined || value === '') return LOG_EMPTY_VALUE;
+  return escapeHTML(String(value));
+}
+
+/**
+ * Lit les détails d'un log et les ramène au format courant.
+ *
+ * Les logs écrits avant la version 2 stockaient moins d'informations : on en
+ * reconstruit le maximum, mais le nom des matières n'y figurait pas.
+ *
+ * @param {Object} log - Ligne de devoir_logs
+ * @returns {Object} Détails normalisés
+ */
+function normalizeLogDetails(log) {
+  let details;
+  try {
+    details = JSON.parse(log.details) || {};
+  } catch (e) {
+    details = {};
+  }
+
+  if (details.version >= 2) return details;
+
+  // Modification, ancien format : { old: {...}, new: {...} }
+  if (details.old && details.new) {
+    return {
+      titre: details.new.titre,
+      changes: LOG_FIELDS
+        .map(({ field, label }) => ({ field, label, before: details.old[field], after: details.new[field] }))
+        .filter(({ field, before, after }) => formatLogFieldValue(field, before) !== formatLogFieldValue(field, after))
+    };
+  }
+
+  // Ajout ou suppression de document, ancien format : { filename, size }
+  if (details.filename) {
+    return {
+      titre: log.devoir_titre,
+      fichier: { original_name: details.filename, size: details.size }
+    };
+  }
+
+  // Création ou suppression de devoir, ancien format : champs stockés à plat
+  if (details.titre) {
+    return { titre: details.titre, devoir: details };
+  }
+
+  return {};
+}
+
+function renderLogDetailRow(label, valueHTML) {
+  return `
+    <div class="log-detail">
+      <span class="log-detail-label">${escapeHTML(label)}</span>
+      <span class="log-detail-value">${valueHTML}</span>
+    </div>`;
+}
+
+/**
+ * Construit le bloc de détails d'un log : champs modifiés, état du devoir,
+ * caractéristiques du document concerné.
+ */
+function renderLogDetails(details) {
+  const rows = [];
+
+  // Modification : une ligne par champ modifié, avant → après
+  if (details.changes) {
+    details.changes.forEach(change => {
+      const before = formatLogFieldValue(change.field, change.before, change.before_label);
+      const after = formatLogFieldValue(change.field, change.after, change.after_label);
+      rows.push(renderLogDetailRow(
+        change.label || LOG_FIELD_LABELS[change.field] || change.field,
+        `<span class="log-value log-value-before">${before}</span>
+         <span class="log-arrow">→</span>
+         <span class="log-value log-value-after">${after}</span>`
+      ));
+    });
+  }
+
+  // Création ou suppression : état complet du devoir
+  if (details.devoir) {
+    LOG_FIELDS.forEach(({ field, label }) => {
+      const value = formatLogFieldValue(field, details.devoir[field], details.devoir.matiere_nom);
+      rows.push(renderLogDetailRow(label, `<span class="log-value">${value}</span>`));
+    });
+  }
+
+  // Document ajouté ou supprimé
+  const fichier = details.fichier;
+  if (fichier) {
+    const taille = formatFileSize(fichier.size);
+    if (taille) {
+      rows.push(renderLogDetailRow('Taille', `<span class="log-value">${escapeHTML(taille)}</span>`));
+    }
+    if (fichier.mimetype) {
+      rows.push(renderLogDetailRow('Type', `<span class="log-value">${escapeHTML(fichier.mimetype)}</span>`));
+    }
+    if (fichier.uploaded_by_username) {
+      rows.push(renderLogDetailRow('Ajouté par', `<span class="log-value">${escapeHTML(fichier.uploaded_by_username)}</span>`));
+    }
+    if (fichier.uploaded_at) {
+      rows.push(renderLogDetailRow('Ajouté le', `<span class="log-value">${escapeHTML(formatLogDateTime(fichier.uploaded_at))}</span>`));
+    }
+  }
+
+  // Suppression d'un devoir : documents joints perdus au passage
+  if (details.fichiers && details.fichiers.length > 0) {
+    const items = details.fichiers.map(f => {
+      const auteur = f.uploaded_by_username ? `ajouté par ${f.uploaded_by_username}` : null;
+      const ajoutLe = f.uploaded_at ? `le ${formatLogDateTime(f.uploaded_at)}` : null;
+      const origine = [auteur, ajoutLe].filter(Boolean).join(' ');
+      const taille = formatFileSize(f.size);
+      const complement = [origine || null, taille].filter(Boolean).join(', ');
+      return `<li>${escapeHTML(f.original_name || 'Document sans nom')}${complement ? ` <span class="log-empty">(${escapeHTML(complement)})</span>` : ''}</li>`;
+    }).join('');
+
+    rows.push(renderLogDetailRow(
+      `Documents joints (${details.fichiers.length})`,
+      `<ul class="log-file-list">${items}</ul>`
+    ));
+  }
+
+  if (rows.length === 0) return '';
+  return `<div class="log-details">${rows.join('')}</div>`;
+}
+
+/**
+ * Phrase résumant l'action, avec l'auteur, le devoir et le document concernés
+ */
+function renderLogSummary(log, config, details) {
+  const auteur = `<strong>${escapeHTML(formatLogAuthor(log, details))}</strong>`;
+  const titre = details.titre || log.devoir_titre;
+  const devoir = titre ? `<strong>« ${escapeHTML(titre)} »</strong>` : null;
+
+  if (config.cible === 'fichier') {
+    const nom = details.fichier?.original_name;
+    const document = nom ? `<strong>« ${escapeHTML(nom)} »</strong>` : 'un document';
+    const rattachement = devoir ? ` ${config.preposition} ${devoir}` : '';
+    return `${auteur} ${config.verbe} le document ${document}${rattachement}`;
+  }
+
+  return devoir
+    ? `${auteur} ${config.verbe} le devoir ${devoir}`
+    : `${auteur} ${config.verbe} un devoir`;
+}
+
+/**
+ * Référence du devoir concerné : lien ouvrant le devoir dans le dashboard tant
+ * qu'il existe, sinon mention signalant qu'il a été supprimé depuis.
+ */
+function renderLogDevoirReference(log) {
+  if (!log.devoir_id) return '';
+
+  const numero = `devoir n° ${escapeHTML(String(log.devoir_id))}`;
+
+  if (log.devoir_existe) {
+    return `<a class="log-link" href="/dashboard?devoir=${encodeURIComponent(log.devoir_id)}">${numero}</a>`;
+  }
+
+  // Le badge indique déjà la suppression du devoir : ne pas la répéter
+  const supprimeDepuis = log.action === 'delete' ? '' : ' (supprimé depuis)';
+  return `<span class="log-note">${numero}${supprimeDepuis}</span>`;
+}
+
+function renderLogItem(log) {
+  const config = LOG_ACTIONS[log.action] || { badge: log.action, badgeClass: '', verbe: log.action, cible: 'devoir' };
+  const details = normalizeLogDetails(log);
+
+  // Référence du devoir : lien vers le dashboard tant qu'il existe (même lien que
+  // le bouton « Exporter / Partager »), simple mention sinon
+  const reference = renderLogDevoirReference(log);
+
+  return `
+    <div class="list-item log-item">
+      <div class="log-header">
+        <span class="log-badge ${config.badgeClass}">${escapeHTML(config.badge)}</span>
+        <span class="log-date">${escapeHTML(formatLogDateTime(log.created_at))}</span>
+        ${reference}
+      </div>
+      <p class="log-summary">${renderLogSummary(log, config, details)}</p>
+      ${renderLogDetails(details)}
+    </div>`;
+}
+
 function renderLogs() {
   const list = document.getElementById('logs-list');
+
   if (logs.length === 0) {
     list.innerHTML = '<p class="empty-state">Aucun log.</p>';
     return;
   }
 
-  list.innerHTML = logs.map(log => {
-    let actionText = log.action;
-    let actionClass = '';
-
-    switch (log.action) {
-      case 'create': actionText = 'a créé'; actionClass = 'log-create'; break;
-      case 'update': actionText = 'a modifié'; actionClass = 'log-update'; break;
-      case 'delete': actionText = 'a supprimé'; actionClass = 'log-delete'; break;
-      case 'upload_pdf': actionText = 'a ajouté un document'; actionClass = 'log-create'; break;
-      case 'delete_pdf': actionText = 'a supprimé un document'; actionClass = 'log-delete'; break;
-    }
-
-    let details = '';
-    try {
-      const d = JSON.parse(log.details);
-      details = d.titre || d.filename || '';
-    } catch (e) {}
-
-    const date = new Date(log.created_at).toLocaleDateString('fr-FR', {
-      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
-    });
-
-    return `
-      <div class="list-item">
-        <div class="list-item-info">
-          <div>
-            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;">
-              <span class="log-badge ${actionClass}">${actionText}</span>
-              <span style="color:var(--secondary);font-size:0.85rem;">${date}</span>
-            </div>
-            <p><strong>${escapeHTML(log.username)}</strong> ${actionText} <strong>${escapeHTML(details)}</strong></p>
-          </div>
-        </div>
-      </div>
-    `;
-  }).join('');
+  list.innerHTML = logs.map(renderLogItem).join('');
 }
 
 // ==== SETTINGS ====
