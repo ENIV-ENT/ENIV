@@ -79,7 +79,7 @@ router.get('/eleves', requireAdmin, async (req, res) => {
     }
 
     const eleves = await db.all(
-      'SELECT id, username, created_at, email, nom, prenom FROM users WHERE classe_id = ?',
+      'SELECT id, username, created_at, email, nom, prenom, role FROM users WHERE classe_id = ?',
       [classeId]
     );
     res.json(eleves);
@@ -121,6 +121,71 @@ router.put('/eleves/:id', requireAdmin, express.json(), async (req, res) => {
     } else {
       res.status(500).json({ error: 'Erreur lors de la modification de l\'élève' });
     }
+  }
+});
+
+// Activer ou désactiver le statut administrateur d'un membre de la classe
+router.put('/eleves/:id/admin', requireAdmin, express.json(), async (req, res) => {
+  const { admin } = req.body;
+
+  if (typeof admin !== 'boolean') {
+    return res.status(400).json({ error: 'Le champ admin doit être un booléen' });
+  }
+
+  try {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
+      return res.status(400).json({ error: 'Admin non associé à une classe' });
+    }
+
+    const newRole = admin ? 'admin' : 'eleve';
+
+    await db.transaction(async (connection) => {
+      // Verrouiller d'abord les administrateurs de la classe : toutes les requêtes
+      // concurrentes prennent ce verrou en premier, ce qui les sérialise (sans quoi
+      // deux rétrogradations croisées s'interbloquent) et fige le comptage.
+      const [admins] = await connection.query(
+        'SELECT id FROM users WHERE classe_id = ? AND role = ? FOR UPDATE',
+        [classeId, 'admin']
+      );
+
+      const [targets] = await connection.query(
+        'SELECT id, role FROM users WHERE id = ? AND classe_id = ? AND role IN (?, ?) FOR UPDATE',
+        [req.params.id, classeId, 'eleve', 'admin']
+      );
+      const target = targets[0];
+
+      if (!target) {
+        throw Object.assign(new Error('Élève introuvable dans cette classe'), { status: 404 });
+      }
+
+      if (target.role === newRole) {
+        return;
+      }
+
+      if (!admin && admins.length <= 1) {
+        throw Object.assign(
+          new Error('La classe doit conserver au moins un administrateur'),
+          { status: 400 }
+        );
+      }
+
+      await connection.query('UPDATE users SET role = ? WHERE id = ?', [newRole, target.id]);
+    });
+
+    res.json({
+      success: true,
+      message: admin ? 'Statut administrateur accordé' : 'Statut administrateur retiré'
+    });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ error: error.message });
+    }
+    if (error.code === 'ER_LOCK_DEADLOCK' || error.code === 'ER_LOCK_WAIT_TIMEOUT') {
+      return res.status(409).json({ error: 'Modification concurrente détectée, veuillez réessayer' });
+    }
+    console.error('Error updating admin status:', error);
+    res.status(500).json({ error: 'Erreur lors de la modification du statut administrateur' });
   }
 });
 

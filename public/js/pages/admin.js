@@ -1,6 +1,7 @@
 import { apiCall, checkAuth, logout } from '../utils/api.js?v=2';
 import { escapeHTML, formatDate, toggleModal, setupModalClose, showAlert, showConfirm } from '../utils/dom.js?v=2';
 
+let currentUserId = null;
 let eleves = [];
 let matieres = [];
 let invitations = [];
@@ -14,6 +15,8 @@ async function init() {
     window.location.href = '/dashboard';
     return;
   }
+
+  currentUserId = auth.userId;
 
   document.getElementById('user-info').textContent = auth.username;
 
@@ -190,20 +193,28 @@ function renderEleves() {
     return;
   }
 
-  list.innerHTML = eleves.map(eleve => `
+  list.innerHTML = eleves.map(eleve => {
+    const isAdmin = eleve.role === 'admin';
+    return `
     <div class="list-item">
       <div class="list-item-info">
         <div>
-          <h3>${escapeHTML(eleve.prenom || '')} ${escapeHTML(eleve.nom || '')}</h3>
+          <h3>${escapeHTML(eleve.prenom || '')} ${escapeHTML(eleve.nom || '')}${isAdmin ? ' <span class="role-badge role-admin">Admin</span>' : ''}</h3>
           <p>${escapeHTML(eleve.username)}</p>
         </div>
       </div>
       <div class="list-item-actions">
+        <button class="btn-secondary toggle-admin-btn" data-id="${eleve.id}" data-admin="${isAdmin ? '1' : '0'}">${isAdmin ? 'Retirer admin' : 'Promouvoir admin'}</button>
         <button class="btn-secondary edit-eleve-btn" data-id="${eleve.id}">Modifier</button>
         <button class="btn-danger delete-eleve-btn" data-id="${eleve.id}">Supprimer</button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
+
+  list.querySelectorAll('.toggle-admin-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleToggleAdmin(parseInt(btn.dataset.id), btn.dataset.admin !== '1'));
+  });
 
   list.querySelectorAll('.edit-eleve-btn').forEach(btn => {
     btn.addEventListener('click', () => prepareEditEleve(parseInt(btn.dataset.id)));
@@ -270,6 +281,41 @@ async function handleEditEleve(e) {
     await showAlert('Modifications enregistrées', 'Succès');
     await loadEleves();
   }
+}
+
+async function handleToggleAdmin(id, makeAdmin) {
+  const eleve = eleves.find(e => e.id === id);
+  if (!eleve) return;
+
+  const nom = `${eleve.prenom || ''} ${eleve.nom || ''}`.trim() || eleve.username;
+  let message;
+  if (makeAdmin) {
+    message = `Accorder le statut administrateur à ${nom} ?`;
+  } else if (id === currentUserId) {
+    message = 'Retirer votre propre statut administrateur ? Vous perdrez immédiatement l\'accès à cette page.';
+  } else {
+    message = `Retirer le statut administrateur de ${nom} ?`;
+  }
+
+  const confirmed = await showConfirm(message, 'Confirmation');
+  if (!confirmed) return;
+
+  const data = await apiCall(`/api/admin/eleves/${id}/admin`, {
+    method: 'PUT',
+    body: JSON.stringify({ admin: makeAdmin })
+  });
+
+  if (data.error) {
+    await showAlert(data.error, 'Erreur');
+    return;
+  }
+
+  if (!makeAdmin && id === currentUserId) {
+    window.location.href = '/dashboard';
+    return;
+  }
+
+  await loadEleves();
 }
 
 async function handleDeleteEleve(id) {

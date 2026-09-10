@@ -436,6 +436,21 @@ input[type="color"] {
   }
 }
 
+/* Badge de rôle dans la liste des élèves */
+.role-badge {
+  display: inline-block;
+  padding: 0.1rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  vertical-align: middle;
+}
+
+.role-admin {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
 /* Styles pour les logs */
 .log-badge {
   display: inline-block;
