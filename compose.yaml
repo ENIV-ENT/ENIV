@@ -1,7 +1,7 @@
 # Environnement de test local : MySQL + l'application.
 #   docker compose up            -> base de données + app sur http://localhost:3000
 #   docker compose up db         -> uniquement MySQL (pour lancer l'app sur l'hôte)
-#   docker compose --profile tools up -> ajoute Adminer sur http://localhost:8080
+#   phpMyAdmin est lancé avec l'ensemble sur http://localhost:8080
 #
 # Les valeurs ci-dessous sont des valeurs par défaut de développement ; un fichier
 # .env à la racine les remplace automatiquement (interpolation Compose).
@@ -61,13 +61,17 @@ services:
       db:
         condition: service_healthy
 
-  adminer:
-    image: adminer:5
-    profiles: ["tools"]
+  phpmyadmin:
+    image: phpmyadmin:5
     ports:
-      - "8080:8080"
+      - "8080:80"
     environment:
-      ADMINER_DEFAULT_SERVER: db
+      PMA_HOST: db
+      PMA_PORT: 3306
+      # Connexion automatique en root : évite de ressaisir les identifiants
+      # de développement à chaque ouverture de l'interface.
+      PMA_USER: root
+      PMA_PASSWORD: ${DB_PASSWORD:-devpassword}
     depends_on:
       db:
         condition: service_healthy
