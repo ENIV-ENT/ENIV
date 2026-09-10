@@ -1,0 +1,77 @@
+# Environnement de test local : MySQL + l'application.
+#   docker compose up            -> base de données + app sur http://localhost:3000
+#   docker compose up db         -> uniquement MySQL (pour lancer l'app sur l'hôte)
+#   docker compose --profile tools up -> ajoute Adminer sur http://localhost:8080
+#
+# Les valeurs ci-dessous sont des valeurs par défaut de développement ; un fichier
+# .env à la racine les remplace automatiquement (interpolation Compose).
+
+services:
+  db:
+    image: mysql:8.4
+    command:
+      # Le schéma ne déclare aucun charset : il hérite de celui du serveur.
+      # utf8mb4 est indispensable pour les accents (établissement, élève, ...).
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-devpassword}
+      MYSQL_DATABASE: ${DB_NAME:-ent}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      # L'app fait process.exit(1) si la connexion échoue : elle ne doit
+      # démarrer qu'une fois MySQL réellement prêt à accepter des requêtes.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  app:
+    image: node:24-bookworm-slim
+    working_dir: /app
+    command: sh -c "npm ci && npm start"
+    environment:
+      NODE_ENV: development          # -> port 3000 (sinon 3650, cf. server.js)
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-ent}
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-devpassword}
+      BASE_URL: http://localhost:3000
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-not-for-production}
+      SESSION_SECRET: ${SESSION_SECRET:-dev-session-secret-not-for-production}
+      # Clés d'API externes : laissées vides, les fonctionnalités
+      # correspondantes (quiz IA, e-mails, webhook) sont inactives en test.
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      PREMIUM_API_KEY: ${PREMIUM_API_KEY:-}
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      # node_modules dans un volume : évite que le dossier de l'hôte
+      # écrase l'installation faite dans le conteneur.
+      - app-node-modules:/app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+
+  adminer:
+    image: adminer:5
+    profiles: ["tools"]
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:
+  app-node-modules:
