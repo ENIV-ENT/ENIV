@@ -71,7 +71,7 @@ app.get('/devoir-pdf', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'devoir-pdf', 'index.html'));
 });
 
-app.get('*', (req, res) => {
+app.get('/*splat', (req, res) => {
   if (!req.path.startsWith('/api') && !req.path.startsWith('/ws') && !req.path.startsWith('/js') && !req.path.startsWith('/css') && !req.path.startsWith('/uploads')) {
     res.redirect('/');
   }
