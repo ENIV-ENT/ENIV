@@ -1,5 +1,6 @@
 import { apiCall, checkAuth, logout } from '../utils/api.js?v=2';
 import { escapeHTML, localDate, formatDate, toInputDate, toggleModal, setupModalClose, showAlert, showConfirm, getContrastColor } from '../utils/dom.js?v=2';
+import { renderMarkdown } from '../utils/markdown.js?v=1';
 
 let matieres = [];
 let devoirs = [];
@@ -592,7 +593,10 @@ async function showDevoirModal(devoirId) {
   const matiereNom = escapeHTML(devoir.matiere_nom || 'Non définie');
   if (matiere && matiere.lien) html += `<a href="${matiere.lien}" target="_blank">${matiereNom}</a>`;
   else html += matiereNom;
-  html += `</p>${devoir.description ? `<p><strong>Description:</strong> ${escapeHTML(devoir.description)}</p>` : ''}`;
+  html += '</p>';
+  if (devoir.description) {
+    html += `<p><strong>Description:</strong></p><div class="markdown-body">${renderMarkdown(devoir.description)}</div>`;
+  }
   html += `<div id="devoir-modal-fichiers" style="margin:1rem 0;"></div>`;
   html += `<div id="devoir-quiz-section"></div>`;
   html += `<div class="modal-actions">

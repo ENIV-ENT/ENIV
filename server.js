@@ -34,6 +34,8 @@ app.post('/api/deploy', handleWebhook);
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'backend/uploads')));
+// Bibliothèques front servies directement depuis node_modules
+app.use('/vendor/markdown-it', express.static(path.join(__dirname, 'node_modules/markdown-it/dist/browser')));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -72,7 +74,7 @@ app.get('/devoir-pdf', (req, res) => {
 });
 
 app.get('/*splat', (req, res) => {
-  if (!req.path.startsWith('/api') && !req.path.startsWith('/ws') && !req.path.startsWith('/js') && !req.path.startsWith('/css') && !req.path.startsWith('/uploads')) {
+  if (!req.path.startsWith('/api') && !req.path.startsWith('/ws') && !req.path.startsWith('/js') && !req.path.startsWith('/css') && !req.path.startsWith('/uploads') && !req.path.startsWith('/vendor')) {
     res.redirect('/');
   }
 });

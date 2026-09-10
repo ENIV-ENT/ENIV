@@ -22,6 +22,7 @@
     "groq-sdk": "^0.34.0",
     "jsonwebtoken": "^9.0.2",
     "libreoffice-convert": "^1.7.0",
+    "markdown-it": "^15.0.1",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.15.2",
     "node-cron": "^4.2.1",
