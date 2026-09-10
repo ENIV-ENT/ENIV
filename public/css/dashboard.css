@@ -866,6 +866,16 @@ body.dark-theme .calendar-date.today {
   border-radius: 8px;
 }
 
+/* Image que le proxy n'a pas pu récupérer : le navigateur affiche le texte
+   alternatif, on le présente comme une mention discrète */
+.markdown-body img.markdown-image-error {
+  padding: 0.4rem 0.75rem;
+  border: 1px dashed var(--border);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
 /* Aide sous un champ de saisie */
 .form-hint {
   display: block;

@@ -1,6 +1,6 @@
 import { apiCall, checkAuth, logout } from '../utils/api.js?v=2';
 import { escapeHTML, localDate, formatDate, toInputDate, toggleModal, setupModalClose, showAlert, showConfirm, getContrastColor } from '../utils/dom.js?v=2';
-import { renderMarkdown } from '../utils/markdown.js?v=1';
+import { renderMarkdown, hydrateMarkdownImages } from '../utils/markdown.js?v=2';
 
 let matieres = [];
 let devoirs = [];
@@ -607,6 +607,7 @@ async function showDevoirModal(devoirId) {
   </div>`;
 
   modalBody.innerHTML = html;
+  hydrateMarkdownImages(modalBody);
   loadDevoirModalFichiers(devoirId);
   loadQuizStatus(devoirId);
 
