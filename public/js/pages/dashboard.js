@@ -10,6 +10,40 @@ let selectedDate = null;
 let isMobileView = false;
 let authData = null;
 
+// L'annee scolaire commence en septembre (mois 8) et se termine en aout
+const SCHOOL_YEAR_START_MONTH = 8;
+const schoolYear = getSchoolYear();
+
+function getSchoolYear(reference = new Date()) {
+  const startYear = reference.getMonth() >= SCHOOL_YEAR_START_MONTH
+    ? reference.getFullYear()
+    : reference.getFullYear() - 1;
+
+  return {
+    startYear,
+    endYear: startYear + 1,
+    // 1er septembre de l'annee de debut
+    firstDay: new Date(startYear, SCHOOL_YEAR_START_MONTH, 1),
+    // Dernier jour d'aout de l'annee de fin
+    lastDay: new Date(startYear + 1, SCHOOL_YEAR_START_MONTH, 0)
+  };
+}
+
+function monthIndex(year, month) {
+  return year * 12 + month;
+}
+
+const minMonthIndex = monthIndex(schoolYear.startYear, SCHOOL_YEAR_START_MONTH);
+const maxMonthIndex = monthIndex(schoolYear.endYear, SCHOOL_YEAR_START_MONTH - 1);
+
+// Bornes au format YYYY-MM-DD, comparables directement aux dates des cellules
+const minDateStr = toInputDate(schoolYear.firstDay);
+const maxDateStr = toInputDate(schoolYear.lastDay);
+
+function isDateStrInSchoolYear(dateStr) {
+  return dateStr >= minDateStr && dateStr <= maxDateStr;
+}
+
 // Stockage des fichiers accumulés
 let accumulatedFiles = [];
 let accumulatedEditFiles = [];
@@ -55,6 +89,7 @@ async function init() {
 
   await loadData();
   setupEventListeners();
+  applySchoolYearLimits();
   checkViewport();
   renderCalendar();
   ouvrirDevoirDepuisURL();
@@ -208,22 +243,12 @@ async function loadDevoirs() {
 
 function setupEventListeners() {
   document.getElementById('prev-month').addEventListener('click', () => {
-    if (isMobileView) {
-      currentWeekStart.setDate(currentWeekStart.getDate() - 7);
-    } else {
-      currentMonth--;
-      if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-    }
+    if (!navigate(-1)) return;
     renderCalendar();
   });
 
   document.getElementById('next-month').addEventListener('click', () => {
-    if (isMobileView) {
-      currentWeekStart.setDate(currentWeekStart.getDate() + 7);
-    } else {
-      currentMonth++;
-      if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-    }
+    if (!navigate(1)) return;
     renderCalendar();
   });
 
@@ -258,6 +283,16 @@ function setupEventListeners() {
     const wasMobile = isMobileView;
     checkViewport();
     if (wasMobile !== isMobileView) renderCalendar();
+  });
+}
+
+// Limite les champs date des formulaires a l'annee scolaire en cours
+function applySchoolYearLimits() {
+  ['devoir-date-limite', 'edit-devoir-date-limite'].forEach(id => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.min = minDateStr;
+    input.max = maxDateStr;
   });
 }
 
@@ -360,11 +395,49 @@ window.removeFileFromList = function(index, listId) {
   displayFileList(fileArray, listId);
 };
 
+// Retourne la periode cible (mois ou semaine) apres un deplacement, ou null si
+// elle sort de l'annee scolaire
+function getNavigationTarget(direction) {
+  if (isMobileView) {
+    const target = new Date(currentWeekStart);
+    target.setDate(target.getDate() + direction * 7);
+    const minWeekStart = getWeekStart(schoolYear.firstDay);
+    const maxWeekStart = getWeekStart(schoolYear.lastDay);
+    if (target < minWeekStart || target > maxWeekStart) return null;
+    return target;
+  }
+
+  const target = monthIndex(currentYear, currentMonth) + direction;
+  if (target < minMonthIndex || target > maxMonthIndex) return null;
+  return target;
+}
+
+function navigate(direction) {
+  const target = getNavigationTarget(direction);
+  if (target === null) return false;
+
+  if (isMobileView) {
+    currentWeekStart = target;
+  } else {
+    currentYear = Math.floor(target / 12);
+    currentMonth = target % 12;
+  }
+  return true;
+}
+
+function updateNavButtons() {
+  const prevBtn = document.getElementById('prev-month');
+  const nextBtn = document.getElementById('next-month');
+  if (prevBtn) prevBtn.disabled = getNavigationTarget(-1) === null;
+  if (nextBtn) nextBtn.disabled = getNavigationTarget(1) === null;
+}
+
 function renderCalendar() {
   const calendar = document.getElementById('calendar');
   if (!calendar) return;
   if (isMobileView) renderMobileWeekView();
   else renderDesktopMonthView();
+  updateNavButtons();
 }
 
 function renderMobileWeekView() {
@@ -391,6 +464,7 @@ function renderMobileWeekView() {
 
     let headerClass = 'week-day-header';
     if (isToday) headerClass += ' today';
+    if (!isDateStrInSchoolYear(dateStr)) headerClass += ' out-of-range';
 
     html += `<div class="week-day-card"><div class="${headerClass}" data-date="${dateStr}">`;
     html += `<div class="week-day-name">${dayNames[i]}</div><div class="week-day-number">${date.getDate()}</div></div>`;
@@ -464,6 +538,7 @@ function renderDateCell(date, otherMonth) {
   let classes = 'calendar-date';
   if (otherMonth) classes += ' other-month';
   if (isToday) classes += ' today';
+  if (!isDateStrInSchoolYear(dateStr)) classes += ' out-of-range';
 
   let html = `<div class="${classes}" data-date="${dateStr}">`;
   html += `<div class="date-number">${date.getDate()}</div><div class="date-devoirs">`;
@@ -492,12 +567,16 @@ function handleCalendarClick(e) {
   }
   if (e.target.closest('.week-day-header')) {
     e.stopPropagation();
-    selectedDate = e.target.closest('.week-day-header').dataset.date;
+    const header = e.target.closest('.week-day-header');
+    if (header.classList.contains('out-of-range')) return;
+    selectedDate = header.dataset.date;
     showAddDevoirModal(selectedDate);
     return;
   }
   if (e.target.closest('.calendar-date')) {
-    selectedDate = e.target.closest('.calendar-date').dataset.date;
+    const cell = e.target.closest('.calendar-date');
+    if (cell.classList.contains('out-of-range')) return;
+    selectedDate = cell.dataset.date;
     showAddDevoirModal(selectedDate);
   }
 }
