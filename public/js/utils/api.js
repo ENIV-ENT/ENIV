@@ -72,8 +72,6 @@ export async function checkAuth() {
     return { authenticated: false };
   }
 
-  console.log('User role:', data.role);
-
   const expectedPaths = getExpectedPaths(data.role);
   const currentPath = normalizePath(window.location.pathname);
 
