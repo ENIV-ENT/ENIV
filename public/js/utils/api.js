@@ -1,6 +1,11 @@
+import { getRealtimeId } from './realtime.js?v=1';
+
 export async function apiCall(url, options = {}) {
   try {
     const token = localStorage.getItem('token');
+    // Évite que l'onglet à l'origine d'une modification reçoive sa propre
+    // notification temps réel, et donc qu'il recharge deux fois les mêmes données.
+    const realtimeId = getRealtimeId();
 
     const response = await fetch(url, {
       ...options,
@@ -8,6 +13,7 @@ export async function apiCall(url, options = {}) {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(realtimeId ? { 'X-Realtime-Id': realtimeId } : {}),
         ...options.headers,
       },
     });

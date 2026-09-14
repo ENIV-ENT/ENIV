@@ -1,4 +1,4 @@
-import { apiCall, checkAuth, logout } from '../utils/api.js?v=2';
+import { apiCall, checkAuth, logout } from '../utils/api.js?v=3';
 import { escapeHTML, formatDate, toggleModal, setupModalClose, showAlert, showConfirm } from '../utils/dom.js?v=2';
 
 let currentUserId = null;

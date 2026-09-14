@@ -1,6 +1,7 @@
-import { apiCall, checkAuth, logout } from '../utils/api.js?v=2';
+import { apiCall, checkAuth, logout } from '../utils/api.js?v=3';
 import { escapeHTML, localDate, formatDate, toInputDate, toggleModal, setupModalClose, showAlert, showConfirm, getContrastColor } from '../utils/dom.js?v=2';
 import { renderMarkdown, hydrateMarkdownImages } from '../utils/markdown.js?v=2';
+import { connectRealtime, getRealtimeId } from '../utils/realtime.js?v=1';
 
 let matieres = [];
 let devoirs = [];
@@ -49,6 +50,16 @@ function isDateStrInSchoolYear(dateStr) {
 let accumulatedFiles = [];
 let accumulatedEditFiles = [];
 
+// Temps réel : état des rafraîchissements déclenchés par les autres membres de la classe
+let currentDevoirId = null;        // devoir affiché dans #devoir-modal
+let currentDevoirSignature = null; // état du devoir au moment du rendu du modal
+let editDevoirRecreate = false;    // le devoir en cours d'édition a été supprimé ailleurs
+let editDevoirBaseline = null;     // version du devoir chargée dans le formulaire d'édition
+let refreshTimer = null;
+let refreshQueued = false;         // un rafraîchissement attend la fin d'un envoi local
+let isSubmitting = false;
+const pendingResources = new Set();
+
 async function init() {
   authData = await checkAuth();
 
@@ -94,6 +105,156 @@ async function init() {
   checkViewport();
   renderCalendar();
   ouvrirDevoirDepuisURL();
+
+  // Mises à jour temps réel : uniquement pour les utilisateurs rattachés à une
+  // classe, les seuls qui peuvent recevoir quelque chose.
+  if (authData.classe_id) {
+    connectRealtime({
+      onUpdate: (message) => scheduleRefresh(message.resource, message.devoirId),
+      onResync: () => scheduleRefresh('*', null)
+    });
+  }
+}
+
+// ============= TEMPS RÉEL =============
+
+const REFRESH_DEBOUNCE_MS = 400;
+let refreshDevoirId = null;
+
+// Une seule action distante (modifier un devoir puis envoyer trois fichiers) émet
+// plusieurs trames : on les regroupe pour ne recharger qu'une fois.
+function scheduleRefresh(resource, devoirId) {
+  if (!resource) return;
+
+  pendingResources.add(resource);
+  if (devoirId) refreshDevoirId = devoirId;
+
+  // Un envoi local est en cours : le rafraîchissement attendra sa fin pour ne pas
+  // recharger des données à moitié écrites.
+  if (isSubmitting) {
+    refreshQueued = true;
+    return;
+  }
+
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(applyRefresh, REFRESH_DEBOUNCE_MS);
+}
+
+function flushQueuedRefresh() {
+  if (!refreshQueued) return;
+  refreshQueued = false;
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(applyRefresh, REFRESH_DEBOUNCE_MS);
+}
+
+async function applyRefresh() {
+  refreshTimer = null;
+
+  const resources = new Set(pendingResources);
+  const devoirId = refreshDevoirId;
+  pendingResources.clear();
+  refreshDevoirId = null;
+
+  const isResync = resources.has('*');
+  const wantsMatieres = isResync || resources.has('matieres');
+  const wantsDevoirs = isResync || ['devoirs', 'fichiers', 'quiz'].some(r => resources.has(r));
+
+  const tasks = [];
+  if (wantsMatieres) tasks.push(loadMatieres());
+  if (wantsDevoirs) tasks.push(loadDevoirs());
+  if (tasks.length === 0) return;
+
+  await Promise.all(tasks);
+  renderCalendar();
+  await refreshOpenModals(resources, devoirId);
+}
+
+function isModalOpen(modalId) {
+  return Boolean(document.getElementById(modalId)?.classList.contains('active'));
+}
+
+// Le statut "fait" est volontairement exclu : il est propre à chaque utilisateur
+// et ne peut pas changer du fait d'une action distante.
+function devoirSignature(devoir) {
+  if (!devoir) return null;
+  return [devoir.titre, devoir.description, devoir.matiere_id, devoir.date].join('|');
+}
+
+async function refreshOpenModals(resources, devoirId) {
+  const isResync = resources.has('*');
+
+  if (isModalOpen('devoir-modal') && currentDevoirId) {
+    const devoir = devoirs.find(d => d.id === currentDevoirId);
+
+    if (!devoir) {
+      toggleModal('devoir-modal', false);
+      currentDevoirId = null;
+      currentDevoirSignature = null;
+      await showAlert("Ce devoir vient d'être supprimé par un autre utilisateur.", 'Devoir supprimé');
+    } else if (isResync || !devoirId || devoirId === currentDevoirId) {
+      if (resources.has('fichiers')) loadDevoirModalFichiers(currentDevoirId);
+      if (resources.has('quiz')) loadQuizStatus(currentDevoirId);
+
+      // Rendu complet uniquement si le contenu a réellement changé : il réinitialise
+      // le défilement, gênant sur les longues descriptions.
+      const signature = devoirSignature(devoir);
+      if ((isResync || resources.has('devoirs')) && signature !== currentDevoirSignature) {
+        await showDevoirModal(currentDevoirId);
+      }
+    }
+  }
+
+  if (isModalOpen('edit-devoir-modal') && !editDevoirRecreate) {
+    const editedId = parseInt(document.getElementById('edit-devoir-id').value, 10);
+    const devoir = Number.isFinite(editedId) ? devoirs.find(d => d.id === editedId) : null;
+
+    if (Number.isFinite(editedId) && !devoir) {
+      markEditDevoirAsDeleted();
+    } else if (devoir) {
+      // La liste des fichiers existants n'est qu'un reflet de l'état du serveur :
+      // la rafraîchir ne peut rien écraser de ce que l'utilisateur a saisi.
+      if (isResync || resources.has('fichiers')) loadExistingFiles(editedId);
+
+      // Les champs du formulaire, eux, contiennent peut-être une saisie en cours :
+      // on se contente de signaler la divergence, le rechargement reste au choix
+      // de l'utilisateur.
+      setEditDevoirModifie(devoirSignature(devoir) !== editDevoirBaseline);
+    }
+  }
+}
+
+function setEditDevoirModifie(modifie) {
+  document.getElementById('edit-devoir-modifie-banner').classList.toggle('hidden', !modifie);
+}
+
+// Remplace la saisie en cours par la version distante, à la demande explicite de
+// l'utilisateur via le bouton du bandeau.
+async function rechargerDevoirEnEdition() {
+  const editedId = parseInt(document.getElementById('edit-devoir-id').value, 10);
+  const devoir = devoirs.find(d => d.id === editedId);
+  if (!devoir) return;
+
+  await fillEditDevoirForm(devoir);
+  setEditDevoirModifie(false);
+}
+
+// Le devoir en cours d'édition a disparu : on conserve la saisie de l'utilisateur
+// et l'enregistrement devient une recréation.
+function markEditDevoirAsDeleted() {
+  editDevoirRecreate = true;
+  document.getElementById('edit-devoir-supprime-banner').classList.remove('hidden');
+  document.getElementById('edit-devoir-submit-btn').textContent = 'Recréer le devoir';
+  // La suppression prime sur une éventuelle modification signalée auparavant.
+  setEditDevoirModifie(false);
+  // Les fichiers joints ont été supprimés en cascade avec le devoir.
+  document.getElementById('edit-devoir-fichiers-existants').innerHTML = '';
+}
+
+function resetEditDevoirBanners() {
+  editDevoirRecreate = false;
+  document.getElementById('edit-devoir-supprime-banner').classList.add('hidden');
+  document.getElementById('edit-devoir-submit-btn').textContent = 'Enregistrer';
+  setEditDevoirModifie(false);
 }
 
 // Le thème lui-même est déjà appliqué par /js/theme-init.js avant le premier rendu,
@@ -219,6 +380,9 @@ function updateMatiereSelect() {
   selects.forEach(selectId => {
     const select = document.getElementById(selectId);
     if (!select) return;
+    // La reconstruction efface la sélection en cours : on la restaure si la
+    // matière existe toujours (elle peut avoir été supprimée entre-temps).
+    const previousValue = select.value;
     select.innerHTML = '<option value="">Sélectionner une matière</option>';
     matieres.forEach(matiere => {
       const option = document.createElement('option');
@@ -226,6 +390,9 @@ function updateMatiereSelect() {
       option.textContent = matiere.nom;
       select.appendChild(option);
     });
+    if (previousValue && matieres.some(m => String(m.id) === previousValue)) {
+      select.value = previousValue;
+    }
   });
 }
 
@@ -261,6 +428,7 @@ function setupEventListeners() {
   document.getElementById('cancel-edit-devoir-btn').addEventListener('click', () => {
     toggleModal('edit-devoir-modal', false);
     document.getElementById('edit-devoir-form').reset();
+    resetEditDevoirBanners();
     accumulatedEditFiles.length = 0;
     document.getElementById('edit-devoir-nouveaux-fichiers-list').innerHTML = '';
     document.getElementById('edit-devoir-fichiers-existants').innerHTML = '';
@@ -268,6 +436,7 @@ function setupEventListeners() {
 
   document.getElementById('devoir-form').addEventListener('submit', handleAddDevoir);
   document.getElementById('edit-devoir-form').addEventListener('submit', handleEditDevoir);
+  document.getElementById('edit-devoir-recharger-btn').addEventListener('click', rechargerDevoirEnEdition);
 
   setupDropZone('devoir-drop-zone', 'devoir-fichiers', accumulatedFiles, 'devoir-fichiers-list');
   setupDropZone('edit-devoir-drop-zone', 'edit-devoir-nouveaux-fichiers', accumulatedEditFiles, 'edit-devoir-nouveaux-fichiers-list');
@@ -580,6 +749,9 @@ async function showDevoirModal(devoirId) {
   const devoir = devoirs.find(d => d.id === devoirId);
   if (!devoir) return;
 
+  currentDevoirId = devoirId;
+  currentDevoirSignature = devoirSignature(devoir);
+
   const matiere = matieres.find(m => m.id === devoir.matiere_id);
   const modalBody = document.getElementById('modal-body');
 
@@ -700,9 +872,14 @@ async function uploadFiles(devoirId, files, statusBtn) {
     const formData = new FormData();
     formData.append('pdf', files[i]);
     try {
+      const realtimeId = getRealtimeId();
       await fetch(`/api/devoirs/${devoirId}/upload`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          // Envoi multipart : ne passe pas par apiCall, l'en-tête est donc ajouté ici.
+          ...(realtimeId ? { 'X-Realtime-Id': realtimeId } : {})
+        },
         body: formData
       });
     } catch (err) {
@@ -728,6 +905,7 @@ async function handleAddDevoir(e) {
   const originalText = submitBtn.textContent;
   submitBtn.disabled = true;
   submitBtn.textContent = 'Création en cours...';
+  isSubmitting = true;
 
   try {
     const data = await apiCall('/api/devoirs', {
@@ -757,7 +935,12 @@ async function handleAddDevoir(e) {
     document.getElementById('devoir-fichiers-list').innerHTML = '';
     await loadDevoirs();
     renderCalendar();
-  } finally { submitBtn.disabled = false; submitBtn.textContent = originalText; }
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
+    isSubmitting = false;
+    flushQueuedRefresh();
+  }
 }
 
 async function editDevoir(id) {
@@ -765,6 +948,17 @@ async function editDevoir(id) {
   if (!devoir) return;
   toggleModal('devoir-modal', false);
 
+  resetEditDevoirBanners();
+  accumulatedEditFiles.length = 0;
+  document.getElementById('edit-devoir-nouveaux-fichiers-list').innerHTML = '';
+  await fillEditDevoirForm(devoir);
+  toggleModal('edit-devoir-modal', true);
+}
+
+// Charge un devoir dans le formulaire d'édition et mémorise sa version : c'est
+// cette référence qui permet de détecter qu'un autre utilisateur l'a modifié
+// pendant la saisie. Ne touche pas aux fichiers ajoutés par l'utilisateur.
+async function fillEditDevoirForm(devoir) {
   document.getElementById('edit-devoir-id').value = devoir.id;
   document.getElementById('edit-devoir-titre').value = devoir.titre;
   document.getElementById('edit-devoir-description').value = devoir.description || '';
@@ -773,10 +967,8 @@ async function editDevoir(id) {
   updateMatiereSelect();
   document.getElementById('edit-devoir-matiere').value = devoir.matiere_id || '';
 
-  accumulatedEditFiles.length = 0;
-  document.getElementById('edit-devoir-nouveaux-fichiers-list').innerHTML = '';
-  await loadExistingFiles(id);
-  toggleModal('edit-devoir-modal', true);
+  editDevoirBaseline = devoirSignature(devoir);
+  await loadExistingFiles(devoir.id);
 }
 
 async function loadExistingFiles(devoirId) {
@@ -807,40 +999,49 @@ async function handleEditDevoir(e) {
   e.preventDefault();
   const id = document.getElementById('edit-devoir-id').value;
   const submitBtn = document.getElementById('edit-devoir-submit-btn');
-  const originalText = submitBtn.textContent;
   submitBtn.disabled = true;
-  submitBtn.textContent = 'Enregistrement...';
+  submitBtn.textContent = editDevoirRecreate ? 'Recréation en cours...' : 'Enregistrement...';
+  isSubmitting = true;
 
   try {
-    const data = await apiCall(`/api/devoirs/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        titre: document.getElementById('edit-devoir-titre').value,
-        description: document.getElementById('edit-devoir-description').value,
-        matiere_id: document.getElementById('edit-devoir-matiere').value,
-        date: document.getElementById('edit-devoir-date-limite').value
-      })
+    const payload = JSON.stringify({
+      titre: document.getElementById('edit-devoir-titre').value,
+      description: document.getElementById('edit-devoir-description').value,
+      matiere_id: document.getElementById('edit-devoir-matiere').value,
+      date: document.getElementById('edit-devoir-date-limite').value
     });
+
+    // Le devoir a été supprimé par quelqu'un d'autre pendant l'édition : la saisie
+    // est conservée et enregistrée comme un nouveau devoir.
+    const data = editDevoirRecreate
+      ? await apiCall('/api/devoirs', { method: 'POST', body: payload })
+      : await apiCall(`/api/devoirs/${id}`, { method: 'PUT', body: payload });
 
     if (data.error) {
       await showAlert(data.error, 'Erreur');
-      submitBtn.disabled = false;
-      submitBtn.textContent = originalText;
       return;
     }
 
+    const targetId = editDevoirRecreate ? data.devoirId : id;
     if (accumulatedEditFiles.length > 0) {
-      await uploadFiles(id, accumulatedEditFiles);
+      await uploadFiles(targetId, accumulatedEditFiles);
     }
 
     toggleModal('edit-devoir-modal', false);
     document.getElementById('edit-devoir-form').reset();
+    resetEditDevoirBanners();
     accumulatedEditFiles.length = 0;
     document.getElementById('edit-devoir-nouveaux-fichiers-list').innerHTML = '';
     document.getElementById('edit-devoir-fichiers-existants').innerHTML = '';
     await loadDevoirs();
     renderCalendar();
-  } finally { submitBtn.disabled = false; submitBtn.textContent = originalText; }
+  } finally {
+    submitBtn.disabled = false;
+    // Le libellé dépend du mode : l'échec d'une recréation doit rester une recréation.
+    submitBtn.textContent = editDevoirRecreate ? 'Recréer le devoir' : 'Enregistrer';
+    isSubmitting = false;
+    flushQueuedRefresh();
+  }
 }
 
 async function deleteDevoir(id) {

@@ -1128,6 +1128,33 @@ input[type="color"] {
   color: #0c5460;
 }
 
+/* Avertissement affiché dans un modal (conflit d'édition par exemple) */
+.modal-warning {
+  background: rgba(255, 193, 7, 0.15);
+  border-left: 4px solid #ffc107;
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* Avertissement proposant une action (recharger les modifications distantes) */
+.modal-warning-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.modal-warning-action button {
+  flex-shrink: 0;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+}
+
 /* Pending banner */
 .pending-banner {
   background: #fff3cd;

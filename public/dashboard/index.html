@@ -169,6 +169,13 @@
         <button class="modal-close" id="close-edit-devoir-modal">&times;</button>
       </div>
       <form id="edit-devoir-form">
+        <div id="edit-devoir-supprime-banner" class="modal-warning hidden">
+          Ce devoir vient d'être supprimé par un autre utilisateur. En enregistrant, il sera recréé comme un nouveau devoir (les fichiers qui y étaient déjà joints sont définitivement perdus).
+        </div>
+        <div id="edit-devoir-modifie-banner" class="modal-warning modal-warning-action hidden">
+          <span>Ce devoir vient d'être modifié par un autre utilisateur. Votre saisie est conservée ; enregistrer écrasera ses modifications.</span>
+          <button type="button" id="edit-devoir-recharger-btn" class="btn-secondary">Charger les modifications</button>
+        </div>
         <input type="hidden" id="edit-devoir-id">
         <div class="form-group">
           <label for="edit-devoir-titre" class="form-label">Titre du devoir</label>
@@ -212,6 +219,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/pages/dashboard.js?v=5"></script>
+  <script type="module" src="/js/pages/dashboard.js?v=6"></script>
 </body>
 </html>
