@@ -933,6 +933,15 @@ body.dark-theme .calendar-date.today {
   min-height: 100px;
 }
 
+input[type="color"] {
+  width: 80px;
+  height: 50px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
 .modal-content .file-label {
   display: block;
   margin: 0;
@@ -1089,6 +1098,34 @@ body.dark-theme .calendar-date.today {
 
 .dropdown-badge.hidden {
   display: none;
+}
+
+/* Badge de compteur dans les onglets */
+.badge {
+  display: inline-block;
+  background: var(--danger);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 10px;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+}
+
+/* Badge de rôle dans la liste des élèves */
+.role-badge {
+  display: inline-block;
+  padding: 0.1rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  vertical-align: middle;
+}
+
+.role-admin {
+  background: #d1ecf1;
+  color: #0c5460;
 }
 
 /* Pending banner */

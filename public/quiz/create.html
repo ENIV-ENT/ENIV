@@ -241,7 +241,7 @@
                 if (response.ok) {
                     showAlert('success', 'Quiz créé avec succès !');
                     setTimeout(() => {
-                        window.location.href = '/admin/dashboard';
+                        window.location.href = '/admin';
                     }, 2000);
                 } else {
                     showAlert('error', data.error || 'Erreur lors de la création du quiz');
@@ -266,7 +266,7 @@
         }
 
         function goBack() {
-            window.location.href = '/admin/dashboard';
+            window.location.href = '/admin';
         }
     </script>
 </body>

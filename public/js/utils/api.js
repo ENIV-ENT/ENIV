@@ -33,7 +33,7 @@ function getExpectedPaths(role) {
     return ["/superadmin/dashboard/", ...commonPaths];
   }
   if (role === 'admin') {
-    return ["/dashboard/", "/admin/", "/admin/dashboard/", ...commonPaths];
+    return ["/dashboard/", "/admin/", ...commonPaths];
   }
   return ["/dashboard/", ...commonPaths];
 }
