@@ -25,7 +25,7 @@
   --shadow: rgba(0, 0, 0, 0.1);
 }
 
-body.dark-theme {
+html.dark-theme {
   --light: #1a1a1a;
   --dark: #e4e4e4;
   --border: #404040;
@@ -38,31 +38,31 @@ body.dark-theme {
   --shadow: rgba(0, 0, 0, 0.3);
 }
 
-body.dark-theme .calendar-date.today {
+html.dark-theme .calendar-date.today {
   background: #1a4d6d;
 }
 
 /* Améliorer le contraste des SVG en mode sombre */
-body.dark-theme svg {
+html.dark-theme svg {
   filter: brightness(0.9);
 }
 
-body.dark-theme .dropdown-item svg path,
-body.dark-theme .user-menu-btn svg {
+html.dark-theme .dropdown-item svg path,
+html.dark-theme .user-menu-btn svg {
   fill: currentColor;
   stroke: currentColor;
 }
 
 /* Améliorer les couleurs des éléments de formulaire en mode sombre */
-body.dark-theme input::placeholder,
-body.dark-theme textarea::placeholder {
+html.dark-theme input::placeholder,
+html.dark-theme textarea::placeholder {
   color: var(--text-secondary);
   opacity: 0.7;
 }
 
 /* Améliorer la zone de drop des fichiers en mode sombre */
-body.dark-theme #devoir-drop-zone,
-body.dark-theme #edit-devoir-drop-zone {
+html.dark-theme #devoir-drop-zone,
+html.dark-theme #edit-devoir-drop-zone {
   background: var(--bg-secondary) !important;
   border-color: var(--border) !important;
 }
@@ -432,7 +432,7 @@ header h1 {
   background: #e3f2fd;
 }
 
-body.dark-theme .calendar-date.today {
+html.dark-theme .calendar-date.today {
   background: #1a4d6d;
 }
 

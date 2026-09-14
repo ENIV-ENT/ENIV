@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Eniv - Paramètres</title>
   <link rel="icon" type="image/x-icon" href="/images/logo.ico">
-  <link rel="stylesheet" href="/css/settings.css?v=2">
-  <link rel="stylesheet" href="/css/loading.css?v=2">
+  <!-- Doit rester synchrone et avant les styles : applique le thème avant le premier rendu -->
+  <script src="/js/theme-init.js?v=1"></script>
+  <link rel="stylesheet" href="/css/settings.css?v=3">
+  <link rel="stylesheet" href="/css/loading.css?v=3">
 </head>
 <body>
   <div id="loading-screen">
@@ -120,6 +122,6 @@
     </form>
   </div>
 
-  <script type="module" src="/js/pages/settings.js?v=2"></script>
+  <script type="module" src="/js/pages/settings.js?v=3"></script>
 </body>
 </html>

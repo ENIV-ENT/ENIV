@@ -66,6 +66,9 @@ async function init() {
 
   setupUserMenu();
 
+  // Synchroniser le libellé du bouton de thème avant les sorties anticipées ci-dessous
+  loadThemePreference();
+
   // Check pending request
   if (authData.pending_request) {
     document.getElementById('pending-banner').style.display = 'block';
@@ -85,9 +88,6 @@ async function init() {
     return;
   }
 
-  // Charger le thème sauvegardé
-  loadThemePreference();
-
   await loadData();
   setupEventListeners();
   applySchoolYearLimits();
@@ -96,21 +96,15 @@ async function init() {
   ouvrirDevoirDepuisURL();
 }
 
-// Fonction pour charger la préférence de thème depuis le localStorage
+// Le thème lui-même est déjà appliqué par /js/theme-init.js avant le premier rendu,
+// il ne reste qu'à synchroniser le bouton du menu.
 function loadThemePreference() {
-  const savedTheme = localStorage.getItem('theme');
-  if (savedTheme === 'dark') {
-    document.body.classList.add('dark-theme');
-    updateThemeButton(true);
-  } else {
-    document.body.classList.remove('dark-theme');
-    updateThemeButton(false);
-  }
+  updateThemeButton(document.documentElement.classList.contains('dark-theme'));
 }
 
 // Fonction pour basculer le thème
 function toggleTheme() {
-  const isDark = document.body.classList.toggle('dark-theme');
+  const isDark = document.documentElement.classList.toggle('dark-theme');
   localStorage.setItem('theme', isDark ? 'dark' : 'light');
   updateThemeButton(isDark);
 }

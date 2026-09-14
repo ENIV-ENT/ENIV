@@ -554,19 +554,14 @@ async function loadUserInfo() {
     }
 }
 
+// Le theme lui-meme est deja applique par /js/theme-init.js avant le premier rendu,
+// il ne reste qu'a synchroniser le bouton du menu.
 function loadThemePreference() {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-        document.body.classList.add('dark-theme');
-        updateThemeButton(true);
-    } else {
-        document.body.classList.remove('dark-theme');
-        updateThemeButton(false);
-    }
+    updateThemeButton(document.documentElement.classList.contains('dark-theme'));
 }
 
 function toggleTheme() {
-    const isDark = document.body.classList.toggle('dark-theme');
+    const isDark = document.documentElement.classList.toggle('dark-theme');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
     updateThemeButton(isDark);
 }

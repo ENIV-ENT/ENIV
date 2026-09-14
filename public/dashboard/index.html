@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Eniv - Mes Devoirs</title>
   <link rel="icon" type="image/x-icon" href="/images/logo.ico">
-  <link rel="stylesheet" href="/css/dashboard.css?v=6">
-  <link rel="stylesheet" href="/css/loading.css?v=2">
+  <!-- Doit rester synchrone et avant les styles : applique le thème avant le premier rendu -->
+  <script src="/js/theme-init.js?v=1"></script>
+  <link rel="stylesheet" href="/css/dashboard.css?v=7">
+  <link rel="stylesheet" href="/css/loading.css?v=3">
 </head>
 <body>
   <div id="loading-screen">
@@ -210,6 +212,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/pages/dashboard.js?v=4"></script>
+  <script type="module" src="/js/pages/dashboard.js?v=5"></script>
 </body>
 </html>

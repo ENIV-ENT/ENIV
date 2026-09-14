@@ -20,7 +20,7 @@
   --text: #343a40;
 }
 
-body.dark-theme {
+html.dark-theme {
   --light: #1a1a1a;
   --dark: #e4e4e4;
   --border: #404040;
@@ -28,12 +28,12 @@ body.dark-theme {
   --text: #e4e4e4;
 }
 
-body.dark-theme svg {
+html.dark-theme svg {
   filter: brightness(0.9);
 }
 
-body.dark-theme .dropdown-item svg path,
-body.dark-theme .user-menu-btn svg {
+html.dark-theme .dropdown-item svg path,
+html.dark-theme .user-menu-btn svg {
   fill: currentColor;
   stroke: currentColor;
 }
@@ -193,7 +193,7 @@ header h1 {
   margin-bottom: 2rem;
 }
 
-body.dark-theme .form-container {
+html.dark-theme .form-container {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
