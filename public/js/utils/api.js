@@ -60,13 +60,16 @@ export async function checkAuth() {
     );
     data = await Promise.race([apiCall('/api/auth/me'), timeout]);
   } catch {
-    // Timeout ou erreur réseau : déconnecter l'utilisateur
-    localStorage.removeItem('token');
-    window.location.href = '/';
-    return { authenticated: false };
+    setLoadingScreenVisible(false);
+    return { authenticated: false, error: true };
   }
 
-  if (!data || !data.authenticated || data.error) {
+  if (data && data.error) {
+    setLoadingScreenVisible(false);
+    return { authenticated: false, error: true };
+  }
+
+  if (!data || !data.authenticated) {
     const publicPaths = ["/", "/register/"];
     if (!publicPaths.includes(normalizePath(window.location.pathname))) {
       localStorage.removeItem('token');

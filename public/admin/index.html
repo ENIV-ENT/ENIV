@@ -222,6 +222,14 @@
           <h3>Paramètres de la classe</h3>
         </div>
 
+        <form id="rename-classe-form" class="form-container" style="margin-bottom: 2rem;">
+          <h4>Nom de la classe</h4>
+          <div class="form-group">
+            <input type="text" id="classe-nom" placeholder="Nom de la classe" required>
+          </div>
+          <button type="submit" class="btn-primary">Renommer</button>
+        </form>
+
         <form id="emploi-temps-form" class="form-container" style="margin-bottom: 2rem;">
           <h4>Lien emploi du temps</h4>
           <div class="form-group">
@@ -239,20 +247,6 @@
             <input type="url" id="discord-webhook-url" placeholder="https://discord.com/api/webhooks/...">
           </div>
           <button type="submit" class="btn-primary">Enregistrer le webhook</button>
-        </form>
-        
-        <form id="password-form" class="form-container">
-          <h4>Changer mon mot de passe</h4>
-          <div class="form-group">
-            <input type="password" id="old-password" placeholder="Mot de passe actuel" required>
-          </div>
-          <div class="form-group">
-            <input type="password" id="new-password" placeholder="Nouveau mot de passe" required>
-          </div>
-          <div class="form-group">
-            <input type="password" id="confirm-password" placeholder="Confirmer le nouveau mot de passe" required>
-          </div>
-          <button type="submit" class="btn-secondary">Modifier le mot de passe</button>
         </form>
       </div>
     </div>

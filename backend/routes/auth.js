@@ -6,7 +6,7 @@ const {requireAuth, verifyToken} = require("../middleware/auth");
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const JWT_EXPIRES_IN = '30d'; // Le token expire dans 30 jours
+const JWT_EXPIRES_IN = '3650d';
 
 // Login
 router.post('/login', async (req, res) => {
@@ -57,12 +57,19 @@ router.post('/logout', (req, res) => {
 
 // Check token / Get user info from token
 router.get('/me', async (req, res) => {
+  let user;
   try {
-    const user = await verifyToken(req);
-    if (!user) {
-      return res.json({ authenticated: false });
-    }
+    user = await verifyToken(req);
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    return res.status(500).json({ error: 'Erreur serveur' });
+  }
 
+  if (!user) {
+    return res.json({ authenticated: false });
+  }
+
+  try {
     let pendingRequest = null;
     if (!user.classe_id && user.role === 'eleve') {
       pendingRequest = await db.get(
@@ -92,7 +99,8 @@ router.get('/me', async (req, res) => {
         : null
     });
   } catch (error) {
-    res.json({ authenticated: false });
+    console.error('Error fetching user info in /me:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 

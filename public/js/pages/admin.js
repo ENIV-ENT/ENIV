@@ -115,7 +115,8 @@ async function loadAllData() {
     loadInvitations(),
     loadLogs(),
     loadSettings(),
-    loadInviteLink()
+    loadInviteLink(),
+    loadClasse()
   ]);
 }
 
@@ -166,7 +167,7 @@ function setupEventListeners() {
   });
 
   // Settings forms
-  document.getElementById('password-form').addEventListener('submit', handleChangePassword);
+  document.getElementById('rename-classe-form').addEventListener('submit', handleRenameClasse);
   document.getElementById('emploi-temps-form').addEventListener('submit', handleSaveEmploiTemps);
   document.getElementById('discord-webhook-form').addEventListener('submit', handleSaveDiscordWebhook);
 }
@@ -179,6 +180,12 @@ async function loadEleves() {
     eleves = data;
     renderEleves();
   }
+}
+
+function formatLastLogin(dateString) {
+  if (!dateString) return 'Jamais connecté';
+  const date = new Date(dateString);
+  return `Dernière connexion : ${date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })} à ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
 function renderEleves() {
@@ -196,6 +203,7 @@ function renderEleves() {
         <div>
           <h3>${escapeHTML(eleve.prenom || '')} ${escapeHTML(eleve.nom || '')}${isAdmin ? ' <span class="role-badge role-admin">Admin</span>' : ''}</h3>
           <p>${escapeHTML(eleve.username)}</p>
+          <p class="list-item-meta">${formatLastLogin(eleve.last_login_at)}</p>
         </div>
       </div>
       <div class="list-item-actions">
@@ -851,27 +859,26 @@ async function loadInviteLink() {
   }
 }
 
-async function handleChangePassword(e) {
-  e.preventDefault();
-  const oldPw = document.getElementById('old-password').value;
-  const newPw = document.getElementById('new-password').value;
-  const confirmPw = document.getElementById('confirm-password').value;
-
-  if (newPw !== confirmPw) {
-    await showAlert('Les mots de passe ne correspondent pas', 'Erreur');
-    return;
+async function loadClasse() {
+  const data = await apiCall('/api/admin/classe');
+  if (!data.error) {
+    document.getElementById('classe-nom').value = data.nom || '';
   }
+}
 
-  const data = await apiCall('/api/admin/change-password', {
-    method: 'POST',
-    body: JSON.stringify({ oldPassword: oldPw, newPassword: newPw })
+async function handleRenameClasse(e) {
+  e.preventDefault();
+  const nom = document.getElementById('classe-nom').value;
+
+  const data = await apiCall('/api/admin/classe', {
+    method: 'PUT',
+    body: JSON.stringify({ nom })
   });
 
   if (data.error) {
     await showAlert(data.error, 'Erreur');
   } else {
-    await showAlert('Mot de passe modifié', 'Succès');
-    document.getElementById('password-form').reset();
+    await showAlert('Classe renommée avec succès', 'Succès');
   }
 }
 

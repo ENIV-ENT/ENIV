@@ -202,12 +202,7 @@ router.post('/complete', async (req, res) => {
         [username, hashedPassword, invitation.email, nom, prenom, invitation.role, invitation.classe_id]
       );
 
-      // Marquer l'invitation comme utilisée
-      const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-      await connection.query(
-        'UPDATE invitations SET used = 1, used_at = ? WHERE id = ?',
-        [now, invitation.id]
-      );
+      await connection.query('DELETE FROM invitations WHERE id = ?', [invitation.id]);
 
       return result.insertId;
     });

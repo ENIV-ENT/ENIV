@@ -79,7 +79,7 @@ router.get('/eleves', requireAdmin, async (req, res) => {
     }
 
     const eleves = await db.all(
-      'SELECT id, username, created_at, email, nom, prenom, role FROM users WHERE classe_id = ?',
+      'SELECT id, username, created_at, email, nom, prenom, role, last_login_at FROM users WHERE classe_id = ?',
       [classeId]
     );
     res.json(eleves);
@@ -204,6 +204,49 @@ router.delete('/eleves/:id', requireAdmin, async (req, res) => {
     res.json({ success: true, message: 'Élève supprimé' });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la suppression de l\'élève' });
+  }
+});
+
+// Récupérer la classe de l'admin connecté
+router.get('/classe', requireAdmin, async (req, res) => {
+  try {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
+      return res.status(400).json({ error: 'Admin non associé à une classe' });
+    }
+
+    const classe = await db.get('SELECT id, nom FROM classes WHERE id = ?', [classeId]);
+    if (!classe) {
+      return res.status(404).json({ error: 'Classe introuvable' });
+    }
+
+    res.json(classe);
+  } catch (error) {
+    console.error('Error fetching classe:', error);
+    res.status(500).json({ error: 'Erreur lors de la récupération de la classe' });
+  }
+});
+
+// Renommer la classe de l'admin connecté
+router.put('/classe', requireAdmin, express.json(), async (req, res) => {
+  const { nom } = req.body;
+
+  if (!nom || !nom.trim()) {
+    return res.status(400).json({ error: 'Nom de classe requis' });
+  }
+
+  try {
+    const classeId = req.user.classe_id;
+    if (!classeId) {
+      return res.status(400).json({ error: 'Admin non associé à une classe' });
+    }
+
+    await db.run('UPDATE classes SET nom = ? WHERE id = ?', [nom.trim(), classeId]);
+
+    res.json({ success: true, message: 'Classe renommée avec succès' });
+  } catch (error) {
+    console.error('Error renaming classe:', error);
+    res.status(500).json({ error: 'Erreur lors du renommage de la classe' });
   }
 });
 

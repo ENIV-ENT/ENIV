@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const db = require("../models/dbHelper");
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const LAST_LOGIN_THROTTLE_MS = 5 * 60 * 1000;
 
 // Helper pour extraire et vérifier le token
 const verifyToken = async (req) => {
@@ -27,6 +28,12 @@ const verifyToken = async (req) => {
   if (!user) {
     return null;
   }
+
+  const lastLoginAt = user.last_login_at ? new Date(user.last_login_at).getTime() : 0;
+  if (Date.now() - lastLoginAt > LAST_LOGIN_THROTTLE_MS) {
+    db.run('UPDATE users SET last_login_at = UTC_TIMESTAMP() WHERE id = ?', [user.id]).catch(() => {});
+  }
+
   return user;
 };
 
