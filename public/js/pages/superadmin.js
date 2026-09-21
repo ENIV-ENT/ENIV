@@ -218,6 +218,12 @@ function renderClasses() {
     item.innerHTML = `
       <div class="list-item-info">
         <h3>${escapeHTML(classe.nom)}</h3>
+        <label class="checkbox-container">
+          <input type="checkbox" class="premium-classe-checkbox" data-id="${
+            classe.id
+          }" ${classe.premium ? "checked" : ""}>
+          QCM autorisés (génération gratuite)
+        </label>
       </div>
       <div class="list-item-actions">
         <button class="btn-secondary edit-classe-btn" data-id="${
@@ -240,6 +246,28 @@ function renderClasses() {
   document.querySelectorAll(".delete-classe-btn").forEach((btn) => {
     btn.addEventListener("click", () => deleteClasse(parseInt(btn.dataset.id)));
   });
+
+  document.querySelectorAll(".premium-classe-checkbox").forEach((checkbox) => {
+    checkbox.addEventListener("change", () =>
+      toggleClassePremium(parseInt(checkbox.dataset.id), checkbox.checked, checkbox)
+    );
+  });
+}
+
+async function toggleClassePremium(id, premium, checkbox) {
+  const data = await apiCall(`/api/superadmin/classes/${id}/premium`, {
+    method: "PUT",
+    body: JSON.stringify({ premium }),
+  });
+
+  if (data.error) {
+    checkbox.checked = !premium;
+    await showAlert(data.error, "Erreur");
+    return;
+  }
+
+  const classe = classes.find((c) => c.id === id);
+  if (classe) classe.premium = premium;
 }
 
 function openEditClasseModal(id) {

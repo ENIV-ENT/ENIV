@@ -1073,11 +1073,14 @@ async function loadQuizStatus(devoirId) {
         <div><div style="font-weight:600;color:#2196f3;">Quiz disponible</div>
         <div style="font-size:0.85rem;color:#666;">Réviser avec un questionnaire interactif</div></div>
         <button onclick="startQuiz(${devoirId})" class="btn-primary" style="white-space:nowrap;">S'entraîner</button></div>`;
-    } else {
+    } else if (status.quizEnabled) {
       html += `<div style="display:flex;justify-content:space-between;align-items:center;">
         <div><div style="font-weight:600;color:#2196f3;">Documents disponibles</div>
         <div style="font-size:0.85rem;color:#666;">Générer 20-100 questions avec IA</div></div>
         <button onclick="generateQuiz(${devoirId})" class="btn-primary" style="white-space:nowrap;">Générer Quiz</button></div>`;
+    } else {
+      container.innerHTML = '';
+      return;
     }
 
     html += '</div>';

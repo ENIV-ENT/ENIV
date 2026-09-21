@@ -510,13 +510,18 @@ router.get('/:id/quiz-status', async (req, res) => {
     }
 
     const devoir = await db.get(
-      'SELECT id FROM devoirs WHERE id = ? AND classe_id = ?',
+      `SELECT d.id, c.premium as classe_premium
+       FROM devoirs d
+       LEFT JOIN classes c ON d.classe_id = c.id
+       WHERE d.id = ? AND d.classe_id = ?`,
       [req.params.id, classeId]
     );
 
     if (!devoir) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
+
+    const quizEnabled = !!req.user.premium || !!devoir.classe_premium;
 
     // Vérifier s'il y a des fichiers
     const fichiers = await db.all(
@@ -528,7 +533,8 @@ router.get('/:id/quiz-status', async (req, res) => {
       return res.json({
         hasDocuments: false,
         hasQuiz: false,
-        isGenerating: false
+        isGenerating: false,
+        quizEnabled
       });
     }
 
@@ -548,7 +554,7 @@ router.get('/:id/quiz-status', async (req, res) => {
       hasDocuments: true,
       hasQuiz: !!quiz,
       isGenerating: generation && generation.status === 'pending',
-      isPremium: !!req.user.premium
+      quizEnabled
     });
   } catch (error) {
     console.error(error);
@@ -565,15 +571,20 @@ router.post('/:id/generate-quiz', express.json(), async (req, res) => {
     }
 
     const devoir = await db.get(
-      `SELECT d.*, m.nom as matiere_nom
+      `SELECT d.*, m.nom as matiere_nom, c.premium as classe_premium
        FROM devoirs d
        LEFT JOIN matieres m ON d.matiere_id = m.id
+       LEFT JOIN classes c ON d.classe_id = c.id
        WHERE d.id = ? AND d.classe_id = ?`,
       [req.params.id, classeId]
     );
 
     if (!devoir) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
+    }
+
+    if (!req.user.premium && !devoir.classe_premium) {
+      return res.status(403).json({ error: 'La génération de quiz n\'est pas activée pour votre classe' });
     }
 
     // Vérifier s'il y a des documents

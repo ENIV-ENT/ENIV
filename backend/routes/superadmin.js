@@ -50,6 +50,18 @@ router.put('/classes/:id', requireSuperAdmin, express.json(), async (req, res) =
   }
 });
 
+router.put('/classes/:id/premium', requireSuperAdmin, express.json(), async (req, res) => {
+  const premium = req.body.premium === true ? 1 : 0;
+
+  try {
+    await db.run('UPDATE classes SET premium = ? WHERE id = ?', [premium, req.params.id]);
+    res.json({ success: true, message: 'Statut premium mis à jour' });
+  } catch (error) {
+    console.error('Error updating class premium status:', error);
+    res.status(500).json({ error: 'Erreur lors de la mise à jour du statut premium' });
+  }
+});
+
 router.delete('/classes/:id', requireSuperAdmin, async (req, res) => {
   try {
     await db.run('DELETE FROM classes WHERE id = ?', [req.params.id]);
