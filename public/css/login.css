@@ -7,6 +7,19 @@
   box-sizing: border-box;
 }
 
+/* Masque visuellement un label tout en le gardant accessible aux lecteurs d'écran */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 :root {
   --primary: #4a90e2;
   --primary-dark: #357abd;

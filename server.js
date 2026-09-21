@@ -81,9 +81,7 @@ app.get('/devoir-pdf', (req, res) => {
 });
 
 app.get('/*splat', (req, res) => {
-  if (!req.path.startsWith('/api') && !req.path.startsWith('/ws') && !req.path.startsWith('/js') && !req.path.startsWith('/css') && !req.path.startsWith('/uploads') && !req.path.startsWith('/vendor')) {
-    res.redirect('/');
-  }
+  res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
 });
 
 const PORT = process.env.NODE_ENV === 'development' ? 3000 : 3650;

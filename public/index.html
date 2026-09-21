@@ -3,8 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow">
     <title>Eniv - Connexion</title>
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Eniv">
+    <meta property="og:title" content="Eniv - Connexion">
+    <meta property="og:description" content="Connectez-vous à Eniv, l'ENT léger pour la gestion des devoirs.">
+    <meta property="og:image" content="https://app.eniv.fr/images/og-image.png">
+    <meta name="twitter:card" content="summary">
     <link rel="icon" type="image/x-icon" href="/images/logo.ico">
+    <link rel="apple-touch-icon" href="/images/logo.png">
+    <meta name="theme-color" content="#4a90e2">
     <link rel="stylesheet" href="/css/login.css?v=2" />
     <link rel="stylesheet" href="/css/loading.css?v=3" />
   </head>
@@ -16,16 +25,26 @@
     <div class="login-container">
       <h1>Eniv</h1>
       <form id="login-form">
-        <input type="text" id="username" placeholder="Nom d'utilisateur ou Email" />
-        <input type="password" id="password" placeholder="Mot de passe" />
+        <label for="username" class="sr-only">Nom d'utilisateur ou Email</label>
+        <input type="text" id="username" name="username" placeholder="Nom d'utilisateur ou Email" autocomplete="username" />
+        <label for="password" class="sr-only">Mot de passe</label>
+        <input type="password" id="password" name="password" placeholder="Mot de passe" autocomplete="current-password" />
         <button type="submit">Connexion</button>
-        <div id="login-error" class="error"></div>
+        <div id="login-error" class="error" role="alert" aria-live="polite"></div>
       </form>
       <div class="forgot-password-container">
         <a href="#" id="forgot-password-link">Mot de passe oublié ?</a>
       </div>
       <div class="forgot-password-container" style="margin-top: 0.5rem;">
         <a href="/register">Créer un compte</a>
+      </div>
+      <div class="forgot-password-container" style="margin-top: 0.5rem;">
+        <a href="https://eniv.fr/">Découvrir Eniv</a>
+      </div>
+      <div class="forgot-password-container" style="margin-top: 1.5rem; font-size: 0.8rem;">
+        <a href="https://eniv.fr/mentions-legales">Mentions légales</a> ·
+        <a href="https://eniv.fr/politique-confidentialite">Confidentialité</a> ·
+        <a href="https://eniv.fr/cgu">CGU</a>
       </div>
     </div>
 

@@ -3,12 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
   <title>Eniv - Inscription</title>
   <link rel="icon" type="image/x-icon" href="/images/logo.ico">
   <link rel="stylesheet" href="/css/register.css?v=2">
   <link rel="stylesheet" href="/css/loading.css?v=3">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" /></noscript>
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
   <div id="loading-screen">
@@ -233,6 +235,12 @@
         <a href="/" class="btn-primary" style="display: inline-block; margin-top: 20px;">Se connecter</a>
       </div>
     </div>
+  </div>
+
+  <div style="text-align: center; padding: 1.5rem 1rem; font-size: 0.8rem; opacity: 0.7;">
+    <a href="https://eniv.fr/mentions-legales">Mentions légales</a> ·
+    <a href="https://eniv.fr/politique-confidentialite">Confidentialité</a> ·
+    <a href="https://eniv.fr/cgu">CGU</a>
   </div>
 
   <script type="module" src="/js/pages/register.js?v=3"></script>
