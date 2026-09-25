@@ -23,29 +23,55 @@
 
   <link rel="icon" type="image/x-icon" href="/images/logo.ico">
   <link rel="apple-touch-icon" href="/images/logo.png">
+  <meta name="robots" content="index, follow, max-image-preview:large">
   <meta name="theme-color" content="#4a90e2">
   <link rel="stylesheet" href="/css/style.css">
 
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "Eniv",
-    "applicationCategory": "EducationalApplication",
-    "operatingSystem": "Web",
-    "url": "https://eniv.fr/",
-    "description": "Eniv est un ENT léger pour la gestion des devoirs : suivi des devoirs, quiz générés automatiquement et notifications en temps réel pour élèves, enseignants et administrateurs de classe.",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "EUR"
-    }
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://eniv.fr/#website",
+        "name": "Eniv",
+        "alternateName": ["eniv.fr", "Eniv ENT"],
+        "url": "https://eniv.fr/",
+        "inLanguage": "fr-FR",
+        "publisher": { "@id": "https://eniv.fr/#organization" }
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://eniv.fr/#organization",
+        "name": "Eniv",
+        "url": "https://eniv.fr/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://eniv.fr/images/logo.png"
+        }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://eniv.fr/#app",
+        "name": "Eniv",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Web",
+        "url": "https://app.eniv.fr/",
+        "description": "Eniv est un ENT léger pour la gestion des devoirs : suivi des devoirs, quiz générés automatiquement et notifications en temps réel pour élèves, enseignants et administrateurs de classe.",
+        "publisher": { "@id": "https://eniv.fr/#organization" },
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "EUR"
+        }
+      }
+    ]
   }
   </script>
 </head>
 <body>
   <header>
-    <a href="/" class="logo"><img src="/images/logo.png" alt=""> Eniv</a>
+    <a href="/" class="logo"><img src="/images/logo.png" alt="" width="32" height="32"> Eniv</a>
     <nav>
       <a href="https://app.eniv.fr/">Se connecter</a>
       <a href="https://app.eniv.fr/register" class="btn btn-primary">Créer un compte</a>
@@ -102,6 +128,30 @@
       </div>
     </section>
 
+    <section class="faq">
+      <h2>Questions fréquentes</h2>
+      <details>
+        <summary>Qu'est-ce qu'Eniv ?</summary>
+        <p>Eniv est un espace numérique de travail (ENT) léger, pensé pour une seule chose : le suivi des devoirs d'une classe. Les enseignants publient les devoirs, les élèves les retrouvent au même endroit et sont notifiés en temps réel.</p>
+      </details>
+      <details>
+        <summary>Eniv est-il gratuit ?</summary>
+        <p>Oui, la création de compte et le suivi des devoirs sont gratuits. La génération automatique de quiz est incluse dans les offres premium.</p>
+      </details>
+      <details>
+        <summary>Comment fonctionnent les quiz de révision ?</summary>
+        <p>À partir d'un devoir ou d'un document PDF, Eniv génère un QCM de révision que les élèves peuvent faire pour s'entraîner avant un contrôle.</p>
+      </details>
+      <details>
+        <summary>Faut-il installer une application ?</summary>
+        <p>Non. Eniv fonctionne directement dans le navigateur, sur ordinateur comme sur téléphone, à l'adresse app.eniv.fr.</p>
+      </details>
+      <details>
+        <summary>Eniv remplace-t-il l'ENT de mon établissement ?</summary>
+        <p>Non, Eniv est un outil complémentaire, centré sur les devoirs. Il peut être utilisé par une classe, un groupe d'élèves ou un enseignant, sans démarche de l'établissement.</p>
+      </details>
+    </section>
+
     <section class="cta">
       <h2>Prêt à essayer Eniv ?</h2>
       <p>La création de compte est gratuite et prend moins d'une minute.</p>
@@ -112,10 +162,10 @@
   <footer>
     <p>&copy; 2026 Eniv &middot; <a href="https://app.eniv.fr/">Se connecter</a></p>
     <p class="legal-links">
-      <a href="/mentions-legales">Mentions légales</a>&middot;
-      <a href="/politique-confidentialite">Confidentialité</a>&middot;
-      <a href="/politique-cookies">Cookies</a>&middot;
-      <a href="/cgu">CGU</a>
+      <a href="/mentions-legales/">Mentions légales</a>&middot;
+      <a href="/politique-confidentialite/">Confidentialité</a>&middot;
+      <a href="/politique-cookies/">Cookies</a>&middot;
+      <a href="/cgu/">CGU</a>
     </p>
   </footer>
 </body>

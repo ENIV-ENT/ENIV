@@ -189,3 +189,13 @@ footer .legal-links a { margin: 0 0.5rem; }
 }
 .legal-content tbody tr:nth-child(even) { background: var(--bg); }
 .legal-content tbody tr:last-child td { border-bottom: none; }
+
+.faq details {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-alt);
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+.faq summary { cursor: pointer; font-weight: 600; }
+.faq details p { margin: 0.75rem 0 0; }
