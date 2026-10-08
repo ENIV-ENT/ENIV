@@ -25,6 +25,27 @@ export async function apiCall(url, options = {}) {
   }
 }
 
+// Le cache hors ligne des réponses API (voir /sw.js) ne distingue pas les
+// utilisateurs : il doit être vidé dès que le compte connecté change.
+export async function clearApiCache() {
+  try {
+    if ('caches' in window) await caches.delete('eniv-api');
+  } catch {
+    // Cache indisponible (navigation privée...) : rien à vider.
+  }
+}
+
+// Cookie indicateur partagé avec eniv.fr : il ne contient aucun secret (le
+// jeton reste dans localStorage), il dit seulement « connecté sur ce navigateur »
+// pour que la vitrine renvoie directement vers l'app (voir public-site/.htaccess).
+const SESSION_HINT_COOKIE = 'eniv_session';
+
+function setSessionHint(loggedIn) {
+  if (location.hostname !== 'eniv.fr' && !location.hostname.endsWith('.eniv.fr')) return;
+  const maxAge = loggedIn ? 60 * 60 * 24 * 365 : 0;
+  document.cookie = `${SESSION_HINT_COOKIE}=1; Domain=eniv.fr; Path=/; Max-Age=${maxAge}; Secure; SameSite=Lax`;
+}
+
 function setLoadingScreenVisible(visible) {
   const loadingScreen = document.getElementById('loading-screen');
   if (loadingScreen) {
@@ -71,8 +92,10 @@ export async function checkAuth() {
 
   if (!data || !data.authenticated) {
     const publicPaths = ["/", "/register/"];
+    setSessionHint(false);
     if (!publicPaths.includes(normalizePath(window.location.pathname))) {
       localStorage.removeItem('token');
+      await clearApiCache();
       window.location.href = "/";
       return { authenticated: false };
     }
@@ -81,6 +104,7 @@ export async function checkAuth() {
     return { authenticated: false };
   }
 
+  setSessionHint(true);
   const expectedPaths = getExpectedPaths(data.role);
   const currentPath = normalizePath(window.location.pathname);
 
@@ -96,5 +120,7 @@ export async function checkAuth() {
 export async function logout() {
   await apiCall('/api/auth/logout', { method: 'POST' });
   localStorage.removeItem('token');
+  setSessionHint(false);
+  await clearApiCache();
   window.location.href = '/';
 }

@@ -23,18 +23,27 @@
 
   <main class="legal-content">
     <h1>Politique de cookies</h1>
-    <p class="updated">Dernière mise à jour : 21 septembre 2026</p>
+    <p class="updated">Dernière mise à jour : 5 octobre 2026</p>
 
     <h2>1. Le site vitrine (eniv.fr)</h2>
     <p>
       Ce site vitrine ne dépose <strong>aucun cookie</strong>. Il ne contient ni mesure d'audience, ni publicité, ni traceur tiers.
+      Il lit seulement le cookie <code>eniv_session</code> décrit ci-dessous, pour renvoyer directement vers l'application
+      les visiteurs déjà connectés.
     </p>
 
     <h2>2. L'application (app.eniv.fr)</h2>
     <p>
-      L'application ne dépose pas non plus de cookie. Pour vous garder connecté, elle utilise le stockage local de votre
-      navigateur (<code>localStorage</code>), qui conserve un jeton de connexion (JWT) uniquement sur votre appareil. Cette
-      donnée n'est jamais transmise à des tiers et est supprimée lorsque vous vous déconnectez.
+      Pour vous garder connecté, l'application utilise le stockage local de votre navigateur (<code>localStorage</code>),
+      qui conserve un jeton de connexion (JWT) uniquement sur votre appareil. Cette donnée n'est jamais transmise à des tiers
+      et est supprimée lorsque vous vous déconnectez.
+    </p>
+    <p>
+      Une fois connecté, l'application dépose un unique cookie technique, <code>eniv_session</code> (valeur <code>1</code>,
+      durée d'un an, domaine <code>eniv.fr</code>). Il ne contient aucune donnée personnelle ni le jeton de connexion : il
+      indique seulement qu'une session est ouverte sur ce navigateur, afin que eniv.fr vous amène directement sur
+      l'application. Il est supprimé à la déconnexion. Strictement nécessaire au fonctionnement du service, il est
+      dispensé de consentement.
     </p>
     <p>
       Techniquement, le <code>localStorage</code> n'est pas un cookie : il n'est pas envoyé automatiquement au serveur à
@@ -50,7 +59,8 @@
 
     <h2>4. Aucun consentement à recueillir</h2>
     <p>
-      Eniv n'utilisant ni cookie de mesure d'audience ni cookie publicitaire, aucun bandeau de consentement n'est affiché.
+      Eniv n'utilisant ni cookie de mesure d'audience ni cookie publicitaire (seulement le cookie technique ci-dessus),
+      aucun bandeau de consentement n'est affiché.
       Cette page sera mise à jour si cela venait à changer.
     </p>
 

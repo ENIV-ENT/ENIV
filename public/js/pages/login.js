@@ -1,4 +1,4 @@
-import { apiCall, checkAuth } from "../utils/api.js?v=3";
+import { apiCall, checkAuth, clearApiCache } from "../utils/api.js?v=4";
 
 const loginForm = document.getElementById("login-form");
 const loginError = document.getElementById("login-error");
@@ -40,6 +40,7 @@ async function init() {
       if (data.token) {
         localStorage.setItem('token', data.token);
       }
+      await clearApiCache();
       switch (data.role) {
         case "superadmin":
           window.location.href = "/superadmin/dashboard/";

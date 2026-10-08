@@ -1,4 +1,4 @@
-import { apiCall, checkAuth, logout } from "../utils/api.js?v=3";
+import { apiCall, checkAuth, logout } from "../utils/api.js?v=4";
 import { escapeHTML, toggleModal, setupModalClose, showAlert, showConfirm } from "../utils/dom.js?v=2";
 
 let classes = [];

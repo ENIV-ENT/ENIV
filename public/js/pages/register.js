@@ -1,4 +1,4 @@
-import { apiCall } from '../utils/api.js?v=3';
+import { apiCall } from '../utils/api.js?v=4';
 import { escapeHTML, showAlert } from '../utils/dom.js?v=2';
 
 let currentStep = 1;

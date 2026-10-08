@@ -1,4 +1,4 @@
-import { apiCall, checkAuth, logout } from '../utils/api.js?v=3';
+import { apiCall, checkAuth, logout } from '../utils/api.js?v=4';
 import { showAlert } from '../utils/dom.js?v=2';
 
 async function init() {

@@ -1,4 +1,4 @@
-import { apiCall, checkAuth, logout } from '../utils/api.js?v=3';
+import { apiCall, checkAuth, logout } from '../utils/api.js?v=4';
 import { escapeHTML, localDate, formatDate, toInputDate, toggleModal, setupModalClose, showAlert, showConfirm, getContrastColor } from '../utils/dom.js?v=2';
 import { renderMarkdown, hydrateMarkdownImages } from '../utils/markdown.js?v=2';
 import { connectRealtime, getRealtimeId } from '../utils/realtime.js?v=1';
