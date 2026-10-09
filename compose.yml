@@ -15,6 +15,13 @@ services:
       # fichiers déposés par les utilisateurs (Caddy sert /uploads directement depuis ce dossier)
       - ./data/uploads:/app/backend/uploads
     networks: [db]
+    healthcheck:
+      # route publique qui interroge la base
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3650/api/registration/etablissements').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
 
 networks:
   db:
