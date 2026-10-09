@@ -16,6 +16,7 @@
   "license": "ISC",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.132.1",
+    "@getbrevo/brevo": "^6.0.3",
     "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.6",
     "express": "^5.2.1",
@@ -27,7 +28,6 @@
     "mysql2": "^3.24.5",
     "node-cron": "^4.2.1",
     "pdf-parse": "^2.4.5",
-    "sib-api-v3-sdk": "^8.5.0",
     "ws": "^8.22.0"
   },
   "devDependencies": {

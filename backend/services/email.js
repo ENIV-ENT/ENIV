@@ -1,12 +1,8 @@
 require('dotenv').config();
-const SibApiV3Sdk = require('sib-api-v3-sdk');
+const { BrevoClient } = require('@getbrevo/brevo');
 
 // Configuration du client Brevo
-const defaultClient = SibApiV3Sdk.ApiClient.instance;
-const apiKey = defaultClient.authentications['api-key'];
-apiKey.apiKey = process.env.BREVO_API_KEY;
-
-const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+const brevo = new BrevoClient({ apiKey: process.env.BREVO_API_KEY });
 
 // --- Shared email helpers ---
 
@@ -136,7 +132,7 @@ async function sendEmail(recipientEmail, subject, htmlContent, textContent, logL
   };
 
   try {
-    const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    const result = await brevo.transactionalEmails.sendTransacEmail(sendSmtpEmail);
     console.log(`${logLabel} envoyé avec succès à:`, recipientEmail);
     return { success: true, messageId: result.messageId };
   } catch (error) {
