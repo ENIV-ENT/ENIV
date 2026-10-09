@@ -66,7 +66,8 @@ router.get('/me', async (req, res) => {
   }
 
   if (!user) {
-    return res.json({ authenticated: false });
+    // 401 sans champ "error" : checkAuth() (public/js/utils/api.js) déconnecte et redirige
+    return res.status(401).json({ authenticated: false });
   }
 
   try {
