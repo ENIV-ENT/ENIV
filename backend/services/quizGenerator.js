@@ -3,7 +3,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const Groq = require('groq-sdk');
 const fs = require('fs');
 const path = require('path');
-const pdfParse = require('pdf-parse');
+const { PDFParse } = require('pdf-parse');
 const { convertToPDF } = require('./fileConverter');
 
 /**
@@ -13,10 +13,15 @@ async function extractTextFromPDF(filePath) {
   try {
     const dataBuffer = fs.readFileSync(filePath);
     
-    // pdf-parse v1.1.1 : fonction directe qui retourne { text: "..." }
-    const data = await pdfParse(dataBuffer);
-    
-    const text = data.text || '';
+    // pdf-parse 2 : classe PDFParse ; getText() retourne { text: "..." }, destroy() libère le document
+    const parser = new PDFParse({ data: dataBuffer });
+    let text = '';
+    try {
+      const data = await parser.getText();
+      text = data.text || '';
+    } finally {
+      await parser.destroy();
+    }
     
     // Nettoyer et vérifier le texte
     const cleanText = text.trim();

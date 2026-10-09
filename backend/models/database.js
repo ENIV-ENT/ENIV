@@ -12,7 +12,7 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  timezone: "utc",
+  timezone: "Z", // UTC ; "utc" n'est pas une valeur reconnue par mysql2
 });
 
 // Tester la connexion
