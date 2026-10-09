@@ -1,0 +1,13 @@
+.git
+.github
+.claude
+node_modules
+.env
+.env.*
+backend/uploads
+backend/ent.db*
+data
+*.log
+compose.yaml
+compose.yml
+deploy.sh

@@ -39,3 +39,6 @@ sessions/
 .flask_secret
 .claude/settings.local.json
 a.out
+
+# données du VPS (bind mounts)
+/data/

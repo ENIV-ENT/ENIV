@@ -1,0 +1,21 @@
+# Production sur le VPS (le compose.yaml du dépôt reste l'environnement de test local).
+services:
+  eniv:
+    build: .
+    image: eniv:local
+    container_name: eniv
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TZ: UTC
+    ports:
+      # Caddy relaie /api, /ws et /vendor d'app.eniv.fr vers ce port
+      - "127.0.0.1:3650:3650"
+    volumes:
+      # fichiers déposés par les utilisateurs (Caddy sert /uploads directement depuis ce dossier)
+      - ./data/uploads:/app/backend/uploads
+    networks: [db]
+
+networks:
+  db:
+    external: true
