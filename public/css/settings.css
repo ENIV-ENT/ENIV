@@ -268,16 +268,247 @@ html.dark-theme .form-container {
   display: none;
 }
 
-.help-text {
+/* Fenêtres modales (showAlert, showConfirm et liens MCP) */
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.modal.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: var(--surface);
+  color: var(--text);
+  padding: 1.5rem;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.modal-header h2 {
+  font-size: 1.25rem;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--secondary);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.modal-close:hover {
+  background: var(--light);
+}
+
+.modal-actions,
+.modal-content .form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.modal-content input {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 1rem;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.modal-content input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.15);
+}
+
+.modal-content .form-group + .form-group {
+  margin-top: 1rem;
+}
+
+.optional {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--secondary);
+}
+
+.field-hint {
+  color: var(--secondary);
+  font-size: 0.8rem;
+}
+
+/* Section Assistant IA */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.section-header h2 {
+  margin-bottom: 0;
+}
+
+.section-intro {
+  color: var(--secondary);
   font-size: 0.9rem;
   margin-bottom: 1rem;
 }
 
-.help-text code {
-  word-break: break-all;
-  background: var(--light);
-  padding: 0.1rem 0.3rem;
+html.dark-theme .section-intro,
+html.dark-theme .token-meta,
+html.dark-theme .field-hint,
+html.dark-theme .optional {
+  color: #a0a0a0;
+}
+
+.token-list {
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.token-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+}
+
+.token-item + .token-item {
+  border-top: 1px solid var(--border);
+}
+
+.token-item.expired .token-name {
+  color: var(--secondary);
+}
+
+.token-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.token-meta {
+  color: var(--secondary);
+  font-size: 0.8rem;
+}
+
+.token-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  vertical-align: middle;
+  background: rgba(220, 53, 69, 0.12);
+  color: var(--danger);
+}
+
+.token-actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0.35rem 0.6rem;
   border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--primary);
+}
+
+.btn-link:hover {
+  background: var(--light);
+}
+
+.btn-link.danger {
+  color: var(--danger);
+}
+
+.token-empty {
+  padding: 1.25rem 1rem;
+  text-align: center;
+  color: var(--secondary);
+  font-size: 0.9rem;
+}
+
+.notice {
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  background: rgba(255, 193, 7, 0.15);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.copy-field {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.copy-field input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+}
+
+.howto {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+}
+
+.howto p + p {
+  margin-top: 0.4rem;
+}
+
+.howto code {
+  display: block;
+  margin-top: 0.3rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  background: var(--light);
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+@media (max-width: 600px) {
+  .token-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
 }
 
 /* Espacement entre les formulaires */

@@ -12,7 +12,7 @@
   <script src="/js/pwa.js?v=1" defer></script>
   <!-- Doit rester synchrone et avant les styles : applique le thème avant le premier rendu -->
   <script src="/js/theme-init.js?v=1"></script>
-  <link rel="stylesheet" href="/css/settings.css?v=4">
+  <link rel="stylesheet" href="/css/settings.css?v=5">
   <link rel="stylesheet" href="/css/loading.css?v=3">
 </head>
 <body>
@@ -127,31 +127,63 @@
     </form>
 
     <section id="mcp-section" class="form-container">
-      <h2>Assistant IA (MCP)</h2>
-      <p class="help-text">
-        Connectez Claude, ChatGPT ou un autre assistant compatible MCP à vos devoirs : il pourra les lister,
-        lire les documents joints, marquer vos devoirs comme faits et en ajouter pour la classe.
-        Le lien ci-dessous donne accès à votre compte : ne le partagez pas.
+      <div class="section-header">
+        <h2>Assistant IA</h2>
+        <button type="button" id="mcp-new-btn" class="btn-primary">Nouveau lien</button>
+      </div>
+      <p class="section-intro">
+        Connectez Claude, ChatGPT ou un autre assistant compatible MCP à vos devoirs.
+        Chaque lien donne accès à votre compte : ne le partagez pas.
       </p>
-      <p id="mcp-status" class="help-text"></p>
-      <div id="mcp-new-token" class="hidden">
-        <div class="form-group">
-          <label for="mcp-url" class="form-label">URL du serveur MCP (affichée une seule fois)</label>
-          <input type="text" id="mcp-url" readonly>
-        </div>
-        <p class="help-text">
-          Claude : Paramètres &gt; Connecteurs &gt; Ajouter un connecteur personnalisé, puis collez cette URL.
-          Claude Code : <code id="mcp-cli"></code>
-        </p>
-      </div>
-      <div class="form-actions">
-        <button type="button" id="mcp-generate-btn" class="btn-primary">Générer un lien</button>
-        <button type="button" id="mcp-copy-btn" class="btn-secondary hidden">Copier</button>
-        <button type="button" id="mcp-revoke-btn" class="btn-danger hidden">Révoquer</button>
-      </div>
+      <ul id="mcp-list" class="token-list"></ul>
     </section>
   </div>
 
-  <script type="module" src="/js/pages/settings.js?v=6"></script>
+  <div id="mcp-form-modal" class="modal">
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h2 id="mcp-form-title">Nouveau lien</h2>
+        <button type="button" class="modal-close" id="mcp-form-close">&times;</button>
+      </div>
+      <form id="mcp-form">
+        <div class="form-group">
+          <label for="mcp-nom" class="form-label">Nom</label>
+          <input type="text" id="mcp-nom" maxlength="100" placeholder="Ex. Claude sur mon ordinateur" required>
+        </div>
+        <div class="form-group">
+          <label for="mcp-expiration" class="form-label">Expiration <span class="optional">(facultatif)</span></label>
+          <input type="date" id="mcp-expiration">
+          <small class="field-hint">Sans date, le lien reste valable jusqu'à sa révocation.</small>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" id="mcp-form-cancel">Annuler</button>
+          <button type="submit" class="btn-primary" id="mcp-form-submit">Créer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="mcp-created-modal" class="modal">
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h2>Lien créé</h2>
+      </div>
+      <p class="notice">Copiez ce lien maintenant : il ne sera plus jamais affiché.</p>
+      <div class="copy-field">
+        <input type="text" id="mcp-url" readonly>
+        <button type="button" id="mcp-copy-btn" class="btn-primary">Copier</button>
+      </div>
+      <div class="howto">
+        <p><strong>Claude</strong> : Paramètres › Connecteurs › Ajouter un connecteur personnalisé, puis collez le lien.</p>
+        <p><strong>Claude Code</strong> :</p>
+        <code id="mcp-cli"></code>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-primary" id="mcp-created-done">Terminé</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/pages/settings.js?v=7"></script>
 </body>
 </html>

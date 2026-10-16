@@ -4,38 +4,62 @@ const db = require('../models/dbHelper');
 /**
  * Jetons d'accès au serveur MCP (/api/mcp).
  *
- * Le jeton n'est montré qu'une fois, à sa création : seule son empreinte SHA-256
- * est stockée. Un utilisateur a au plus un jeton ; en générer un nouveau
- * révoque l'ancien.
+ * Un utilisateur peut avoir plusieurs jetons, chacun nommé et éventuellement
+ * limité dans le temps. Le jeton n'est montré qu'une fois, à sa création :
+ * seule son empreinte SHA-256 est stockée.
  */
 
 const TOKEN_PREFIX = 'eniv_';
 const LAST_USED_THROTTLE_MINUTES = 5;
+const MAX_TOKENS_PER_USER = 10;
 
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-async function createToken(userId) {
-  const token = TOKEN_PREFIX + crypto.randomBytes(32).toString('base64url');
-  await db.run(
-    `INSERT INTO mcp_tokens (user_id, token_hash) VALUES (?, ?)
-     ON DUPLICATE KEY UPDATE token_hash = VALUES(token_hash), created_at = CURRENT_TIMESTAMP, last_used_at = NULL`,
-    [userId, hashToken(token)]
+async function listTokens(userId) {
+  return db.all(
+    `SELECT id, nom, created_at, last_used_at, expires_at,
+            (expires_at IS NOT NULL AND expires_at <= UTC_TIMESTAMP()) AS expired
+     FROM mcp_tokens WHERE user_id = ? ORDER BY created_at DESC, id DESC`,
+    [userId]
   );
-  return token;
 }
 
-async function revokeToken(userId) {
-  await db.run('DELETE FROM mcp_tokens WHERE user_id = ?', [userId]);
-}
-
-async function getTokenInfo(userId) {
-  return db.get('SELECT created_at, last_used_at FROM mcp_tokens WHERE user_id = ?', [userId]);
+async function countTokens(userId) {
+  const row = await db.get('SELECT COUNT(*) AS count FROM mcp_tokens WHERE user_id = ?', [userId]);
+  return Number(row.count);
 }
 
 /**
- * Retrouve l'utilisateur propriétaire d'un jeton, ou null si le jeton est inconnu.
+ * @param {number} userId
+ * @param {{nom: string, expiresAt: string|null}} options - expiresAt : 'YYYY-MM-DD HH:MM:SS' UTC
+ * @returns {Promise<{id: number, token: string}>}
+ */
+async function createToken(userId, { nom, expiresAt }) {
+  const token = TOKEN_PREFIX + crypto.randomBytes(32).toString('base64url');
+  const result = await db.run(
+    'INSERT INTO mcp_tokens (user_id, nom, token_hash, expires_at) VALUES (?, ?, ?, ?)',
+    [userId, nom, hashToken(token), expiresAt]
+  );
+  return { id: result.lastInsertRowid, token };
+}
+
+async function updateToken(userId, id, { nom, expiresAt }) {
+  const result = await db.run(
+    'UPDATE mcp_tokens SET nom = ?, expires_at = ? WHERE id = ? AND user_id = ?',
+    [nom, expiresAt, id, userId]
+  );
+  return result.affectedRows > 0;
+}
+
+async function revokeToken(userId, id) {
+  const result = await db.run('DELETE FROM mcp_tokens WHERE id = ? AND user_id = ?', [id, userId]);
+  return result.affectedRows > 0;
+}
+
+/**
+ * Retrouve l'utilisateur propriétaire d'un jeton valide (connu et non expiré), ou null.
  * @param {string} token
  * @returns {Promise<Object|null>}
  */
@@ -46,7 +70,7 @@ async function findUserByToken(token) {
     `SELECT t.id AS token_id, u.*
      FROM mcp_tokens t
      JOIN users u ON u.id = t.user_id
-     WHERE t.token_hash = ?`,
+     WHERE t.token_hash = ? AND (t.expires_at IS NULL OR t.expires_at > UTC_TIMESTAMP())`,
     [hashToken(token)]
   );
   if (!row) return null;
@@ -61,4 +85,12 @@ async function findUserByToken(token) {
   return user;
 }
 
-module.exports = { createToken, revokeToken, getTokenInfo, findUserByToken };
+module.exports = {
+  MAX_TOKENS_PER_USER,
+  listTokens,
+  countTokens,
+  createToken,
+  updateToken,
+  revokeToken,
+  findUserByToken
+};

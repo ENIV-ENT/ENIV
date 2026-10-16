@@ -179,35 +179,84 @@ router.get('/user-info', requireAuth, async (req, res) => {
   }
 });
 
-// Jeton MCP (accès des assistants IA aux devoirs, voir routes/mcp.js)
-router.get('/mcp-token', requireAuth, async (req, res) => {
+// Jetons MCP (accès des assistants IA aux devoirs, voir routes/mcp.js)
+
+// Valide nom et expiration envoyés par la page des paramètres.
+// expires_at : date ISO (fin du jour choisi, heure locale du navigateur) ou null.
+function parseMcpTokenBody(body) {
+  const nom = typeof body.nom === 'string' ? body.nom.trim() : '';
+  if (!nom || nom.length > 100) {
+    return { error: 'Nom requis (100 caractères maximum)' };
+  }
+
+  if (body.expires_at === null || body.expires_at === undefined || body.expires_at === '') {
+    return { nom, expiresAt: null };
+  }
+  const date = new Date(body.expires_at);
+  if (Number.isNaN(date.getTime())) {
+    return { error: "Date d'expiration invalide" };
+  }
+  if (date.getTime() <= Date.now()) {
+    return { error: "La date d'expiration doit être dans le futur" };
+  }
+  return { nom, expiresAt: date.toISOString().slice(0, 19).replace('T', ' ') };
+}
+
+router.get('/mcp-tokens', requireAuth, async (req, res) => {
   try {
-    const info = await mcpTokens.getTokenInfo(req.session.userId);
-    res.json(info ? { exists: true, created_at: info.created_at, last_used_at: info.last_used_at } : { exists: false });
+    const tokens = await mcpTokens.listTokens(req.session.userId);
+    res.json(tokens.map(t => ({ ...t, expired: Boolean(t.expired) })));
   } catch (error) {
-    console.error('Error fetching MCP token:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération du jeton' });
+    console.error('Error listing MCP tokens:', error);
+    res.status(500).json({ error: 'Erreur lors de la récupération des liens' });
   }
 });
 
-// Génère un nouveau jeton (remplace l'ancien) ; il n'est renvoyé qu'ici, une seule fois
-router.post('/mcp-token', requireAuth, async (req, res) => {
+// Le jeton n'est renvoyé qu'ici, une seule fois
+router.post('/mcp-tokens', requireAuth, express.json(), async (req, res) => {
+  const parsed = parseMcpTokenBody(req.body || {});
+  if (parsed.error) {
+    return res.status(400).json({ error: parsed.error });
+  }
+
   try {
-    const token = await mcpTokens.createToken(req.session.userId);
-    res.json({ success: true, token });
+    if (await mcpTokens.countTokens(req.session.userId) >= mcpTokens.MAX_TOKENS_PER_USER) {
+      return res.status(400).json({ error: `${mcpTokens.MAX_TOKENS_PER_USER} liens maximum : révoquez-en un d'abord` });
+    }
+    const { id, token } = await mcpTokens.createToken(req.session.userId, parsed);
+    res.json({ success: true, id, token });
   } catch (error) {
     console.error('Error creating MCP token:', error);
-    res.status(500).json({ error: 'Erreur lors de la création du jeton' });
+    res.status(500).json({ error: 'Erreur lors de la création du lien' });
   }
 });
 
-router.delete('/mcp-token', requireAuth, async (req, res) => {
+router.put('/mcp-tokens/:id', requireAuth, express.json(), async (req, res) => {
+  const parsed = parseMcpTokenBody(req.body || {});
+  if (parsed.error) {
+    return res.status(400).json({ error: parsed.error });
+  }
+
   try {
-    await mcpTokens.revokeToken(req.session.userId);
+    if (!await mcpTokens.updateToken(req.session.userId, req.params.id, parsed)) {
+      return res.status(404).json({ error: 'Lien introuvable' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating MCP token:', error);
+    res.status(500).json({ error: 'Erreur lors de la modification du lien' });
+  }
+});
+
+router.delete('/mcp-tokens/:id', requireAuth, async (req, res) => {
+  try {
+    if (!await mcpTokens.revokeToken(req.session.userId, req.params.id)) {
+      return res.status(404).json({ error: 'Lien introuvable' });
+    }
     res.json({ success: true });
   } catch (error) {
     console.error('Error revoking MCP token:', error);
-    res.status(500).json({ error: 'Erreur lors de la révocation du jeton' });
+    res.status(500).json({ error: 'Erreur lors de la révocation du lien' });
   }
 });
 

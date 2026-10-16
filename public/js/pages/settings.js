@@ -1,5 +1,5 @@
 import { apiCall, checkAuth, logout } from '../utils/api.js?v=4';
-import { showAlert, showConfirm } from '../utils/dom.js?v=2';
+import { showAlert, showConfirm, escapeHTML, toggleModal } from '../utils/dom.js?v=2';
 
 async function init() {
   const auth = await checkAuth();
@@ -10,7 +10,7 @@ async function init() {
   loadThemePreference();
 
   await loadUserInfo();
-  await loadMcpToken();
+  await loadMcpTokens();
   await checkEmploiTempsButton();
   setupEventListeners();
 }
@@ -134,9 +134,7 @@ function setupEventListeners() {
   document.getElementById('info-form').addEventListener('submit', handleUpdateInfo);
   document.getElementById('password-form').addEventListener('submit', handleChangePassword);
 
-  document.getElementById('mcp-generate-btn').addEventListener('click', handleGenerateMcpToken);
-  document.getElementById('mcp-copy-btn').addEventListener('click', handleCopyMcpUrl);
-  document.getElementById('mcp-revoke-btn').addEventListener('click', handleRevokeMcpToken);
+  setupMcpTokens();
 }
 
 async function handleUpdateInfo(e) {
@@ -193,73 +191,157 @@ async function handleChangePassword(e) {
   }
 }
 
-// Jeton MCP : seul son état est connu après coup, le jeton lui-même n'est affiché qu'à sa création
-async function loadMcpToken() {
-  const data = await apiCall('/api/auth/mcp-token');
-  if (data.error) return;
+// Liens MCP : un jeton n'est affiché qu'une fois, à sa création ; la liste ne montre que nom et dates
+let mcpTokens = [];
+let mcpEditingId = null;
 
-  const status = document.getElementById('mcp-status');
-  const generateBtn = document.getElementById('mcp-generate-btn');
-  const revokeBtn = document.getElementById('mcp-revoke-btn');
-
-  if (data.exists) {
-    const used = data.last_used_at
-      ? `dernière utilisation le ${new Date(data.last_used_at).toLocaleString('fr-FR')}`
-      : 'jamais utilisé';
-    status.textContent = `Un lien est actif (créé le ${new Date(data.created_at).toLocaleDateString('fr-FR')}, ${used}).`;
-    generateBtn.textContent = 'Générer un nouveau lien';
-    revokeBtn.classList.remove('hidden');
-  } else {
-    status.textContent = 'Aucun lien actif.';
-    generateBtn.textContent = 'Générer un lien';
-    revokeBtn.classList.add('hidden');
-  }
+function formatDateFr(value, withTime = false) {
+  const date = new Date(value);
+  return withTime
+    ? date.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+    : date.toLocaleDateString('fr-FR');
 }
 
-async function handleGenerateMcpToken() {
-  const hasToken = !document.getElementById('mcp-revoke-btn').classList.contains('hidden');
-  if (hasToken && !await showConfirm('Le lien actuel cessera de fonctionner. Continuer ?', 'Nouveau lien')) {
+// Valeur d'un <input type="date"> pour une date ISO, dans le fuseau du navigateur
+function toDateInputValue(value) {
+  const date = new Date(value);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+async function loadMcpTokens() {
+  const data = await apiCall('/api/auth/mcp-tokens');
+  if (data.error) return;
+  mcpTokens = data;
+  renderMcpTokens();
+}
+
+function renderMcpTokens() {
+  const list = document.getElementById('mcp-list');
+
+  if (mcpTokens.length === 0) {
+    list.innerHTML = '<li class="token-empty">Aucun lien. Créez-en un pour connecter un assistant.</li>';
     return;
   }
 
-  const data = await apiCall('/api/auth/mcp-token', { method: 'POST' });
+  list.innerHTML = mcpTokens.map((token) => {
+    const meta = [`Créé le ${formatDateFr(token.created_at)}`];
+    meta.push(token.last_used_at ? `utilisé le ${formatDateFr(token.last_used_at, true)}` : 'jamais utilisé');
+    if (token.expires_at) {
+      meta.push(`${token.expired ? 'expiré le' : 'expire le'} ${formatDateFr(token.expires_at)}`);
+    }
+
+    return `
+      <li class="token-item${token.expired ? ' expired' : ''}">
+        <div>
+          <div class="token-name">${escapeHTML(token.nom)}${token.expired ? '<span class="token-badge">Expiré</span>' : ''}</div>
+          <div class="token-meta">${meta.join(' · ')}</div>
+        </div>
+        <div class="token-actions">
+          <button type="button" class="btn-link" data-action="edit" data-id="${token.id}">Modifier</button>
+          <button type="button" class="btn-link danger" data-action="revoke" data-id="${token.id}">Révoquer</button>
+        </div>
+      </li>`;
+  }).join('');
+}
+
+function setupMcpTokens() {
+  document.getElementById('mcp-new-btn').addEventListener('click', () => openMcpForm(null));
+  document.getElementById('mcp-form').addEventListener('submit', handleMcpFormSubmit);
+  document.getElementById('mcp-form-close').addEventListener('click', () => toggleModal('mcp-form-modal', false));
+  document.getElementById('mcp-form-cancel').addEventListener('click', () => toggleModal('mcp-form-modal', false));
+  document.getElementById('mcp-copy-btn').addEventListener('click', handleCopyMcpUrl);
+  document.getElementById('mcp-created-done').addEventListener('click', closeMcpCreated);
+
+  document.getElementById('mcp-list').addEventListener('click', (e) => {
+    const button = e.target.closest('button[data-action]');
+    if (!button) return;
+    const token = mcpTokens.find(t => String(t.id) === button.dataset.id);
+    if (!token) return;
+    if (button.dataset.action === 'edit') openMcpForm(token);
+    if (button.dataset.action === 'revoke') handleRevokeMcpToken(token);
+  });
+}
+
+function openMcpForm(token) {
+  mcpEditingId = token ? token.id : null;
+  document.getElementById('mcp-form-title').textContent = token ? 'Modifier le lien' : 'Nouveau lien';
+  document.getElementById('mcp-form-submit').textContent = token ? 'Enregistrer' : 'Créer';
+  document.getElementById('mcp-nom').value = token ? token.nom : '';
+
+  const expiration = document.getElementById('mcp-expiration');
+  expiration.value = token && token.expires_at ? toDateInputValue(token.expires_at) : '';
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  expiration.min = toDateInputValue(tomorrow);
+
+  toggleModal('mcp-form-modal', true);
+  document.getElementById('mcp-nom').focus();
+}
+
+async function handleMcpFormSubmit(e) {
+  e.preventDefault();
+
+  const nom = document.getElementById('mcp-nom').value.trim();
+  const day = document.getElementById('mcp-expiration').value;
+  // Le lien reste valable toute la journée choisie
+  const expires_at = day ? new Date(`${day}T23:59:59`).toISOString() : null;
+
+  const editing = mcpEditingId !== null;
+  const data = await apiCall(editing ? `/api/auth/mcp-tokens/${mcpEditingId}` : '/api/auth/mcp-tokens', {
+    method: editing ? 'PUT' : 'POST',
+    body: JSON.stringify({ nom, expires_at }),
+  });
+
   if (data.error) {
     await showAlert(data.error, 'Erreur');
     return;
   }
 
-  const url = `${window.location.origin}/api/mcp/${data.token}`;
+  toggleModal('mcp-form-modal', false);
+  if (!editing) showMcpCreated(data.token);
+  await loadMcpTokens();
+}
+
+function showMcpCreated(token) {
+  const url = `${window.location.origin}/api/mcp/${token}`;
   document.getElementById('mcp-url').value = url;
   document.getElementById('mcp-cli').textContent = `claude mcp add --transport http eniv ${url}`;
-  document.getElementById('mcp-new-token').classList.remove('hidden');
-  document.getElementById('mcp-copy-btn').classList.remove('hidden');
-  await loadMcpToken();
+  toggleModal('mcp-created-modal', true);
+}
+
+// Le lien est effacé de la page : il ne peut plus être réaffiché
+function closeMcpCreated() {
+  document.getElementById('mcp-url').value = '';
+  document.getElementById('mcp-cli').textContent = '';
+  toggleModal('mcp-created-modal', false);
 }
 
 async function handleCopyMcpUrl() {
   const input = document.getElementById('mcp-url');
+  const button = document.getElementById('mcp-copy-btn');
   try {
     await navigator.clipboard.writeText(input.value);
-    await showAlert('Lien copié', 'Succès');
+    button.textContent = 'Copié ✓';
+    setTimeout(() => { button.textContent = 'Copier'; }, 2000);
   } catch {
     input.select();
   }
 }
 
-async function handleRevokeMcpToken() {
-  if (!await showConfirm('Les assistants connectés avec ce lien perdront l\'accès. Révoquer ?', 'Révoquer le lien')) {
-    return;
-  }
+async function handleRevokeMcpToken(token) {
+  const confirmed = await showConfirm(
+    `Les assistants connectés avec « ${token.nom} » perdront l'accès.`,
+    'Révoquer le lien'
+  );
+  if (!confirmed) return;
 
-  const data = await apiCall('/api/auth/mcp-token', { method: 'DELETE' });
+  const data = await apiCall(`/api/auth/mcp-tokens/${token.id}`, { method: 'DELETE' });
   if (data.error) {
     await showAlert(data.error, 'Erreur');
     return;
   }
-
-  document.getElementById('mcp-new-token').classList.add('hidden');
-  document.getElementById('mcp-copy-btn').classList.add('hidden');
-  await loadMcpToken();
+  await loadMcpTokens();
 }
 
 init();
