@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../models/dbHelper');
 const {requireAuth, verifyToken} = require("../middleware/auth");
+const mcpTokens = require('../services/mcpTokens');
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -175,6 +176,38 @@ router.get('/user-info', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Error fetching user info:', error);
     res.status(500).json({ error: 'Erreur lors de la récupération des informations' });
+  }
+});
+
+// Jeton MCP (accès des assistants IA aux devoirs, voir routes/mcp.js)
+router.get('/mcp-token', requireAuth, async (req, res) => {
+  try {
+    const info = await mcpTokens.getTokenInfo(req.session.userId);
+    res.json(info ? { exists: true, created_at: info.created_at, last_used_at: info.last_used_at } : { exists: false });
+  } catch (error) {
+    console.error('Error fetching MCP token:', error);
+    res.status(500).json({ error: 'Erreur lors de la récupération du jeton' });
+  }
+});
+
+// Génère un nouveau jeton (remplace l'ancien) ; il n'est renvoyé qu'ici, une seule fois
+router.post('/mcp-token', requireAuth, async (req, res) => {
+  try {
+    const token = await mcpTokens.createToken(req.session.userId);
+    res.json({ success: true, token });
+  } catch (error) {
+    console.error('Error creating MCP token:', error);
+    res.status(500).json({ error: 'Erreur lors de la création du jeton' });
+  }
+});
+
+router.delete('/mcp-token', requireAuth, async (req, res) => {
+  try {
+    await mcpTokens.revokeToken(req.session.userId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error revoking MCP token:', error);
+    res.status(500).json({ error: 'Erreur lors de la révocation du jeton' });
   }
 });
 

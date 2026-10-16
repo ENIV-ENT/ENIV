@@ -140,6 +140,7 @@ async function logDevoirAction(req, { devoirId, action, details = {} }) {
 module.exports = {
   DETAILS_VERSION,
   DEVOIR_FIELDS,
+  toDateString,
   snapshotDevoir,
   diffSnapshots,
   logDevoirAction

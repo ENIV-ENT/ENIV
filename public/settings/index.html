@@ -12,7 +12,7 @@
   <script src="/js/pwa.js?v=1" defer></script>
   <!-- Doit rester synchrone et avant les styles : applique le thème avant le premier rendu -->
   <script src="/js/theme-init.js?v=1"></script>
-  <link rel="stylesheet" href="/css/settings.css?v=3">
+  <link rel="stylesheet" href="/css/settings.css?v=4">
   <link rel="stylesheet" href="/css/loading.css?v=3">
 </head>
 <body>
@@ -125,8 +125,33 @@
       </div>
       <button type="submit" class="btn-primary">Modifier le mot de passe</button>
     </form>
+
+    <section id="mcp-section" class="form-container">
+      <h2>Assistant IA (MCP)</h2>
+      <p class="help-text">
+        Connectez Claude, ChatGPT ou un autre assistant compatible MCP à vos devoirs : il pourra les lister,
+        lire les documents joints, marquer vos devoirs comme faits et en ajouter pour la classe.
+        Le lien ci-dessous donne accès à votre compte : ne le partagez pas.
+      </p>
+      <p id="mcp-status" class="help-text"></p>
+      <div id="mcp-new-token" class="hidden">
+        <div class="form-group">
+          <label for="mcp-url" class="form-label">URL du serveur MCP (affichée une seule fois)</label>
+          <input type="text" id="mcp-url" readonly>
+        </div>
+        <p class="help-text">
+          Claude : Paramètres &gt; Connecteurs &gt; Ajouter un connecteur personnalisé, puis collez cette URL.
+          Claude Code : <code id="mcp-cli"></code>
+        </p>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="mcp-generate-btn" class="btn-primary">Générer un lien</button>
+        <button type="button" id="mcp-copy-btn" class="btn-secondary hidden">Copier</button>
+        <button type="button" id="mcp-revoke-btn" class="btn-danger hidden">Révoquer</button>
+      </div>
+    </section>
   </div>
 
-  <script type="module" src="/js/pages/settings.js?v=5"></script>
+  <script type="module" src="/js/pages/settings.js?v=6"></script>
 </body>
 </html>

@@ -470,5 +470,6 @@ async function generateQuizWithAI(devoir, isPremium, fichiers) {
 }
 
 module.exports = {
-  generateQuizWithAI
+  generateQuizWithAI,
+  extractTextFromPDF
 };
