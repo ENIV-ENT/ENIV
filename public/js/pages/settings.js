@@ -1,5 +1,6 @@
 import { apiCall, checkAuth, logout } from '../utils/api.js?v=4';
 import { showAlert, showConfirm, escapeHTML, toggleModal } from '../utils/dom.js?v=2';
+import { isPushSupported, needsHomeScreenInstall, getPushSubscription, enablePush, disablePush, syncPushSubscription } from '../utils/push.js?v=1';
 
 async function init() {
   const auth = await checkAuth();
@@ -11,6 +12,7 @@ async function init() {
 
   await loadUserInfo();
   await loadMcpTokens();
+  await setupPush();
   await checkEmploiTempsButton();
   setupEventListeners();
 }
@@ -188,6 +190,83 @@ async function handleChangePassword(e) {
   } else {
     await showAlert('Mot de passe modifié avec succès', 'Succès');
     document.getElementById('password-form').reset();
+  }
+}
+
+// Notifications push : l'abonnement est propre à ce navigateur, les préférences
+// au compte (elles valent pour tous ses appareils).
+async function setupPush() {
+  const toggleBtn = document.getElementById('push-toggle-btn');
+  const testBtn = document.getElementById('push-test-btn');
+  const fieldset = document.getElementById('push-preferences');
+
+  const data = await apiCall('/api/push/preferences');
+  if (!data.error) {
+    for (const [key, value] of Object.entries(data.preferences)) {
+      const input = fieldset.querySelector(`input[name="${key}"]`);
+      if (input) input.checked = value;
+    }
+  }
+
+  fieldset.addEventListener('change', async (e) => {
+    const input = e.target;
+    const result = await apiCall('/api/push/preferences', {
+      method: 'PUT',
+      body: JSON.stringify({ [input.name]: input.checked }),
+    });
+    if (result.error) {
+      input.checked = !input.checked;
+      await showAlert(result.error, 'Erreur');
+    }
+  });
+
+  toggleBtn.addEventListener('click', async () => {
+    toggleBtn.disabled = true;
+    const active = Boolean(await getPushSubscription());
+    const result = active ? await disablePush() : await enablePush();
+    if (!result.ok) await showAlert(result.error, 'Notifications');
+    await renderPushState();
+  });
+
+  testBtn.addEventListener('click', async () => {
+    const result = await apiCall('/api/push/test', { method: 'POST' });
+    if (result.error) await showAlert(result.error, 'Erreur');
+  });
+
+  await syncPushSubscription();
+  await renderPushState();
+}
+
+async function renderPushState() {
+  const toggleBtn = document.getElementById('push-toggle-btn');
+  const testBtn = document.getElementById('push-test-btn');
+  const fieldset = document.getElementById('push-preferences');
+  const status = document.getElementById('push-status');
+
+  if (needsHomeScreenInstall()) {
+    status.textContent = 'Sur iPhone et iPad, ajoutez d\'abord Eniv à l\'écran d\'accueil (bouton Partager › « Sur l\'écran d\'accueil »), puis ouvrez-le depuis l\'icône.';
+    toggleBtn.disabled = true;
+    return;
+  }
+  if (!isPushSupported()) {
+    status.textContent = 'Ce navigateur ne prend pas en charge les notifications.';
+    toggleBtn.disabled = true;
+    return;
+  }
+
+  const active = Notification.permission === 'granted' && Boolean(await getPushSubscription());
+  toggleBtn.disabled = Notification.permission === 'denied';
+  toggleBtn.textContent = active ? 'Désactiver' : 'Activer';
+  toggleBtn.className = active ? 'btn-secondary' : 'btn-primary';
+  fieldset.disabled = !active;
+  testBtn.hidden = !active;
+
+  if (active) {
+    status.textContent = 'Activées sur cet appareil. Choisissez ce que vous voulez recevoir :';
+  } else if (Notification.permission === 'denied') {
+    status.textContent = 'Les notifications sont bloquées pour Eniv dans ce navigateur. Autorisez-les dans ses réglages (icône à gauche de l\'adresse), puis rechargez la page.';
+  } else {
+    status.textContent = 'Recevez une alerte pour les nouveaux devoirs et un rappel la veille, même quand Eniv est fermé.';
   }
 }
 

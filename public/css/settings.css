@@ -553,3 +553,38 @@ html.dark-theme .optional {
     padding: 1rem;
   }
 }
+
+/* Section Notifications */
+.push-preferences {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.25rem 0;
+  margin-bottom: 0.75rem;
+}
+
+.push-preferences:disabled {
+  opacity: 0.55;
+}
+
+.push-pref {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.push-pref + .push-pref {
+  border-top: 1px solid var(--border);
+}
+
+.push-pref input {
+  width: auto;
+  margin-top: 0.2rem;
+  accent-color: var(--primary);
+}
+
+.push-preferences:disabled .push-pref {
+  cursor: not-allowed;
+}

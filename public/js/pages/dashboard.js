@@ -2,6 +2,7 @@ import { apiCall, checkAuth, logout } from '../utils/api.js?v=4';
 import { escapeHTML, localDate, formatDate, toInputDate, toggleModal, setupModalClose, showAlert, showConfirm, getContrastColor } from '../utils/dom.js?v=2';
 import { renderMarkdown, hydrateMarkdownImages } from '../utils/markdown.js?v=2';
 import { connectRealtime, getRealtimeId } from '../utils/realtime.js?v=1';
+import { syncPushSubscription } from '../utils/push.js?v=1';
 
 let matieres = [];
 let devoirs = [];
@@ -105,6 +106,7 @@ async function init() {
   checkViewport();
   renderCalendar();
   ouvrirDevoirDepuisURL();
+  syncPushSubscription();
 
   // Mises à jour temps réel : uniquement pour les utilisateurs rattachés à une
   // classe, les seuls qui peuvent recevoir quelque chose.
