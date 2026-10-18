@@ -637,7 +637,7 @@ function renderCalendar() {
   disconnectMobileObserver();
   document.querySelector('.calendar-header').classList.toggle('defilement', isMobileView && !vuePasses);
   document.body.classList.toggle('vue-defilement', isMobileView && !vuePasses);
-  document.getElementById('vue-toggle-btn').textContent = vuePasses ? '← Devoirs à venir' : 'Devoirs passés';
+  document.getElementById('vue-toggle-btn').textContent = vuePasses ? 'Devoirs à venir' : 'Devoirs passés';
   document.getElementById('vue-label').textContent = vuePasses ? 'Devoirs passés' : '';
   if (vuePasses) renderPastWeekView();
   else if (isMobileView) renderMobileScrollView();
