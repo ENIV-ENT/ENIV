@@ -9,7 +9,6 @@
   "ignore": [
     "node_modules",
     "backend/uploads/**",
-    "backend/ent.db",
     "*.log"
   ],
   "env": {
