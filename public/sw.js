@@ -14,7 +14,7 @@
 // Tout le reste (POST/PUT/DELETE, /uploads, /api/proxy, WebSocket...) n'est
 // pas intercepté, y compris quand il est ouvert dans un onglet.
 
-const VERSION = 'v2';
+const VERSION = 'v3';
 const PAGES_CACHE = `eniv-pages-${VERSION}`;
 const STATIC_CACHE = `eniv-static-${VERSION}`;
 const API_CACHE = 'eniv-api'; // nom fixe : partagé avec la page qui le vide
@@ -202,3 +202,56 @@ async function handleImage(event, request) {
   }
   return network;
 }
+
+// ============= NOTIFICATIONS PUSH =============
+// Le serveur (backend/services/push.js) envoie { title, body, url, tag }.
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : '' };
+  }
+
+  event.waitUntil(self.registration.showNotification(data.title || 'Eniv', {
+    body: data.body || '',
+    icon: '/images/icon-192.png',
+    badge: '/images/icon-192.png',
+    lang: 'fr',
+    // Même tag = la nouvelle notification remplace l'ancienne au lieu de s'empiler
+    tag: data.tag,
+    renotify: Boolean(data.tag),
+    data: { url: data.url || '/dashboard/' },
+  }));
+});
+
+// Au clic : réutiliser un onglet Eniv déjà ouvert plutôt que d'en ouvrir un nouveau
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL(event.notification.data?.url || '/dashboard/', self.location.origin).href;
+
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of windows) {
+      if (new URL(client.url).origin !== self.location.origin) continue;
+      await client.focus();
+      if ('navigate' in client) return client.navigate(target);
+      return undefined;
+    }
+    return self.clients.openWindow(target);
+  })());
+});
+
+// Le navigateur a renouvelé l'abonnement (rare) : prévenir le serveur
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil((async () => {
+    const options = event.oldSubscription?.options;
+    if (!options) return;
+    const subscription = await self.registration.pushManager.subscribe(options);
+    // Le service worker n'a pas le jeton de connexion : c'est la page qui
+    // renverra ce nouvel abonnement au serveur à sa prochaine ouverture
+    // (syncPushSubscription dans js/utils/push.js).
+    return subscription;
+  })());
+});
