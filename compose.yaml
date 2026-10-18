@@ -45,10 +45,9 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-not-for-production}
       SESSION_SECRET: ${SESSION_SECRET:-dev-session-secret-not-for-production}
       # Clés d'API externes : laissées vides, les fonctionnalités
-      # correspondantes (quiz IA, e-mails, webhook) sont inactives en test.
+      # correspondantes (quiz IA, e-mails) sont inactives en test.
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       BREVO_API_KEY: ${BREVO_API_KEY:-}
-      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
       PREMIUM_API_KEY: ${PREMIUM_API_KEY:-}
     ports:
       - "3000:3000"

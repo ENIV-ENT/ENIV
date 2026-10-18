@@ -36,10 +36,6 @@ app.use('/api/registration', require('./backend/routes/registration'));
 app.use('/api/proxy', require('./backend/routes/proxy'));
 app.use('/api/mcp', require('./backend/routes/mcp'));
 
-// Route pour le webhook GitHub
-const { handleWebhook } = require('./deploy');
-app.post('/api/deploy', handleWebhook);
-
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'backend/uploads')));
 // Bibliothèques front servies directement depuis node_modules

@@ -1,7 +1,6 @@
 {
   "watch": [
     "server.js",
-    "deploy.js",
     "backend/**/*.js",
     "public/**/*.js",
     "public/**/*.html",
