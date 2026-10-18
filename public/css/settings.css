@@ -466,6 +466,31 @@ html.dark-theme .optional {
   font-size: 0.9rem;
 }
 
+/* Section Agenda */
+.calendar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.calendar-actions a {
+  text-decoration: none;
+  text-align: center;
+}
+
+#calendar-linked .field-hint {
+  display: block;
+  margin-top: 0.4rem;
+}
+
+.calendar-manage {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
 .notice {
   padding: 0.6rem 0.8rem;
   border-radius: 6px;

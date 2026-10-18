@@ -12,6 +12,7 @@ async function init() {
   await loadUserInfo();
   await loadMcpTokens();
   await checkEmploiTempsButton();
+  await setupCalendar();
   setupEventListeners();
 }
 
@@ -342,6 +343,63 @@ async function handleRevokeMcpToken(token) {
     return;
   }
   await loadMcpTokens();
+}
+
+// Agenda : lien d'abonnement iCal, relu par les applications d'agenda.
+// Contrairement aux liens MCP, il reste affichable : il ne donne qu'un accès en lecture.
+async function setupCalendar() {
+  document.getElementById('calendar-create-btn').addEventListener('click', () => createCalendarLink());
+  document.getElementById('calendar-regenerate-btn').addEventListener('click', async () => {
+    const confirmed = await showConfirm(
+      'L\'ancien lien cessera de fonctionner : il faudra réabonner vos agendas avec le nouveau.',
+      'Régénérer le lien'
+    );
+    if (confirmed) await createCalendarLink();
+  });
+  document.getElementById('calendar-delete-btn').addEventListener('click', async () => {
+    const confirmed = await showConfirm('Vos agendas abonnés ne recevront plus vos devoirs.', 'Désactiver le lien');
+    if (!confirmed) return;
+    const data = await apiCall('/api/calendar/link', { method: 'DELETE' });
+    if (data.error) {
+      await showAlert(data.error, 'Erreur');
+      return;
+    }
+    renderCalendarLink({ url: null });
+  });
+  document.getElementById('calendar-copy-btn').addEventListener('click', async () => {
+    const input = document.getElementById('calendar-url');
+    const button = document.getElementById('calendar-copy-btn');
+    try {
+      await navigator.clipboard.writeText(input.value);
+      button.textContent = 'Copié ✓';
+      setTimeout(() => { button.textContent = 'Copier'; }, 2000);
+    } catch {
+      input.select();
+    }
+  });
+
+  const data = await apiCall('/api/calendar/link');
+  if (!data.error) renderCalendarLink(data);
+}
+
+async function createCalendarLink() {
+  const data = await apiCall('/api/calendar/link', { method: 'POST' });
+  if (data.error) {
+    await showAlert(data.error, 'Erreur');
+    return;
+  }
+  renderCalendarLink(data);
+}
+
+function renderCalendarLink(link) {
+  const linked = Boolean(link.url);
+  document.getElementById('calendar-linked').hidden = !linked;
+  document.getElementById('calendar-create-btn').hidden = linked;
+  if (!linked) return;
+
+  document.getElementById('calendar-url').value = link.url;
+  document.getElementById('calendar-google').href = link.google;
+  document.getElementById('calendar-webcal').href = link.webcal;
 }
 
 init();
