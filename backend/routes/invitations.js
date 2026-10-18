@@ -1,10 +1,19 @@
 const express = require('express');
-const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const db = require('../models/dbHelper');
 const { sendInvitationEmail } = require('../services/email');
+const { createInvitation } = require('../services/invitations');
 const { requireAuth } = require('../middleware/auth');
 const router = express.Router();
+
+const MAX_BULK_INVITATIONS = 100;
+
+// Message renvoyé à l'invitation individuelle pour chaque refus « métier »
+const INVITATION_ERRORS = {
+  invalide: 'Format d\'email invalide',
+  deja_inscrit: 'Cet email est déjà associé à un compte',
+  deja_invite: 'Une invitation est déjà en attente pour cet email'
+};
 
 // Créer une invitation (Admin ou Superadmin)
 router.post('/create', requireAuth, async (req, res) => {
@@ -24,71 +33,19 @@ router.post('/create', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Email et rôle requis' });
   }
 
-  // Validation de l'email
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return res.status(400).json({ error: 'Format d\'email invalide' });
-  }
-
   try {
-    // Récupérer la classe de l'utilisateur créateur si c'est un admin
-    let finalClasseId = classe_id;
-    if (creatorRole === 'admin') {
-      finalClasseId = req.user.classe_id;
+    // Un admin invite toujours dans sa propre classe
+    const classeId = creatorRole === 'admin' ? req.user.classe_id : classe_id;
+    const result = await createInvitation({ email, role, classeId, createdBy: req.session.userId });
+
+    if (result.status !== 'envoyee') {
+      return res.status(400).json({ error: INVITATION_ERRORS[result.status] });
     }
-
-    // Vérifier si l'email existe déjà
-    const existingUser = await db.get('SELECT id FROM users WHERE email = ?', [email]);
-    if (existingUser) {
-      return res.status(400).json({ error: 'Cet email est déjà associé à un compte' });
-    }
-
-    // Vérifier si une invitation active existe déjà
-    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-    const existingInvitation = await db.get(
-      'SELECT id FROM invitations WHERE email = ? AND used = 0 AND expires_at > ?',
-      [email, now]
-    );
-
-    if (existingInvitation) {
-      return res.status(400).json({ error: 'Une invitation est déjà en attente pour cet email' });
-    }
-
-    // Générer un token unique
-    const token = crypto.randomBytes(32).toString('hex');
-
-    // Date d'expiration (7 jours)
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-    // Convertir au format MySQL YYYY-MM-DD HH:MM:SS
-    const mysqlDateTime = expiresAt.toISOString().slice(0, 19).replace('T', ' ');
-
-    // Créer l'invitation
-    const result = await db.run(
-      'INSERT INTO invitations (email, token, role, classe_id, created_by, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [email, token, role, finalClasseId || null, req.session.userId, mysqlDateTime]
-    );
-
-    // Récupérer le nom de la classe si applicable
-    let className = null;
-    if (finalClasseId) {
-      const classe = await db.get('SELECT nom FROM classes WHERE id = ?', [finalClasseId]);
-      className = classe ? classe.nom : null;
-    }
-
-    // Envoyer l'email d'invitation
-    try {
-      await sendInvitationEmail(email, token, role, className);
-      res.json({
-        success: true,
-        message: 'Invitation envoyée avec succès',
-        invitationId: result.lastInsertRowid
-      });
-    } catch (emailError) {
-      // Supprimer l'invitation si l'email n'a pas pu être envoyé
-      await db.run('DELETE FROM invitations WHERE id = ?', [result.lastInsertRowid]);
-      throw emailError;
-    }
+    res.json({
+      success: true,
+      message: 'Invitation envoyée avec succès',
+      invitationId: result.invitationId
+    });
   } catch (error) {
     console.error('Error creating invitation:', error);
     res.status(500).json({ error: 'Erreur lors de la création de l\'invitation' });
