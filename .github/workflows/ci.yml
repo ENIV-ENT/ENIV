@@ -1,0 +1,133 @@
+name: CI
+
+# Vérifie chaque pull request et chaque push sur main.
+# Le déploiement (deploy-vps.yml) n'est lancé que si ce workflow passe sur main.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Un nouveau push sur la même branche annule la vérification devenue inutile
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Syntaxe et tests unitaires
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci --no-audit --no-fund
+
+      - name: Vérifier la syntaxe de tous les fichiers JavaScript
+        run: git ls-files '*.js' | xargs -n 1 node --check
+
+      - name: Tests unitaires
+        run: npm test
+
+  demarrage:
+    name: Démarrage sur MySQL (migrations + test de fumée)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mysql:
+        # Même version que la production
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci
+          MYSQL_DATABASE: ent
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci --silent"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      NODE_ENV: development
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_NAME: ent
+      DB_USER: root
+      DB_PASSWORD: ci
+      JWT_SECRET: ci-jwt-secret-ci-jwt-secret-ci-jwt-secret
+      BASE_URL: http://127.0.0.1:3000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci --no-audit --no-fund
+
+      - name: Démarrer l'application sur une base vide
+        run: |
+          node server.js > server.log 2>&1 &
+          echo $! > server.pid
+
+      - name: Test de fumée
+        run: node scripts/smoke-test.js http://127.0.0.1:3000
+
+      - name: Toutes les migrations ont été jouées
+        run: |
+          # Les migrations tournent en arrière-plan au démarrage : on attend leur fin
+          for i in $(seq 1 30); do grep -q "Migrations terminées" server.log && break; sleep 1; done
+          grep -q "Migrations terminées" server.log
+          ! grep -q "Erreur lors de la migration" server.log
+
+      - name: Redémarrage sur la base existante (migrations idempotentes)
+        run: |
+          kill "$(cat server.pid)" && sleep 2
+          node server.js > server2.log 2>&1 &
+          node scripts/smoke-test.js http://127.0.0.1:3000
+          for i in $(seq 1 30); do grep -q "Aucune migration en attente" server2.log && break; sleep 1; done
+          grep -q "Aucune migration en attente" server2.log
+
+      - name: Journaux du serveur
+        if: always()
+        run: cat server.log server2.log 2>/dev/null || true
+
+  docker:
+    name: Construction de l'image Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Construire l'image de production
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: eniv:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  audit:
+    name: Audit des dépendances
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Informatif : une faille publiée dans une dépendance ne doit pas bloquer
+    # un correctif urgent ; elle apparaît en orange dans la PR.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: npm audit (production, sévérité élevée)
+        run: npm audit --omit=dev --audit-level=high
