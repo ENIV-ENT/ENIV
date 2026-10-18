@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const db = require('../models/dbHelper');
 const { sendInvitationEmail } = require('../services/email');
 const { createInvitation } = require('../services/invitations');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
 const MAX_BULK_INVITATIONS = 100;
@@ -50,6 +50,45 @@ router.post('/create', requireAuth, async (req, res) => {
     console.error('Error creating invitation:', error);
     res.status(500).json({ error: 'Erreur lors de la création de l\'invitation' });
   }
+});
+
+// Inviter plusieurs élèves d'un coup (admin) : chaque adresse reçoit un statut,
+// une adresse déjà inscrite ou invitée n'interrompt pas les suivantes.
+router.post('/bulk', requireAdmin, async (req, res) => {
+  const emails = Array.isArray(req.body?.emails) ? req.body.emails : null;
+  if (!emails || emails.length === 0) {
+    return res.status(400).json({ error: 'Liste d\'adresses requise' });
+  }
+
+  // Doublons retirés, casse ignorée
+  const uniques = [...new Set(emails
+    .filter((email) => typeof email === 'string')
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean))];
+
+  if (uniques.length > MAX_BULK_INVITATIONS) {
+    return res.status(400).json({ error: `${MAX_BULK_INVITATIONS} adresses maximum par envoi` });
+  }
+
+  const results = [];
+  // Envoi un par un : le fournisseur d'e-mails limite le débit
+  for (const email of uniques) {
+    try {
+      const result = await createInvitation({
+        email,
+        role: 'eleve',
+        classeId: req.user.classe_id,
+        createdBy: req.user.id
+      });
+      results.push({ email, status: result.status });
+    } catch (error) {
+      console.error(`Error inviting ${email}:`, error);
+      results.push({ email, status: 'erreur' });
+    }
+  }
+
+  const envoyees = results.filter((r) => r.status === 'envoyee').length;
+  res.json({ success: true, envoyees, total: results.length, results });
 });
 
 // Vérifier la validité d'une invitation
