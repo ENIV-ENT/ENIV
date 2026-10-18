@@ -17,6 +17,7 @@ const RESOURCE_RULES = [
   [/^\/api\/devoirs\/fichiers\//, 'fichiers'],
   [/^\/api\/devoirs\/\d+\/upload$/, 'fichiers'],
   [/^\/api\/devoirs\/\d+\/generate-quiz$/, 'quiz'],
+  [/^\/api\/devoirs\/\d+\/commentaires(\/|$)/, 'commentaires'],
   [/^\/api\/devoirs/, 'devoirs'],
   [/^\/api\/admin\/matieres/, 'matieres'],
   [/^\/api\/quiz/, 'quiz'],

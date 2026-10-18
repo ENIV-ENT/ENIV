@@ -112,7 +112,8 @@ router.get('/', async (req, res) => {
         d.*,
         m.nom as matiere_nom,
         u.username as created_by_username,
-        COALESCE(ds.fait, 0) as fait
+        COALESCE(ds.fait, 0) as fait,
+        (SELECT COUNT(*) FROM devoir_commentaires dc WHERE dc.devoir_id = d.id) as nb_commentaires
       FROM devoirs d
       LEFT JOIN matieres m ON d.matiere_id = m.id
       LEFT JOIN users u ON d.created_by = u.id
