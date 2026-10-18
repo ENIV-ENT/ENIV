@@ -157,7 +157,8 @@ async function applyRefresh() {
 
   const isResync = resources.has('*');
   const wantsMatieres = isResync || resources.has('matieres');
-  const wantsDevoirs = isResync || ['devoirs', 'fichiers', 'quiz'].some(r => resources.has(r));
+  // Les commentaires rechargent aussi les devoirs : leur nombre s'affiche dans le calendrier
+  const wantsDevoirs = isResync || ['devoirs', 'fichiers', 'quiz', 'commentaires'].some(r => resources.has(r));
 
   const tasks = [];
   if (wantsMatieres) tasks.push(loadMatieres());
@@ -194,6 +195,7 @@ async function refreshOpenModals(resources, devoirId) {
     } else if (isResync || !devoirId || devoirId === currentDevoirId) {
       if (resources.has('fichiers')) loadDevoirModalFichiers(currentDevoirId);
       if (resources.has('quiz')) loadQuizStatus(currentDevoirId);
+      if (isResync || resources.has('commentaires')) loadCommentaires(currentDevoirId);
 
       // Rendu complet uniquement si le contenu a réellement changé : il réinitialise
       // le défilement, gênant sur les longues descriptions.
@@ -639,7 +641,7 @@ function renderMobileWeekView() {
         const matiere = matieres.find(m => m.id === devoir.matiere_id);
         const couleur = matiere?.couleur || '#999';
         html += `<div class="mobile-devoir-item ${devoir.fait ? 'fait' : ''}" data-devoir-id="${devoir.id}" style="border-left:4px solid ${couleur};">`;
-        html += `<div class="mobile-devoir-title">${escapeHTML(devoir.titre)}</div>`;
+        html += `<div class="mobile-devoir-title">${escapeHTML(devoir.titre)}${badgeCommentaires(devoir)}</div>`;
         html += `<div class="mobile-devoir-matiere" style="color:${couleur};">`;
         const matiereNom = escapeHTML(devoir.matiere_nom || 'Sans matière');
         if (matiere && matiere.lien) html += `<a href="${matiere.lien}" target="_blank">${matiereNom}</a>`;
@@ -711,7 +713,7 @@ function renderDateCell(date, otherMonth) {
     const matiere = matieres.find(m => m.id === devoir.matiere_id);
     const couleur = matiere?.couleur || '#999';
     const textColor = getContrastColor(couleur);
-    html += `<div class="devoir-item ${devoir.fait ? 'fait' : ''}" data-devoir-id="${devoir.id}" style="background-color:${couleur};color:${textColor};">${escapeHTML(devoir.titre)}</div>`;
+    html += `<div class="devoir-item ${devoir.fait ? 'fait' : ''}" data-devoir-id="${devoir.id}" style="background-color:${couleur};color:${textColor};">${escapeHTML(devoir.titre)}${badgeCommentaires(devoir)}</div>`;
   });
 
   html += '</div></div>';
@@ -772,10 +774,14 @@ async function showDevoirModal(devoirId) {
     <button class="btn-danger" id="delete-devoir-${devoir.id}">Supprimer</button>
   </div>`;
 
+  // Après les actions : la discussion ne doit pas repousser « Marquer comme fait »
+  html += `<section id="devoir-commentaires" class="commentaires" aria-label="Commentaires"></section>`;
+
   modalBody.innerHTML = html;
   hydrateMarkdownImages(modalBody);
   loadDevoirModalFichiers(devoirId);
   loadQuizStatus(devoirId);
+  loadCommentaires(devoirId);
 
   document.getElementById(`devoir-statut-${devoir.id}`).addEventListener('change', async function() {
     await toggleDevoirStatut(devoir.id, this.checked);
@@ -846,6 +852,93 @@ function ouvrirDevoirDepuisURL() {
     attempts++;
     if (tryOpen() || attempts > 20) clearInterval(timer); // ~4s max
   }, 200);
+}
+
+// ============= COMMENTAIRES =============
+
+function badgeCommentaires(devoir) {
+  const n = Number(devoir.nb_commentaires) || 0;
+  return n > 0 ? ` <span class="badge-commentaires" title="${n} commentaire${n > 1 ? 's' : ''}">💬 ${n}</span>` : '';
+}
+
+function formatDateCommentaire(value) {
+  const date = new Date(value);
+  const sameDay = date.toDateString() === new Date().toDateString();
+  return sameDay
+    ? `aujourd'hui à ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+    : date.toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+async function loadCommentaires(devoirId) {
+  const section = document.getElementById('devoir-commentaires');
+  if (!section) return;
+
+  const commentaires = await apiCall(`/api/devoirs/${devoirId}/commentaires`);
+  // Le modal a pu changer de devoir pendant la requête
+  if (currentDevoirId !== devoirId || commentaires.error) return;
+
+  // Conserver un brouillon en cours de saisie pendant un rafraîchissement temps réel
+  const brouillon = section.querySelector('textarea')?.value || '';
+
+  const liste = commentaires.map((c) => {
+    const auteur = [c.prenom, c.nom].filter(Boolean).join(' ') || c.username;
+    return `<li class="commentaire">
+      <div class="commentaire-entete">
+        <strong>${escapeHTML(auteur)}</strong>
+        <span>${formatDateCommentaire(c.created_at)}</span>
+        ${c.supprimable ? `<button type="button" class="commentaire-supprimer" data-id="${c.id}" aria-label="Supprimer ce commentaire">&times;</button>` : ''}
+      </div>
+      <p>${escapeHTML(c.contenu)}</p>
+    </li>`;
+  }).join('');
+
+  section.innerHTML = `
+    <h4>💬 Commentaires${commentaires.length ? ` (${commentaires.length})` : ''}</h4>
+    ${liste ? `<ul class="commentaires-liste">${liste}</ul>` : '<p class="commentaires-vide">Une question sur ce devoir ? Posez-la à la classe.</p>'}
+    <form class="commentaire-form">
+      <textarea rows="2" maxlength="2000" placeholder="Écrire un commentaire…" required></textarea>
+      <button type="submit" class="btn-primary">Envoyer</button>
+    </form>`;
+
+  const textarea = section.querySelector('textarea');
+  textarea.value = brouillon;
+  // Entrée envoie, Maj+Entrée va à la ligne
+  textarea.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      section.querySelector('form').requestSubmit();
+    }
+  });
+
+  section.querySelector('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const contenu = textarea.value.trim();
+    if (!contenu) return;
+    const result = await apiCall(`/api/devoirs/${devoirId}/commentaires`, {
+      method: 'POST',
+      body: JSON.stringify({ contenu })
+    });
+    if (result.error) {
+      await showAlert(result.error, 'Erreur');
+      return;
+    }
+    textarea.value = '';
+    await Promise.all([loadCommentaires(devoirId), loadDevoirs()]);
+    renderCalendar();
+  });
+
+  section.querySelectorAll('.commentaire-supprimer').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!await showConfirm('Supprimer ce commentaire ?', 'Supprimer')) return;
+      const result = await apiCall(`/api/devoirs/${devoirId}/commentaires/${btn.dataset.id}`, { method: 'DELETE' });
+      if (result.error) {
+        await showAlert(result.error, 'Erreur');
+        return;
+      }
+      await Promise.all([loadCommentaires(devoirId), loadDevoirs()]);
+      renderCalendar();
+    });
+  });
 }
 
 async function loadDevoirModalFichiers(devoirId) {

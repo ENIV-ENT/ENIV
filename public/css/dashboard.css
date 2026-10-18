@@ -472,6 +472,99 @@ html.dark-theme .calendar-date.today {
   opacity: 0.6;
 }
 
+/* Commentaires sous un devoir */
+.badge-commentaires {
+  font-size: 0.7em;
+  font-weight: 600;
+  opacity: 0.9;
+  white-space: nowrap;
+}
+
+.commentaires {
+  margin: 1.25rem 0 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.commentaires h4 {
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+}
+
+.commentaires-liste {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 16rem;
+  overflow-y: auto;
+  margin-bottom: 0.75rem;
+}
+
+.commentaire {
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: var(--light);
+}
+
+.commentaire-entete {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.commentaire-entete span {
+  color: var(--secondary);
+  font-size: 0.75rem;
+}
+
+.commentaire-supprimer {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--secondary);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.commentaire-supprimer:hover {
+  color: var(--danger);
+}
+
+.commentaire p {
+  margin-top: 0.25rem;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.commentaires-vide {
+  color: var(--secondary);
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+.modal-content form.commentaire-form {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+
+.modal-content .commentaire-form textarea {
+  flex: 1;
+  resize: vertical;
+  min-height: 2.75rem;
+  height: 2.75rem;
+  margin: 0;
+}
+
+.modal-content .commentaire-form button {
+  flex-shrink: 0;
+}
+
 /* Devoirs Grid */
 .devoirs-grid {
   display: grid;
