@@ -1,0 +1,221 @@
+/* Fenêtre « Ma progression » (js/components/progression.js) */
+
+.progression h3 {
+  font-size: 1rem;
+  margin: 1.5rem 0 0.75rem;
+}
+
+.progression h3 small {
+  font-weight: 400;
+  color: var(--secondary);
+}
+
+.progression-chargement {
+  color: var(--secondary);
+  text-align: center;
+  padding: 2rem 0;
+}
+
+/* Résumé : anneau + chiffres */
+.progression-resume {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.progression-anneau {
+  --taux: 0;
+  flex-shrink: 0;
+  width: 7rem;
+  height: 7rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(var(--success) calc(var(--taux) * 1%), var(--border) 0);
+  animation: progression-apparition 0.6s ease-out;
+}
+
+.progression-anneau span {
+  width: 5.4rem;
+  height: 5.4rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  padding-top: 1.75rem;
+  background: var(--surface, white);
+  font-size: 1.7rem;
+  font-weight: 700;
+}
+
+.progression-anneau small {
+  font-size: 0.9rem;
+  margin-left: 0.1rem;
+}
+
+.progression-anneau.vide span {
+  color: var(--secondary);
+}
+
+.progression-chiffres p + p {
+  margin-top: 0.4rem;
+}
+
+/* Les 7 prochains jours */
+.progression-semaine {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+  align-items: end;
+  height: 9rem;
+}
+
+.progression-jour {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+.progression-barre {
+  --h: 0%;
+  width: 100%;
+  max-width: 2.5rem;
+  height: var(--h);
+  min-height: 3px;
+  border-radius: 6px 6px 2px 2px;
+  background: var(--primary);
+  position: relative;
+  overflow: hidden;
+  transform-origin: bottom;
+  animation: progression-pousse 0.5s ease-out;
+}
+
+/* Part déjà faite, en vert, en bas de la barre */
+.progression-barre-faits {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: var(--part);
+  background: var(--success);
+}
+
+.progression-nombre {
+  font-size: 0.8rem;
+  font-weight: 600;
+  min-height: 1em;
+}
+
+.progression-libelle {
+  font-size: 0.75rem;
+  color: var(--secondary);
+}
+
+.progression-libelle.aujourdhui {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* À rattraper */
+.progression-rattraper {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.progression-rattraper a {
+  display: flex;
+  flex-direction: column;
+  padding: 0.55rem 0.8rem;
+  border-radius: 8px;
+  border-left: 4px solid var(--couleur);
+  background: var(--light);
+  color: inherit;
+  text-decoration: none;
+}
+
+.progression-rattraper a:hover {
+  filter: brightness(0.97);
+}
+
+.progression-rattraper span {
+  font-size: 0.8rem;
+  color: var(--secondary);
+}
+
+.progression-bravo {
+  margin-top: 1.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: rgba(40, 167, 69, 0.1);
+  color: var(--success);
+  font-weight: 600;
+}
+
+/* Par matière */
+.progression-matieres {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.progression-matieres li {
+  display: grid;
+  grid-template-columns: 9rem 1fr 3rem;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.progression-matiere-nom {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progression-jauge {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.progression-jauge span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.progression-matiere-score {
+  text-align: right;
+  color: var(--secondary);
+}
+
+@keyframes progression-pousse {
+  from { transform: scaleY(0); }
+}
+
+@keyframes progression-apparition {
+  from { transform: scale(0.85); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progression-anneau,
+  .progression-barre {
+    animation: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .progression-resume {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .progression-matieres li {
+    grid-template-columns: 6rem 1fr 2.5rem;
+  }
+}
