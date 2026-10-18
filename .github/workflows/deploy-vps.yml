@@ -37,7 +37,7 @@ jobs:
           # La clé est restreinte côté serveur : la seule commande acceptée est le nom du projet.
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes deploy@"$HOST" eniv
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: vars.APP_URL != ''
         with:
           sparse-checkout: scripts
