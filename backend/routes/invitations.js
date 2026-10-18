@@ -12,7 +12,13 @@ router.post('/create', requireAuth, async (req, res) => {
   const { email, role, classe_id } = req.body;
   const creatorRole = req.session.role;
 
-  // Validation des permissions
+  // Validation des permissions : seuls les admins et le superadmin invitent.
+  // Sans cette vérification, un élève pouvait s'inviter (ou inviter un tiers)
+  // dans n'importe quelle classe en passant son classe_id.
+  if (creatorRole !== 'admin' && creatorRole !== 'superadmin') {
+    return res.status(403).json({ error: 'Accès refusé' });
+  }
+
   if (creatorRole === 'admin' && role !== 'eleve') {
     return res.status(403).json({ error: 'Un admin ne peut créer que des comptes élèves' });
   }
