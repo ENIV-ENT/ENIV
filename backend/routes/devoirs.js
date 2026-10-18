@@ -7,6 +7,7 @@ const { requireAuth } = require('../middleware/auth');
 const { convertToPDF } = require('../services/fileConverter');
 const { check_before_upload } = require('../services/fileCleanup');
 const { snapshotDevoir, diffSnapshots, logDevoirAction } = require('../services/devoirLogger');
+const { creerJeton } = require('../services/fichierLinks');
 const router = express.Router();
 
 // Devoir avec le nom de sa matière, utilisé pour construire les instantanés des logs
@@ -391,6 +392,28 @@ router.get('/:id/fichiers', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erreur lors de la récupération des fichiers' });
+  }
+});
+
+// Lien temporaire vers un document joint, réservé aux membres de la classe du devoir
+router.get('/fichiers/:fichierId/lien', async (req, res) => {
+  try {
+    const fichier = await db.get(
+      `SELECT df.id
+       FROM devoir_fichiers df
+       JOIN devoirs d ON df.devoir_id = d.id
+       WHERE df.id = ? AND d.classe_id = ?`,
+      [req.params.fichierId, req.user.classe_id]
+    );
+
+    if (!fichier) {
+      return res.status(404).json({ error: 'Fichier non trouvé' });
+    }
+
+    res.json({ url: `/api/fichiers/${creerJeton(fichier.id)}` });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erreur lors de l\'ouverture du fichier' });
   }
 });
 
