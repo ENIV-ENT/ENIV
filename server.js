@@ -35,9 +35,10 @@ app.use('/api/quiz', require('./backend/routes/quiz'));
 app.use('/api/registration', require('./backend/routes/registration'));
 app.use('/api/proxy', require('./backend/routes/proxy'));
 app.use('/api/mcp', require('./backend/routes/mcp'));
+// Documents joints : uniquement par lien temporaire (backend/services/fichierLinks.js)
+app.use('/api/fichiers', require('./backend/routes/fichiers'));
 
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'backend/uploads')));
 // Bibliothèques front servies directement depuis node_modules
 app.use('/vendor/markdown-it', express.static(path.join(__dirname, 'node_modules/markdown-it/dist/browser')));
 

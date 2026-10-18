@@ -857,7 +857,7 @@ async function loadDevoirModalFichiers(devoirId) {
 
     let html = '<div style="display:flex;flex-direction:column;gap:0.5rem;">';
     fichiers.forEach(fichier => {
-      html += `<div style="padding:0.75rem;background:white;border-radius:6px;border:1px solid var(--border);display:flex;align-items:center;gap:0.75rem;cursor:pointer;" onclick="window.open('/uploads/${escapeHTML(fichier.filename)}', '_blank')">`;
+      html += `<div style="padding:0.75rem;background:white;border-radius:6px;border:1px solid var(--border);display:flex;align-items:center;gap:0.75rem;cursor:pointer;" onclick="ouvrirFichier(${fichier.id})">`;
       html += `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>`;
       html += `<div style="flex:1;min-width:0;"><div style="font-size:0.95rem;font-weight:500;color:var(--primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(fichier.original_name)}</div>`;
       html += `<div style="font-size:0.8rem;color:var(--secondary);">Uploadé par ${escapeHTML(fichier.uploaded_by_username || 'Inconnu')}</div></div></div>`;
@@ -980,12 +980,27 @@ async function loadExistingFiles(devoirId) {
 
     container.innerHTML = fichiers.map(f => `
       <div style="padding:0.5rem;background:white;border-radius:4px;margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);">
-        <a href="/uploads/${escapeHTML(f.filename)}" target="_blank" style="color:var(--primary);text-decoration:none;font-size:0.9rem;">${escapeHTML(f.original_name)}</a>
+        <a href="#" onclick="ouvrirFichier(${f.id}); return false;" style="color:var(--primary);text-decoration:none;font-size:0.9rem;">${escapeHTML(f.original_name)}</a>
         <button type="button" class="btn-danger" style="padding:0.25rem 0.5rem;font-size:0.8rem;" onclick="deleteFichier(${f.id}, ${devoirId})">Supprimer</button>
       </div>
     `).join('');
   } catch (error) { container.innerHTML = ''; }
 }
+
+// Les documents ne sont plus accessibles par une adresse fixe : on demande un
+// lien temporaire (réservé à la classe) puis on l'ouvre. L'onglet est ouvert
+// tout de suite, pendant le clic, sinon les navigateurs bloquent la fenêtre.
+window.ouvrirFichier = async function(fichierId) {
+  const onglet = window.open('', '_blank');
+  const data = await apiCall(`/api/devoirs/fichiers/${fichierId}/lien`);
+  if (data.error || !data.url) {
+    if (onglet) onglet.close();
+    await showAlert(data.error || 'Impossible d\'ouvrir le document', 'Erreur');
+    return;
+  }
+  if (onglet) onglet.location.href = data.url;
+  else window.location.href = data.url;
+};
 
 window.deleteFichier = async function(fichierId, devoirId) {
   const confirmed = await showConfirm('Supprimer ce fichier ?', 'Confirmation');
