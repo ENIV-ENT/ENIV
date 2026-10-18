@@ -11,7 +11,7 @@
 [![PWA](https://img.shields.io/badge/PWA-installable-5A0FC8?logo=pwa&logoColor=white)](public/manifest.webmanifest)
 [![MCP](https://img.shields.io/badge/MCP-assistants%20IA-D97757)](backend/services/mcpServer.js)
 
-**[eniv.fr](https://eniv.fr)** · [Fonctionnalités](#-fonctionnalités) · [Aperçu](#-aperçu) · [Architecture](#-architecture) · [Installation](#-installation) · [Déploiement](#-déploiement) · [Contribuer](#-contribuer)
+**[eniv.fr](https://eniv.fr)** · [Fonctionnalités](#-fonctionnalités) · [Aperçu](#-aperçu) · [Architecture](#-architecture) · [Installation](#-installation) · [Déploiement](#-déploiement) · [Contributeurs](#-contributeurs) · [Contribuer](#-contribuer)
 
 </div>
 
@@ -229,6 +229,43 @@ sequenceDiagram
 - **Image** : `Dockerfile` (Node 24, dépendances de production uniquement, utilisateur non root).
 - **Production** : `compose.yml`, avec le port exposé sur `127.0.0.1` seulement. Caddy sert les pages statiques et `/uploads`, et relaie `/api`, `/ws` et `/vendor`.
 - **Secrets GitHub** : `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`, `DEPLOY_HOST`.
+
+## 👥 Contributeurs
+
+<table>
+  <tr>
+    <td align="center" width="25%">
+      <a href="https://github.com/Picsou06">
+        <img src="https://github.com/Picsou06.png?size=200" width="100" alt="Avatar de Picsou06"><br>
+        <b>Picsou06</b>
+      </a><br>
+      <sub>🚀 Créateur du projet</sub>
+    </td>
+    <td align="center" width="25%">
+      <a href="https://github.com/Kevin-OVI">
+        <img src="https://github.com/Kevin-OVI.png?size=200" width="100" alt="Avatar de Kevin-OVI"><br>
+        <b>Kevin-OVI</b>
+      </a><br>
+      <sub>💻 Contributeur</sub>
+    </td>
+    <td align="center" width="25%">
+      <a href="https://github.com/Tiretinium">
+        <img src="https://github.com/Tiretinium.png?size=200" width="100" alt="Avatar de Tiretinium"><br>
+        <b>Tiretinium</b>
+      </a><br>
+      <sub>💻 Contributeur</sub>
+    </td>
+    <td align="center" width="25%">
+      <a href="https://github.com/CodeByHaamza">
+        <img src="https://github.com/CodeByHaamza.png?size=200" width="100" alt="Avatar de CodeByHaamza"><br>
+        <b>CodeByHaamza</b>
+      </a><br>
+      <sub>💻 Contributeur</sub>
+    </td>
+  </tr>
+</table>
+
+<p align="center"><sub>Détail des contributions : <a href="https://github.com/Picsou06/ENIV/graphs/contributors">onglet Insights › Contributors</a></sub></p>
 
 ## 🤝 Contribuer
 
