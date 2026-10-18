@@ -7,7 +7,15 @@ let matieres = [];
 let devoirs = [];
 let currentMonth = new Date().getMonth();
 let currentYear = new Date().getFullYear();
-let currentWeekStart = null;
+// Vue mobile : liste continue de jours à partir d'aujourd'hui, prolongée au défilement
+const MOBILE_DAYS_STEP = 14;
+let mobileDaysShown = MOBILE_DAYS_STEP;
+let mobileObserver = null;
+// Vue « devoirs passés » (/dashboard/?vue=passes) : une semaine à la fois
+let vuePasses = new URLSearchParams(window.location.search).get('vue') === 'passes';
+let pastWeekStart = null;
+const MONTH_NAMES = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+const DAY_NAMES = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 let selectedDate = null;
 let isMobileView = false;
 let authData = null;
@@ -443,6 +451,17 @@ function setupEventListeners() {
 
   document.addEventListener('click', handleCalendarClick);
 
+  document.getElementById('vue-toggle-btn').addEventListener('click', () => setVuePasses(!vuePasses));
+  // Vue mobile : les jours sans devoir sont masqués, l'ajout passe par ce bouton (date à choisir)
+  document.getElementById('add-devoir-fab').addEventListener('click', () => {
+    document.getElementById('devoir-date-limite').value = '';
+    showAddDevoirModal(null);
+  });
+  window.addEventListener('popstate', () => {
+    const passes = new URLSearchParams(window.location.search).get('vue') === 'passes';
+    if (passes !== vuePasses) setVuePasses(passes, { push: false });
+  });
+
   window.addEventListener('resize', () => {
     const wasMobile = isMobileView;
     checkViewport();
@@ -462,17 +481,33 @@ function applySchoolYearLimits() {
 
 function checkViewport() {
   isMobileView = window.innerWidth <= 768;
-  if (isMobileView && !currentWeekStart) {
-    const today = new Date();
-    currentWeekStart = getWeekStart(today);
-  }
 }
 
-function getWeekStart(date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(d.setDate(diff));
+// Dates « jour » : minuit UTC du jour local (localDate), comparables aux dates des devoirs via dateKey
+function addDays(date, n) {
+  return localDate(date.getFullYear(), date.getMonth(), date.getDate() + n);
+}
+
+function todayLocal() {
+  return addDays(new Date(), 0);
+}
+
+function dateKey(date) {
+  return date.toISOString().split('T')[0];
+}
+
+function mondayOf(date) {
+  return addDays(date, -((date.getDay() + 6) % 7));
+}
+
+// Dernière semaine qui contient un jour passé (sur un lundi : la semaine précédente)
+function lastPastWeekStart() {
+  return mondayOf(addDays(todayLocal(), -1));
+}
+
+function devoirsDuJour(dateStr) {
+  return devoirs.filter(d => d.date && d.date.split('T')[0] === dateStr)
+    .sort((a, b) => a.fait - b.fait);
 }
 
 function setupDropZone(dropZoneId, inputId, fileArray, listId) {
@@ -562,14 +597,14 @@ window.removeFileFromList = function(index, listId) {
 // Retourne la periode cible (mois ou semaine) apres un deplacement, ou null si
 // elle sort de l'annee scolaire
 function getNavigationTarget(direction) {
-  if (isMobileView) {
-    const target = new Date(currentWeekStart);
-    target.setDate(target.getDate() + direction * 7);
-    const minWeekStart = getWeekStart(schoolYear.firstDay);
-    const maxWeekStart = getWeekStart(schoolYear.lastDay);
-    if (target < minWeekStart || target > maxWeekStart) return null;
+  if (vuePasses) {
+    const target = addDays(pastWeekStart, direction * 7);
+    const minWeekStart = mondayOf(addDays(schoolYear.firstDay, 0));
+    if (target < minWeekStart || target > lastPastWeekStart()) return null;
     return target;
   }
+  // Vue mobile à défilement : pas de navigation par période
+  if (isMobileView) return null;
 
   const target = monthIndex(currentYear, currentMonth) + direction;
   if (target < minMonthIndex || target > maxMonthIndex) return null;
@@ -580,8 +615,8 @@ function navigate(direction) {
   const target = getNavigationTarget(direction);
   if (target === null) return false;
 
-  if (isMobileView) {
-    currentWeekStart = target;
+  if (vuePasses) {
+    pastWeekStart = target;
   } else {
     currentYear = Math.floor(target / 12);
     currentMonth = target % 12;
@@ -599,69 +634,142 @@ function updateNavButtons() {
 function renderCalendar() {
   const calendar = document.getElementById('calendar');
   if (!calendar) return;
-  if (isMobileView) renderMobileWeekView();
+  disconnectMobileObserver();
+  document.querySelector('.calendar-header').classList.toggle('defilement', isMobileView && !vuePasses);
+  document.body.classList.toggle('vue-defilement', isMobileView && !vuePasses);
+  document.getElementById('vue-toggle-btn').textContent = vuePasses ? '← Devoirs à venir' : 'Devoirs passés';
+  document.getElementById('vue-label').textContent = vuePasses ? 'Devoirs passés' : '';
+  if (vuePasses) renderPastWeekView();
+  else if (isMobileView) renderMobileScrollView();
   else renderDesktopMonthView();
   updateNavButtons();
 }
 
-function renderMobileWeekView() {
+function setVuePasses(actif, { push = true } = {}) {
+  vuePasses = actif;
+  if (actif) pastWeekStart = lastPastWeekStart();
+  if (push) {
+    const url = new URL(window.location.href);
+    if (actif) url.searchParams.set('vue', 'passes');
+    else url.searchParams.delete('vue');
+    history.pushState(null, '', url);
+  }
+  renderCalendar();
+  window.scrollTo(0, 0);
+}
+
+function disconnectMobileObserver() {
+  if (mobileObserver) {
+    mobileObserver.disconnect();
+    mobileObserver = null;
+  }
+}
+
+function renderMobileDevoirItems(dayDevoirs) {
+  let html = '';
+  dayDevoirs.forEach(devoir => {
+    const matiere = matieres.find(m => m.id === devoir.matiere_id);
+    const couleur = matiere?.couleur || '#999';
+    html += `<div class="mobile-devoir-item ${devoir.fait ? 'fait' : ''}" data-devoir-id="${devoir.id}" style="border-left:4px solid ${couleur};">`;
+    html += `<div class="mobile-devoir-title">${escapeHTML(devoir.titre)}</div>`;
+    html += `<div class="mobile-devoir-matiere" style="color:${couleur};">`;
+    const matiereNom = escapeHTML(devoir.matiere_nom || 'Sans matière');
+    if (matiere && matiere.lien) html += `<a href="${matiere.lien}" target="_blank">${matiereNom}</a>`;
+    else html += matiereNom;
+    html += `</div></div>`;
+  });
+  return html;
+}
+
+// Vue mobile : aujourd'hui en premier (même sans devoir), puis les jours suivants qui ont des
+// devoirs, parcourus par MOBILE_DAYS_STEP
+// quand la fin de la liste approche. Le nombre de jours affichés est conservé d'un rendu à
+// l'autre (temps réel, case « fait ») pour ne pas ramener la page en haut.
+function renderMobileScrollView() {
   const calendar = document.getElementById('calendar');
-  const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-  const dayNames = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-
-  const weekEnd = new Date(currentWeekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6);
-
-  document.getElementById('current-month').textContent = `${currentWeekStart.getDate()} ${monthNames[currentWeekStart.getMonth()]} - ${weekEnd.getDate()} ${monthNames[weekEnd.getMonth()]} ${weekEnd.getFullYear()}`;
+  const today = todayLocal();
+  const todayStr = dateKey(today);
+  document.getElementById('current-month').textContent = 'À venir';
 
   let html = '<div class="mobile-view">';
-  for (let i = 0; i < 7; i++) {
-    // Comme la vue mois : minuit UTC du jour local, sinon toISOString recule d'un jour entre 0 h et 2 h (Paris)
-    const date = localDate(currentWeekStart.getFullYear(), currentWeekStart.getMonth(), currentWeekStart.getDate() + i);
-    const dateStr = date.toISOString().split('T')[0];
-    const isToday = date.toDateString() === new Date().toDateString();
+  let moisAffiche = null;
+  let finAnnee = false;
+  for (let i = 0; i < mobileDaysShown; i++) {
+    const date = addDays(today, i);
+    const dateStr = dateKey(date);
+    if (dateStr > maxDateStr) {
+      finAnnee = true;
+      break;
+    }
 
-    const dayDevoirs = devoirs.filter(d => {
-      if (!d.date) return false;
-      return d.date.split('T')[0] === dateStr;
-    }).sort((a, b) => a.fait - b.fait);
+    const dayDevoirs = devoirsDuJour(dateStr);
+    if (dayDevoirs.length === 0 && dateStr !== todayStr) continue;
+
+    const mois = `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
+    if (mois !== moisAffiche) {
+      html += `<div class="mobile-month-separator">${mois}</div>`;
+      moisAffiche = mois;
+    }
 
     let headerClass = 'week-day-header';
-    if (isToday) headerClass += ' today';
+    if (dateStr === todayStr) headerClass += ' today';
     if (!isDateStrInSchoolYear(dateStr)) headerClass += ' out-of-range';
 
     html += `<div class="week-day-card"><div class="${headerClass}" data-date="${dateStr}">`;
-    html += `<div class="week-day-name">${dayNames[i]}</div><div class="week-day-number">${date.getDate()}</div></div>`;
-
-    if (dayDevoirs.length > 0) {
-      html += '<div class="week-day-devoirs">';
-      dayDevoirs.forEach(devoir => {
-        const matiere = matieres.find(m => m.id === devoir.matiere_id);
-        const couleur = matiere?.couleur || '#999';
-        html += `<div class="mobile-devoir-item ${devoir.fait ? 'fait' : ''}" data-devoir-id="${devoir.id}" style="border-left:4px solid ${couleur};">`;
-        html += `<div class="mobile-devoir-title">${escapeHTML(devoir.titre)}</div>`;
-        html += `<div class="mobile-devoir-matiere" style="color:${couleur};">`;
-        const matiereNom = escapeHTML(devoir.matiere_nom || 'Sans matière');
-        if (matiere && matiere.lien) html += `<a href="${matiere.lien}" target="_blank">${matiereNom}</a>`;
-        else html += matiereNom;
-        html += `</div></div>`;
-      });
-      html += '</div>';
-    } else {
-      html += '<div class="week-day-devoirs empty">Aucun devoir</div>';
-    }
+    html += `<div class="week-day-name">${DAY_NAMES[date.getDay()]}</div><div class="week-day-number">${date.getDate()}</div></div>`;
+    if (dayDevoirs.length > 0) html += `<div class="week-day-devoirs">${renderMobileDevoirItems(dayDevoirs)}</div>`;
+    else html += '<div class="week-day-devoirs empty">Aucun devoir</div>';
     html += '</div>';
   }
+  html += finAnnee
+    ? '<div class="mobile-scroll-end">Fin de l\'année scolaire</div>'
+    : '<div id="mobile-scroll-sentinel" class="mobile-scroll-sentinel"></div>';
+  html += '</div>';
+  calendar.innerHTML = html;
+
+  const sentinel = document.getElementById('mobile-scroll-sentinel');
+  if (sentinel && 'IntersectionObserver' in window) {
+    mobileObserver = new IntersectionObserver(entries => {
+      if (!entries.some(entry => entry.isIntersecting)) return;
+      mobileDaysShown += MOBILE_DAYS_STEP;
+      renderCalendar();
+    }, { rootMargin: '0px 0px 600px 0px' });
+    mobileObserver.observe(sentinel);
+  }
+}
+
+// Devoirs passés : une semaine à la fois (navigation < >), jours sans devoir omis
+function renderPastWeekView() {
+  const calendar = document.getElementById('calendar');
+  if (!pastWeekStart) pastWeekStart = lastPastWeekStart();
+  const sunday = addDays(pastWeekStart, 6);
+  document.getElementById('current-month').textContent =
+    `${pastWeekStart.getDate()} ${MONTH_NAMES[pastWeekStart.getMonth()]} - ${sunday.getDate()} ${MONTH_NAMES[sunday.getMonth()]} ${sunday.getFullYear()}`;
+
+  const todayStr = dateKey(todayLocal());
+  let html = '<div class="past-view">';
+  let total = 0;
+  for (let i = 0; i < 7; i++) {
+    const date = addDays(pastWeekStart, i);
+    const dateStr = dateKey(date);
+    if (dateStr >= todayStr) break;
+    const dayDevoirs = devoirsDuJour(dateStr);
+    if (dayDevoirs.length === 0) continue;
+    total += dayDevoirs.length;
+    html += `<div class="past-day"><div class="past-day-title">${DAY_NAMES[date.getDay()]} ${date.getDate()} ${MONTH_NAMES[date.getMonth()].toLowerCase()}</div>`;
+    html += renderMobileDevoirItems(dayDevoirs);
+    html += '</div>';
+  }
+  if (total === 0) html += '<div class="past-empty">Aucun devoir cette semaine</div>';
   html += '</div>';
   calendar.innerHTML = html;
 }
 
 function renderDesktopMonthView() {
   const calendar = document.getElementById('calendar');
-  const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
   const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
-  document.getElementById('current-month').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+  document.getElementById('current-month').textContent = `${MONTH_NAMES[currentMonth]} ${currentYear}`;
 
   const firstDay = localDate(currentYear, currentMonth, 1);
   const lastDay = localDate(currentYear, currentMonth + 1, 0);
