@@ -85,13 +85,14 @@ Outils exposés : `lister_devoirs`, `voir_devoir`, `lire_document`, `marquer_fai
 </table>
 
 <details>
-<summary><b>🧪 En cours de revue : notifications push, agenda, commentaires, invitations groupées…</b></summary>
+<summary><b>🧪 En cours de revue : notifications push, agenda, progression, commentaires, invitations groupées…</b></summary>
 <br>
 
 | Fonctionnalité | Aperçu |
 |---|---|
 | 🔔 **Notifications push** : nouveau devoir, modification, rappel la veille à 18 h | <img src="docs/images/apercus/notifications.png" width="480" alt="Section Notifications des paramètres"> |
 | 📅 **Abonnement agenda** (Google Agenda, Calendrier, Outlook) | <img src="docs/images/apercus/agenda.png" width="480" alt="Section Agenda des paramètres"> |
+| 📊 **Ma progression** : taux de devoirs faits, série, devoirs à rattraper, semaine à venir | <img src="docs/images/apercus/progression.png" width="360" alt="Fenêtre Ma progression"> |
 | 💬 **Commentaires sous un devoir**, en temps réel | <img src="docs/images/apercus/commentaires.png" width="360" alt="Commentaires sous un devoir"> |
 | ✉️ **Inviter une liste d'élèves** (copier-coller ou CSV) | <img src="docs/images/apercus/invitations-liste.png" width="300" alt="Invitation d'une liste d'élèves"> |
 
