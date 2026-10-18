@@ -43,7 +43,6 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-devpassword}
       BASE_URL: http://localhost:3000
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-not-for-production}
-      SESSION_SECRET: ${SESSION_SECRET:-dev-session-secret-not-for-production}
       # Clés d'API externes : laissées vides, les fonctionnalités
       # correspondantes (quiz IA, e-mails) sont inactives en test.
       GROQ_API_KEY: ${GROQ_API_KEY:-}
