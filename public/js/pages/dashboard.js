@@ -616,8 +616,8 @@ function renderMobileWeekView() {
 
   let html = '<div class="mobile-view">';
   for (let i = 0; i < 7; i++) {
-    const date = new Date(currentWeekStart);
-    date.setDate(date.getDate() + i);
+    // Comme la vue mois : minuit UTC du jour local, sinon toISOString recule d'un jour entre 0 h et 2 h (Paris)
+    const date = localDate(currentWeekStart.getFullYear(), currentWeekStart.getMonth(), currentWeekStart.getDate() + i);
     const dateStr = date.toISOString().split('T')[0];
     const isToday = date.toDateString() === new Date().toDateString();
 
