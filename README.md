@@ -6,7 +6,7 @@
 
 [![Node.js 24](https://img.shields.io/badge/Node.js-24-5FA04E?logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![Express 5](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)](https://expressjs.com)
-[![MySQL 8.4](https://img.shields.io/badge/MySQL-8.4-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com)
+[![MariaDB 12](https://img.shields.io/badge/MariaDB-12-003545?logo=mariadb&logoColor=white)](https://mariadb.org)
 [![Docker](https://img.shields.io/badge/Docker-prêt-2496ED?logo=docker&logoColor=white)](compose.yml)
 [![PWA](https://img.shields.io/badge/PWA-installable-5A0FC8?logo=pwa&logoColor=white)](public/manifest.webmanifest)
 [![MCP](https://img.shields.io/badge/MCP-assistants%20IA-D97757)](backend/services/mcpServer.js)
@@ -85,7 +85,7 @@ Outils exposés : `lister_devoirs`, `voir_devoir`, `lire_document`, `marquer_fai
 </table>
 
 <details>
-<summary><b>🧪 En cours de revue : notifications push, agenda, progression, commentaires, invitations groupées…</b></summary>
+<summary><b>🧪 En cours de revue : notifications push, agenda, progression, commentaires…</b></summary>
 <br>
 
 | Fonctionnalité | Aperçu |
@@ -94,7 +94,6 @@ Outils exposés : `lister_devoirs`, `voir_devoir`, `lire_document`, `marquer_fai
 | 📅 **Abonnement agenda** (Google Agenda, Calendrier, Outlook) | <img src="docs/images/apercus/agenda.png" width="480" alt="Section Agenda des paramètres"> |
 | 📊 **Ma progression** : taux de devoirs faits, série, devoirs à rattraper, semaine à venir | <img src="docs/images/apercus/progression.png" width="360" alt="Fenêtre Ma progression"> |
 | 💬 **Commentaires sous un devoir**, en temps réel | <img src="docs/images/apercus/commentaires.png" width="360" alt="Commentaires sous un devoir"> |
-| ✉️ **Inviter une liste d'élèves** (copier-coller ou CSV) | <img src="docs/images/apercus/invitations-liste.png" width="300" alt="Invitation d'une liste d'élèves"> |
 
 </details>
 
@@ -106,14 +105,14 @@ flowchart TB
     Assist["🤖 Claude, ChatGPT…<br/><sub>client MCP</sub>"]
 
     subgraph VPS["🖥️ VPS"]
-        Caddy["🔒 Caddy<br/><sub>HTTPS · pages statiques · /uploads</sub>"]
+        Caddy["🔒 Caddy<br/><sub>HTTPS · pages statiques</sub>"]
         subgraph App["🐳 Conteneur eniv (Node 24 · Express 5)"]
             API["API REST<br/><sub>/api/*</sub>"]
             WS["Temps réel<br/><sub>WebSocket /ws</sub>"]
             MCP["Serveur MCP<br/><sub>/api/mcp</sub>"]
             Cron["Tâches planifiées<br/><sub>node-cron</sub>"]
         end
-        DB[("🗄️ MySQL 8.4")]
+        DB[("🗄️ MariaDB 12")]
         Up[/"📎 data/uploads"/]
     end
 
@@ -171,7 +170,7 @@ ENIV/
 ### Avec Docker (recommandé)
 
 ```bash
-git clone https://github.com/Picsou06/ENIV.git && cd ENIV
+git clone https://github.com/ENIV-ENT/ENIV.git && cd ENIV
 docker compose up
 ```
 
@@ -184,7 +183,7 @@ docker compose up
 
 ### Sans Docker
 
-Prérequis : **Node.js 24** et **MySQL 8** (ou MariaDB 10.11+).
+Prérequis : **Node.js 24** et **MySQL 8** ou **MariaDB 10.11+** (les deux sont compatibles ; la production tourne sur MariaDB 12).
 
 ```bash
 cp .env.example .env      # puis renseigner DB_* et JWT_SECRET
@@ -201,11 +200,13 @@ Changez-le dès la première connexion.
 | Variable | Obligatoire | Rôle |
 |---|:---:|---|
 | `JWT_SECRET` | ✅ | Signature des jetons de connexion (`openssl rand -hex 48`) |
-| `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASSWORD` | ✅ | Connexion MySQL |
+| `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASSWORD` | ✅ | Connexion à la base (MySQL ou MariaDB) |
 | `BASE_URL` | ✅ | Adresse publique (liens des e-mails et de Discord) |
 | `BREVO_API_KEY` `BREVO_SENDER_EMAIL` `BREVO_SENDER_NAME` | — | E-mails (invitations, mot de passe oublié…) |
 | `GROQ_API_KEY` | — | Quiz IA des classes standard |
 | `PREMIUM_API_KEY` | — | Quiz IA des classes premium (Anthropic) |
+| `SUPERADMIN_PASSWORD` | — | Mot de passe du compte `superadmin` créé au premier démarrage (sinon tiré au hasard et affiché dans les journaux) |
+| `VAPID_PUBLIC_KEY` `VAPID_PRIVATE_KEY` `VAPID_SUBJECT` | — | Notifications push : générées automatiquement si absentes. Une fois fixées, ne plus les changer (tous les abonnements deviendraient invalides) |
 
 Sans clé, la fonctionnalité correspondante est simplement désactivée.
 
@@ -219,15 +220,22 @@ sequenceDiagram
     participant GA as GitHub Actions
     participant VPS as VPS (deploy.sh)
     Dev->>GH: push sur main
-    GH->>GA: workflow « Déploiement »
-    GA->>VPS: SSH (clé restreinte à la seule commande « eniv »)
-    VPS->>VPS: git pull --ff-only
-    VPS->>VPS: docker compose up -d --build
-    Note over VPS: Healthcheck : l'API répond et accède à la base
+    GH->>GA: workflow « CI »
+    Note over GA: tests unitaires · migrations sur une base vide · image Docker
+    alt CI en échec
+        GA-->>Dev: ❌ rien n'est déployé
+    else CI verte
+        GA->>GA: workflow « Déploiement »
+        GA->>VPS: SSH (clé restreinte à la seule commande « eniv »)
+        VPS->>VPS: git pull --ff-only
+        VPS->>VPS: docker compose up -d --build
+        Note over VPS: Healthcheck : l'API répond et accède à la base
+        GA->>VPS: test de fumée sur la production
+    end
 ```
 
 - **Image** : `Dockerfile` (Node 24, dépendances de production uniquement, utilisateur non root).
-- **Production** : `compose.yml`, avec le port exposé sur `127.0.0.1` seulement. Caddy sert les pages statiques et `/uploads`, et relaie `/api`, `/ws` et `/vendor`.
+- **Production** : `compose.yml`, avec le port exposé sur `127.0.0.1` seulement. Caddy sert les pages statiques et relaie `/api`, `/ws` et `/vendor`. Les documents joints ne sont servis que par lien temporaire, réservé aux membres de la classe (`/api/fichiers/<jeton>`).
 - **Secrets GitHub** : `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`, `DEPLOY_HOST`.
 
 ## 👥 Contributeurs
@@ -265,7 +273,7 @@ sequenceDiagram
   </tr>
 </table>
 
-<p align="center"><sub>Détail des contributions : <a href="https://github.com/Picsou06/ENIV/graphs/contributors">onglet Insights › Contributors</a></sub></p>
+<p align="center"><sub>Détail des contributions : <a href="https://github.com/ENIV-ENT/ENIV/graphs/contributors">onglet Insights › Contributors</a></sub></p>
 
 ## 🤝 Contribuer
 
