@@ -7,6 +7,8 @@ const { requireAuth } = require('../middleware/auth');
 const { convertToPDF } = require('../services/fileConverter');
 const { check_before_upload } = require('../services/fileCleanup');
 const { snapshotDevoir, diffSnapshots, logDevoirAction } = require('../services/devoirLogger');
+const push = require('../services/push');
+const pushMessages = require('../services/pushMessages');
 const router = express.Router();
 
 // Devoir avec le nom de sa matière, utilisé pour construire les instantanés des logs
@@ -88,6 +90,9 @@ router.post('/', express.json(), async (req, res) => {
       action: 'create',
       details: { titre: snapshot.titre, devoir: snapshot }
     });
+
+    push.notifyClasseInBackground(classeId, 'nouveau_devoir',
+      pushMessages.nouveauDevoir({ id: devoirId, ...snapshot }), req.user.id);
 
     res.json({
       success: true,
@@ -193,6 +198,9 @@ router.put('/:id', express.json(), async (req, res) => {
         action: 'update',
         details: { titre: after.titre, changes }
       });
+
+      push.notifyClasseInBackground(classeId, 'devoir_modifie',
+        pushMessages.devoirModifie({ id: Number(req.params.id), ...after }, changes), req.user.id);
     }
 
     res.json({ success: true, message: 'Devoir mis à jour' });
@@ -333,6 +341,9 @@ router.post('/:id/upload', upload.single('pdf'), async (req, res) => {
         }
       }
     });
+
+    push.notifyClasseInBackground(classeId, 'devoir_modifie',
+      pushMessages.nouveauFichier(devoir, req.file.originalname), req.user.id);
 
     res.json({
       success: true,
