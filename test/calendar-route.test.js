@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const express = require('express');
 const { installFakeDb } = require('./helpers/fakeDb');
 
+process.env.NODE_ENV = 'test';
+
 const TOKEN = 'A'.repeat(43);
 const fake = installFakeDb((method, sql, params) => {
   if (method === 'get' && sql.includes('calendar_token = ?')) {
