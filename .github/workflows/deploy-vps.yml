@@ -1,7 +1,12 @@
 name: Déploiement
 
+# Déploie main sur le VPS, uniquement quand la CI est verte sur ce commit.
+# Lancement manuel possible depuis l'onglet Actions (workflow_dispatch).
+
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -11,7 +16,13 @@ concurrency:
 
 jobs:
   deploy:
+    # workflow_run se déclenche aussi quand la CI échoue : on ne déploie que sur un
+    # push de main dont la CI a réussi
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Lancer deploy.sh sur le VPS
         env:
@@ -25,3 +36,15 @@ jobs:
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           # La clé est restreinte côté serveur : la seule commande acceptée est le nom du projet.
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes deploy@"$HOST" eniv
+
+      - uses: actions/checkout@v4
+        if: vars.APP_URL != ''
+        with:
+          sparse-checkout: scripts
+
+      - name: Test de fumée sur la production
+        if: vars.APP_URL != ''
+        env:
+          # Laisse le temps au conteneur de reconstruire et redémarrer
+          SMOKE_TIMEOUT_S: 180
+        run: node scripts/smoke-test.js "${{ vars.APP_URL }}"
