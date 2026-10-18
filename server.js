@@ -32,6 +32,7 @@ app.use('/api/admin', require('./backend/routes/admin'));
 app.use('/api/devoirs', require('./backend/routes/devoirs'));
 app.use('/api/invitations', require('./backend/routes/invitations'));
 app.use('/api/quiz', require('./backend/routes/quiz'));
+app.use('/api/progression', require('./backend/routes/progression'));
 app.use('/api/registration', require('./backend/routes/registration'));
 app.use('/api/proxy', require('./backend/routes/proxy'));
 app.use('/api/mcp', require('./backend/routes/mcp'));
