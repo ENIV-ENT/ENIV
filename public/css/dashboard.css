@@ -1468,14 +1468,8 @@ input[type="color"] {
   .mobile-view {
     display: block !important;
   }
-  /* Défilement continu : pas de navigation par semaine */
+  /* Défilement continu : pas de navigation par semaine, ni de titre */
   .calendar-header.defilement {
-    justify-content: center;
-    margin-bottom: 1rem;
-  }
-
-  .calendar-header.defilement #prev-month,
-  .calendar-header.defilement #next-month {
     display: none;
   }
 
