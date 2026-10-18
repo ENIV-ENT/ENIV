@@ -30,6 +30,7 @@ app.use('/api/auth', require('./backend/routes/auth'));
 app.use('/api/superadmin', require('./backend/routes/superadmin'));
 app.use('/api/admin', require('./backend/routes/admin'));
 app.use('/api/devoirs', require('./backend/routes/devoirs'));
+app.use('/api/devoirs/:devoirId/commentaires', require('./backend/routes/commentaires'));
 app.use('/api/invitations', require('./backend/routes/invitations'));
 app.use('/api/quiz', require('./backend/routes/quiz'));
 app.use('/api/registration', require('./backend/routes/registration'));
