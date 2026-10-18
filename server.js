@@ -8,6 +8,11 @@ const realtimeNotifier = require('./backend/middleware/realtimeNotifier');
 
 const app = express();
 const server = http.createServer(app);
+
+// Le conteneur n'écoute que sur 127.0.0.1 et Caddy est le seul relais : on fait
+// confiance à un saut de proxy pour lire la vraie IP (limites de débit).
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
 realtime.init(server);
 
 // Middleware

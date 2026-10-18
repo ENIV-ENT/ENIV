@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const db = require('../models/dbHelper');
 const { sendInvitationEmail } = require('../services/email');
 const { requireAuth } = require('../middleware/auth');
+const { signupLimiter, lookupLimiter } = require('../middleware/rateLimit');
 const router = express.Router();
 
 // Créer une invitation (Admin ou Superadmin)
@@ -96,7 +97,7 @@ router.post('/create', requireAuth, async (req, res) => {
 });
 
 // Vérifier la validité d'une invitation
-router.get('/verify/:token', async (req, res) => {
+router.get('/verify/:token', lookupLimiter, async (req, res) => {
   const { token } = req.params;
 
   try {
@@ -126,7 +127,7 @@ router.get('/verify/:token', async (req, res) => {
 });
 
 // Vérifier la disponibilité d'un username
-router.post('/check-username', async (req, res) => {
+router.post('/check-username', lookupLimiter, async (req, res) => {
   const { username } = req.body;
 
   if (!username) {
@@ -152,7 +153,7 @@ router.post('/check-username', async (req, res) => {
 });
 
 // Finaliser l'inscription avec une invitation
-router.post('/complete', async (req, res) => {
+router.post('/complete', signupLimiter, async (req, res) => {
   const { token, username, password, nom, prenom } = req.body;
 
   if (!token || !username || !password || !nom || !prenom) {

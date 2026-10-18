@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const db = require('../models/dbHelper');
 const { sendJoinRequestEmail, sendEtablissementRequestEmail } = require('../services/email');
+const { signupLimiter, lookupLimiter } = require('../middleware/rateLimit');
 const router = express.Router();
 
 const SEARCH_LIMIT = 10;
@@ -175,7 +176,7 @@ async function createUserWithNewClasse(fields) {
 }
 
 // Inscription d'un nouvel utilisateur
-router.post('/register', async (req, res) => {
+router.post('/register', signupLimiter, async (req, res) => {
   const { username, password, email, nom, prenom, etablissement_id, classe_nom, classe_id } = req.body;
 
   if (!username || !password || !nom || !prenom || !etablissement_id) {
@@ -226,7 +227,7 @@ router.post('/register', async (req, res) => {
 });
 
 // Verifier la disponibilite d'un username
-router.post('/check-username', async (req, res) => {
+router.post('/check-username', lookupLimiter, async (req, res) => {
   const { username } = req.body;
 
   if (!username || username.length < 3) {
@@ -267,7 +268,7 @@ router.get('/invite-info', async (req, res) => {
 });
 
 // Demande d'ajout d'etablissement
-router.post('/etablissement-request', async (req, res) => {
+router.post('/etablissement-request', signupLimiter, async (req, res) => {
   const { nom, commune, code_postal, email_demandeur } = req.body;
 
   if (!nom || !email_demandeur) {

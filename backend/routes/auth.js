@@ -4,14 +4,19 @@ const jwt = require('jsonwebtoken');
 const db = require('../models/dbHelper');
 const {requireAuth, verifyToken} = require("../middleware/auth");
 const mcpTokens = require('../services/mcpTokens');
+const { loginLimiter } = require('../middleware/rateLimit');
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRES_IN = '3650d';
 
 // Login
-router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
+router.post('/login', loginLimiter, async (req, res) => {
+  const { username, password } = req.body || {};
+
+  if (typeof username !== 'string' || typeof password !== 'string' || !username || !password) {
+    return res.status(400).json({ error: 'Identifiant et mot de passe requis' });
+  }
 
   try {
     // Rechercher l'utilisateur par username OU par email
@@ -24,7 +29,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Identifiants invalides' });
     }
 
-    const validPassword = bcrypt.compareSync(password, user.password);
+    const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       return res.status(401).json({ error: 'Identifiants invalides' });
     }
