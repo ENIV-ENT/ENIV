@@ -1,0 +1,20 @@
+name: Scripts shell
+
+on:
+  pull_request:
+    paths: ["scripts/**.sh", "deploy.sh"]
+  push:
+    branches: [main]
+    paths: ["scripts/**.sh", "deploy.sh"]
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Analyser les scripts
+        run: shellcheck deploy.sh scripts/*.sh
