@@ -7,7 +7,7 @@ const mcpTokens = require('../services/mcpTokens');
 const { loginLimiter } = require('../middleware/rateLimit');
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const { JWT_SECRET } = require('../config/jwt');
 const JWT_EXPIRES_IN = '3650d';
 
 // Login
