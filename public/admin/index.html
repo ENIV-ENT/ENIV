@@ -12,7 +12,7 @@
   <script src="/js/pwa.js?v=1" defer></script>
   <!-- Doit rester synchrone et avant les styles : applique le thème avant le premier rendu -->
   <script src="/js/theme-init.js?v=1"></script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=7">
+  <link rel="stylesheet" href="/css/dashboard.css?v=8">
   <link rel="stylesheet" href="/css/loading.css?v=3">
   <style>
     /* Admin specific overrides */
@@ -174,7 +174,10 @@
     <div id="tab-eleves" class="tab-content active">
       <div class="section-header">
         <h3>Gestion des élèves</h3>
-        <button id="add-eleve-btn" class="btn-primary">Inviter un élève</button>
+        <div class="section-actions">
+          <button id="bulk-invite-btn" class="btn-secondary">Inviter une liste</button>
+          <button id="add-eleve-btn" class="btn-primary">Inviter un élève</button>
+        </div>
       </div>
       <div id="eleves-list" class="list"></div>
     </div>
@@ -280,6 +283,32 @@
     </div>
   </div>
 
+  <div id="bulk-invite-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Inviter une liste d'élèves</h2>
+        <button class="modal-close" id="close-bulk-invite-modal">&times;</button>
+      </div>
+      <p style="color: var(--secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+        Collez les adresses (une par ligne, ou copiées depuis un tableur) ou choisissez un fichier CSV.
+        Chaque élève recevra un e-mail pour créer son compte dans votre classe.
+      </p>
+      <form id="bulk-invite-form">
+        <div class="form-group">
+          <label for="bulk-invite-text" class="form-label">Adresses e-mail</label>
+          <textarea id="bulk-invite-text" rows="7" placeholder="lea.martin@exemple.fr&#10;tom.durand@exemple.fr&#10;…"></textarea>
+          <small class="form-hint">Ou importez un fichier : <input type="file" id="bulk-invite-file" accept=".csv,.txt,text/csv,text/plain"></small>
+        </div>
+        <p id="bulk-invite-count" class="bulk-invite-count">Aucune adresse détectée</p>
+        <ul id="bulk-invite-results" class="bulk-invite-results" hidden></ul>
+        <div class="form-actions">
+          <button type="submit" id="bulk-invite-submit" class="btn-primary" disabled>Envoyer les invitations</button>
+          <button type="button" id="cancel-bulk-invite" class="btn-secondary">Fermer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="edit-eleve-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
@@ -371,6 +400,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/pages/admin.js?v=6"></script>
+  <script type="module" src="/js/pages/admin.js?v=7"></script>
 </body>
 </html>

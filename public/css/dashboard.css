@@ -1514,3 +1514,47 @@ input[type="color"] {
     width: 100%;
   }
 }
+
+/* Invitation d'une liste d'élèves (admin) */
+.section-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.bulk-invite-count {
+  font-size: 0.9rem;
+  color: var(--secondary);
+  margin: -0.25rem 0 1rem;
+}
+
+.bulk-invite-results {
+  list-style: none;
+  max-height: 14rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+
+.bulk-invite-results li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 0.75rem;
+}
+
+.bulk-invite-results li + li {
+  border-top: 1px solid var(--border);
+}
+
+.bulk-invite-results li span:last-child {
+  color: var(--secondary);
+  white-space: nowrap;
+}
+
+.bulk-invite-results .bulk-erreur span:last-child,
+.bulk-invite-results .bulk-invalide span:last-child {
+  color: var(--danger);
+}

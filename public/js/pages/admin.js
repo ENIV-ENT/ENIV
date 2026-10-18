@@ -1,5 +1,6 @@
 import { apiCall, checkAuth, logout } from '../utils/api.js?v=4';
 import { escapeHTML, formatDate, toggleModal, setupModalClose, showAlert, showConfirm } from '../utils/dom.js?v=2';
+import { extractEmails } from '../utils/emails.js?v=1';
 
 let currentUserId = null;
 let eleves = [];
@@ -137,6 +138,9 @@ function setupEventListeners() {
   setupModalClose('add-eleve-modal', 'close-add-eleve-modal');
   document.getElementById('add-eleve-form').addEventListener('submit', handleAddEleve);
 
+  // Invitation d'une liste d'élèves
+  setupBulkInvite();
+
   // Edit eleve
   document.getElementById('cancel-edit-eleve').addEventListener('click', () => toggleModal('edit-eleve-modal', false));
   setupModalClose('edit-eleve-modal', 'close-edit-eleve-modal');
@@ -246,6 +250,90 @@ async function handleAddEleve(e) {
     await loadEleves();
     await loadInvitations();
   }
+}
+
+// ============= INVITATION D'UNE LISTE =============
+
+const BULK_STATUS_LABELS = {
+  envoyee: ['✅', 'invitation envoyée'],
+  deja_inscrit: ['ℹ️', 'a déjà un compte'],
+  deja_invite: ['⏳', 'invitation déjà en attente'],
+  invalide: ['⚠️', 'adresse invalide'],
+  erreur: ['❌', 'échec de l\'envoi, réessayez']
+};
+
+function setupBulkInvite() {
+  const textarea = document.getElementById('bulk-invite-text');
+  const fileInput = document.getElementById('bulk-invite-file');
+  const form = document.getElementById('bulk-invite-form');
+
+  const open = () => {
+    form.reset();
+    document.getElementById('bulk-invite-results').hidden = true;
+    updateBulkInviteCount();
+    toggleModal('bulk-invite-modal', true);
+  };
+  document.getElementById('bulk-invite-btn').addEventListener('click', open);
+  document.getElementById('cancel-bulk-invite').addEventListener('click', () => toggleModal('bulk-invite-modal', false));
+  setupModalClose('bulk-invite-modal', 'close-bulk-invite-modal');
+
+  textarea.addEventListener('input', updateBulkInviteCount);
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    textarea.value = extractEmails(await file.text()).join('\n');
+    updateBulkInviteCount();
+  });
+  form.addEventListener('submit', handleBulkInvite);
+}
+
+function updateBulkInviteCount() {
+  const count = extractEmails(document.getElementById('bulk-invite-text').value).length;
+  document.getElementById('bulk-invite-count').textContent = count === 0
+    ? 'Aucune adresse détectée'
+    : `${count} adresse${count > 1 ? 's' : ''} détectée${count > 1 ? 's' : ''}`;
+  document.getElementById('bulk-invite-submit').disabled = count === 0;
+}
+
+async function handleBulkInvite(e) {
+  e.preventDefault();
+  const emails = extractEmails(document.getElementById('bulk-invite-text').value);
+  if (emails.length === 0) return;
+
+  const submit = document.getElementById('bulk-invite-submit');
+  submit.disabled = true;
+  submit.textContent = `Envoi de ${emails.length} invitation${emails.length > 1 ? 's' : ''}…`;
+
+  const data = await apiCall('/api/invitations/bulk', {
+    method: 'POST',
+    body: JSON.stringify({ emails })
+  });
+
+  submit.textContent = 'Envoyer les invitations';
+  submit.disabled = false;
+
+  if (data.error) {
+    await showAlert(data.error, 'Erreur');
+    return;
+  }
+
+  const results = document.getElementById('bulk-invite-results');
+  results.innerHTML = data.results.map(({ email, status }) => {
+    const [icon, label] = BULK_STATUS_LABELS[status] || ['❔', status];
+    return `<li class="bulk-${status}"><span>${icon} ${escapeHTML(email)}</span><span>${label}</span></li>`;
+  }).join('');
+  results.hidden = false;
+  document.getElementById('bulk-invite-count').textContent =
+    `${data.envoyees} invitation${data.envoyees > 1 ? 's' : ''} envoyée${data.envoyees > 1 ? 's' : ''} sur ${data.total}`;
+
+  // Ne laisser dans la zone de texte que les adresses à retenter
+  document.getElementById('bulk-invite-text').value = data.results
+    .filter((r) => r.status === 'erreur')
+    .map((r) => r.email)
+    .join('\n');
+  submit.disabled = !document.getElementById('bulk-invite-text').value;
+
+  await loadInvitations();
 }
 
 function prepareEditEleve(id) {
