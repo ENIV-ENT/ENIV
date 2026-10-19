@@ -151,6 +151,15 @@ async function initDatabase() {
         console.log(`Superadmin créé : username=superadmin, password=${password} (à changer dès la première connexion)`);
       }
     }
+
+    // Les bases créées avant ce correctif peuvent garder l'ancien mot de passe
+    // connu de tous : on le signale à chaque démarrage tant qu'il n'est pas changé.
+    const [superadmins] = await connection.query('SELECT username, password FROM users WHERE role = ?', ['superadmin']);
+    for (const { username, password } of superadmins) {
+      if (await bcrypt.compare('superadmin123', password)) {
+        console.warn(`⚠ Le superadmin « ${username} » utilise encore le mot de passe par défaut superadmin123 : changez-le immédiatement.`);
+      }
+    }
   } catch (error) {
     console.error('Erreur lors de l\'initialisation de la base de données:', error);
     throw error;
