@@ -6,8 +6,9 @@
 
 const DEV_SECRET = 'dev-jwt-secret-not-for-production';
 const RECOMMENDED_LENGTH = 32;
-// Valeurs publiées dans le dépôt (ancien défaut, .env.exemple, compose.yaml) :
-// les accepter en production permettrait de forger n'importe quel jeton.
+// Valeurs publiées dans le dépôt (ancien défaut, ancien .env.exemple,
+// compose.yaml) : les accepter en production permettrait de forger n'importe
+// quel jeton.
 const PUBLIC_SECRETS = [
   'your-secret-key-change-in-production',
   'your-jwt-secret-key-change-in-production',

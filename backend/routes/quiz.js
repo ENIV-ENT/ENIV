@@ -37,7 +37,10 @@ router.get('/:devoirId', async (req, res) => {
     // Parser le JSON des questions
     let questions = [];
     try {
-      questions = JSON.parse(devoir.questions_json);
+      // Colonne JSON de MariaDB : mysql2 (3.x) la renvoie déjà décodée
+      questions = typeof devoir.questions_json === 'string'
+        ? JSON.parse(devoir.questions_json)
+        : devoir.questions_json;
     } catch (e) {
       console.error('Erreur parsing JSON:', e);
       return res.status(500).json({ error: 'Format de questions invalide' });
