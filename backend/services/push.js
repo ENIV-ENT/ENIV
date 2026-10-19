@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const webpush = require('web-push');
 const db = require('../models/dbHelper');
+const { devoirModifie } = require('./pushMessages');
 
 /**
  * Notifications push (Web Push, protocole VAPID).
@@ -21,6 +22,20 @@ const DEFAULT_SUBJECT = 'mailto:contact@eniv.fr';
 // Préférences par défaut d'un utilisateur qui n'a jamais rien réglé
 const DEFAULT_PREFERENCES = { nouveau_devoir: true, devoir_modifie: true, rappel_veille: true };
 const PREFERENCE_KEYS = Object.keys(DEFAULT_PREFERENCES);
+
+// Le serveur envoie un POST à l'endpoint : seuls les services push des
+// navigateurs sont acceptés, sinon un élève pourrait faire appeler une adresse
+// interne au VPS ou un site tiers.
+const PUSH_HOSTS = ['fcm.googleapis.com', 'updates.push.services.mozilla.com', 'web.push.apple.com'];
+const PUSH_HOST_SUFFIXES = ['.notify.windows.com'];
+const MAX_SUBSCRIPTIONS_PER_USER = 10;
+
+// Un service push qui ne répond pas ne doit pas retarder les autres envois
+const SEND_TIMEOUT_MS = 10000;
+
+// Une modification juste après la création (souvent une correction de
+// l'auteur) ne vaut pas une seconde notification
+const MODIFICATION_GRACE_MINUTES = 5;
 
 let vapidPromise = null;
 
@@ -65,26 +80,48 @@ function hashEndpoint(endpoint) {
  * Valide l'objet PushSubscription envoyé par le navigateur.
  * @returns {{endpoint: string, p256dh: string, auth: string}|null}
  */
+function isPushServiceEndpoint(endpoint) {
+  let url;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:' || url.port || url.username || url.password) return false;
+  return PUSH_HOSTS.includes(url.hostname)
+    || PUSH_HOST_SUFFIXES.some((suffix) => url.hostname.endsWith(suffix));
+}
+
 function parseSubscription(body) {
   const sub = body && body.subscription;
   if (!sub || typeof sub.endpoint !== 'string' || !sub.keys) return null;
   const { p256dh, auth } = sub.keys;
   if (typeof p256dh !== 'string' || typeof auth !== 'string') return null;
-  if (!/^https:\/\//.test(sub.endpoint) || sub.endpoint.length > 2000) return null;
+  if (sub.endpoint.length > 2000 || !isPushServiceEndpoint(sub.endpoint)) return null;
   if (p256dh.length > 255 || auth.length > 255) return null;
   return { endpoint: sub.endpoint, p256dh, auth };
 }
 
-async function saveSubscription(userId, subscription, userAgent) {
+/**
+ * @returns {Promise<boolean>} false si le compte a déjà trop d'appareils abonnés
+ */
+async function saveSubscription(userId, subscription) {
+  const endpointHash = hashEndpoint(subscription.endpoint);
+  // Renvoyer un abonnement déjà enregistré pour ce compte reste toujours possible
+  const others = await db.get(
+    'SELECT COUNT(*) AS n FROM push_subscriptions WHERE user_id = ? AND endpoint_hash <> ?',
+    [userId, endpointHash]
+  );
+  if (Number(others.n) >= MAX_SUBSCRIPTIONS_PER_USER) return false;
+
   // Un même navigateur peut changer de compte : l'abonnement suit le dernier connecté
   await db.run(
-    `INSERT INTO push_subscriptions (user_id, endpoint, endpoint_hash, p256dh, auth, user_agent)
-     VALUES (?, ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), p256dh = VALUES(p256dh),
-       auth = VALUES(auth), user_agent = VALUES(user_agent)`,
-    [userId, subscription.endpoint, hashEndpoint(subscription.endpoint),
-      subscription.p256dh, subscription.auth, userAgent ? String(userAgent).slice(0, 255) : null]
+    `INSERT INTO push_subscriptions (user_id, endpoint, endpoint_hash, p256dh, auth)
+     VALUES (?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), p256dh = VALUES(p256dh), auth = VALUES(auth)`,
+    [userId, subscription.endpoint, endpointHash, subscription.p256dh, subscription.auth]
   );
+  return true;
 }
 
 async function deleteSubscription(userId, endpoint) {
@@ -138,7 +175,7 @@ async function sendToSubscriptions(subscriptions, payload) {
       await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         body,
-        { TTL: 60 * 60 * 24, urgency: payload.urgency || 'normal', topic: payload.topic }
+        { TTL: 60 * 60 * 24, urgency: payload.urgency || 'normal', topic: payload.topic, timeout: SEND_TIMEOUT_MS }
       );
       stats.sent++;
       db.run('UPDATE push_subscriptions SET last_success_at = UTC_TIMESTAMP() WHERE id = ?', [sub.id]).catch(() => {});
@@ -183,11 +220,28 @@ async function notifyClasse(classeId, preference, payload, excludeUserId = null)
 }
 
 /**
- * Lance notifyClasse sans attendre : une notification ratée ne doit jamais
+ * Prévient la classe qu'un devoir a changé, sauf s'il vient d'être créé : les
+ * élèves ont déjà reçu « Nouveau devoir » quelques instants plus tôt.
+ * @param {Object} devoir - instantané après modification, avec son id
+ * @param {Array} changes - résultat de diffSnapshots
+ */
+async function notifyDevoirModifie(classeId, devoir, changes, excludeUserId = null) {
+  const row = await db.get(
+    'SELECT created_at > NOW() - INTERVAL ? MINUTE AS recent FROM devoirs WHERE id = ?',
+    [MODIFICATION_GRACE_MINUTES, devoir.id]
+  );
+  if (!row || Number(row.recent)) return null;
+  return notifyClasse(classeId, 'devoir_modifie', devoirModifie(devoir, changes), excludeUserId);
+}
+
+/**
+ * Lance un envoi sans l'attendre : une notification ratée ne doit jamais
  * retarder ni casser la réponse HTTP.
  */
-function notifyClasseInBackground(...args) {
-  notifyClasse(...args).catch((error) => console.error('Notification push de classe échouée:', error));
+function inBackground(send) {
+  return (...args) => {
+    send(...args).catch((error) => console.error('Notification push de classe échouée:', error));
+  };
 }
 
 module.exports = {
@@ -201,5 +255,7 @@ module.exports = {
   setPreferences,
   sendToUser,
   notifyClasse,
-  notifyClasseInBackground,
+  notifyClasseInBackground: inBackground(notifyClasse),
+  notifyDevoirModifie,
+  notifyDevoirModifieInBackground: inBackground(notifyDevoirModifie),
 };

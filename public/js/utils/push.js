@@ -1,4 +1,5 @@
-import { apiCall } from './api.js?v=4';
+import { apiCall } from './api.js?v=5';
+import { showConfirm } from './dom.js?v=3';
 
 // Notifications push côté navigateur : permission, abonnement auprès du service
 // push du navigateur, puis enregistrement de cet abonnement sur le serveur
@@ -31,8 +32,9 @@ async function getRegistration() {
 
 export async function getPushSubscription() {
   if (!isPushSupported()) return null;
-  const registration = await getRegistration();
-  return registration.pushManager.getSubscription();
+  // Pas serviceWorker.ready : elle n'aboutit jamais si l'enregistrement échoue
+  const registration = await navigator.serviceWorker.getRegistration();
+  return registration ? registration.pushManager.getSubscription() : null;
 }
 
 // La clé VAPID arrive en base64url ; pushManager.subscribe attend des octets
@@ -111,6 +113,34 @@ export async function disablePush() {
   });
   await subscription.unsubscribe();
   return { ok: true };
+}
+
+const LOGOUT_CHOICE_KEY = 'push-logout-choice'; // 'keep' | 'disable'
+
+/**
+ * Avant la déconnexion : l'abonnement de cet appareil reste lié au compte, on
+ * demande donc s'il faut le garder. Le choix peut être mémorisé sur l'appareil.
+ * @returns {Promise<boolean>} false si la question est fermée sans réponse
+ *   (la déconnexion est alors abandonnée)
+ */
+export async function handlePushBeforeLogout() {
+  const subscription = await getPushSubscription().catch(() => null);
+  if (!subscription) return true;
+
+  let choice = localStorage.getItem(LOGOUT_CHOICE_KEY);
+  if (!choice) {
+    const answer = await showConfirm(
+      'Désactiver les notifications sur cet appareil ? Sinon, il continuera de recevoir celles de votre compte après la déconnexion.',
+      'Notifications',
+      { confirmLabel: 'Désactiver', cancelLabel: 'Les garder', checkboxLabel: 'Ne plus me demander' }
+    );
+    if (!answer) return false;
+    choice = answer.confirmed ? 'disable' : 'keep';
+    if (answer.checked) localStorage.setItem(LOGOUT_CHOICE_KEY, choice);
+  }
+
+  if (choice === 'disable') await disablePush().catch(() => {});
+  return true;
 }
 
 /**

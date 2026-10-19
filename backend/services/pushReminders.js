@@ -49,10 +49,14 @@ async function envoyerRappelsVeille(now = new Date()) {
 
   const parUtilisateur = grouperParUtilisateur(rows);
   let envoyes = 0;
-  for (const [userId, devoirs] of parUtilisateur) {
-    const stats = await push.sendToUser(userId, rappelVeille(devoirs));
-    envoyes += stats.sent;
-  }
+  // En parallèle : un élève dont l'envoi échoue ou traîne ne prive pas les autres
+  await Promise.all([...parUtilisateur].map(async ([userId, devoirs]) => {
+    try {
+      envoyes += (await push.sendToUser(userId, rappelVeille(devoirs))).sent;
+    } catch (error) {
+      console.error(`Rappel push de la veille échoué pour l'utilisateur ${userId}:`, error);
+    }
+  }));
 
   console.log(`Rappels push de la veille (${date}) : ${parUtilisateur.size} élève(s), ${envoyes} notification(s)`);
   return { date, utilisateurs: parUtilisateur.size, envoyes };

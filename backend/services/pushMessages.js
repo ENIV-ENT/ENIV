@@ -39,7 +39,13 @@ function nouveauDevoir({ id, titre, matiere_nom, date }) {
   };
 }
 
-const CHAMPS = { titre: 'titre', description: 'description', matiere_id: 'matière', date: 'date' };
+// Nom affiché et genre, pour accorder « modifié »
+const CHAMPS = {
+  titre: { nom: 'titre', feminin: false },
+  description: { nom: 'description', feminin: true },
+  matiere_id: { nom: 'matière', feminin: true },
+  date: { nom: 'date', feminin: true },
+};
 
 function devoirModifie({ id, titre, matiere_nom, date }, changes = []) {
   const champs = changes.map((c) => CHAMPS[c.field]).filter(Boolean);
@@ -48,22 +54,15 @@ function devoirModifie({ id, titre, matiere_nom, date }, changes = []) {
   if (dateChange && formatJour(date)) {
     detail = `désormais pour ${formatJour(date)}`;
   } else if (champs.length) {
-    detail = `${champs.join(', ')} modifié${champs.length > 1 ? 's' : ''}`;
+    // Masculin dès qu'un champ masculin est concerné
+    const accord = `${champs.every((c) => c.feminin) ? 'e' : ''}${champs.length > 1 ? 's' : ''}`;
+    detail = `${champs.map((c) => c.nom).join(', ')} modifié${accord}`;
   } else {
     detail = 'modifié';
   }
   return {
     title: `✏️ Devoir modifié${matiere_nom ? ` · ${matiere_nom}` : ''}`,
     body: truncate(`${titre} — ${detail}`),
-    url: devoirUrl(id),
-    tag: `devoir-${id}`,
-  };
-}
-
-function nouveauFichier({ id, titre }, nomFichier) {
-  return {
-    title: '📎 Nouveau document',
-    body: truncate(`${nomFichier} ajouté à « ${titre} »`),
     url: devoirUrl(id),
     tag: `devoir-${id}`,
   };
@@ -101,4 +100,4 @@ function test() {
   };
 }
 
-module.exports = { nouveauDevoir, devoirModifie, nouveauFichier, rappelVeille, test, formatJour, truncate };
+module.exports = { nouveauDevoir, devoirModifie, rappelVeille, test, formatJour, truncate };

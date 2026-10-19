@@ -40,6 +40,10 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
+  // multer lit le nom en latin1 alors que les navigateurs l'envoient en UTF-8 :
+  // on le corrige ici, avant tout usage (stockage, base, journaux)
+  file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+
   // Accepter PDF, DOCX, PPTX
   const allowedMimeTypes = [
     'application/pdf',
@@ -213,8 +217,7 @@ router.put('/:id', express.json(), async (req, res) => {
         details: { titre: after.titre, changes }
       });
 
-      push.notifyClasseInBackground(classeId, 'devoir_modifie',
-        pushMessages.devoirModifie({ id: Number(req.params.id), ...after }, changes), req.user.id);
+      push.notifyDevoirModifieInBackground(classeId, { id: Number(req.params.id), ...after }, changes, req.user.id);
     }
 
     res.json({ success: true, message: 'Devoir mis à jour' });
@@ -364,9 +367,6 @@ router.post('/:id/upload', upload.single('pdf'), async (req, res) => {
         }
       }
     });
-
-    push.notifyClasseInBackground(classeId, 'devoir_modifie',
-      pushMessages.nouveauFichier(devoir, req.file.originalname), req.user.id);
 
     res.json({
       success: true,

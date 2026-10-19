@@ -24,7 +24,9 @@ router.post('/subscribe', express.json(), async (req, res) => {
   }
 
   try {
-    await push.saveSubscription(req.user.id, subscription, req.headers['user-agent']);
+    if (!await push.saveSubscription(req.user.id, subscription)) {
+      return res.status(409).json({ error: 'Trop d\'appareils reçoivent déjà les notifications de ce compte. Désactivez-les sur un ancien appareil.' });
+    }
     res.json({ success: true });
   } catch (error) {
     console.error('Error saving push subscription:', error);
