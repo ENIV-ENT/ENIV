@@ -13,7 +13,7 @@ const MAX_LINE_OCTETS = 75;
 function escapeText(value) {
   return String(value ?? '')
     .replace(/\\/g, '\\\\')
-    .replace(/;/g, '\;')
+    .replace(/;/g, '\\;')
     .replace(/,/g, '\\,')
     .replace(/\r\n|\r|\n/g, '\\n');
 }

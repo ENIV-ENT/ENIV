@@ -4,7 +4,7 @@ const { buildCalendar, escapeText, foldLine, toIcsDate, nextDay } = require('../
 
 describe('format iCalendar', () => {
   test('échappement des caractères spéciaux', () => {
-    assert.equal(escapeText('a;b,c\\d\ne'), 'a\;b\\,c\\\\d\\ne');
+    assert.equal(escapeText('a;b,c\\d\ne'), 'a\\;b\\,c\\\\d\\ne');
   });
 
   test('lignes repliées à 75 octets sans couper un caractère accentué', () => {
@@ -50,7 +50,7 @@ describe('agenda', () => {
 
   test('matière dans le titre, texte échappé, lien vers le devoir', () => {
     assert.match(ics, /SUMMARY:Maths · Exercices 12\\, 13/);
-    assert.match(ics, /DESCRIPTION:Rédiger\; soigner\\n\\nhttps:\/\/app\.eniv\.fr\/dashboard\/\?devoir=1/);
+    assert.match(ics, /DESCRIPTION:Rédiger\\; soigner\\n\\nhttps:\/\/app\.eniv\.fr\/dashboard\/\?devoir=1/);
     assert.match(ics, /URL:https:\/\/app\.eniv\.fr\/dashboard\/\?devoir=1/);
   });
 
