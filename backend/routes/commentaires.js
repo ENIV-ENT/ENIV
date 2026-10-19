@@ -1,6 +1,8 @@
 const express = require('express');
 const db = require('../models/dbHelper');
 const { requireAuth } = require('../middleware/auth');
+const { commentLimiter } = require('../middleware/rateLimit');
+const { logDevoirAction } = require('../services/devoirLogger');
 
 // Monté sur /api/devoirs/:devoirId/commentaires
 const router = express.Router({ mergeParams: true });
@@ -41,7 +43,7 @@ router.get('/', devoirDeLaClasse, async (req, res) => {
   }
 });
 
-router.post('/', express.json(), devoirDeLaClasse, async (req, res) => {
+router.post('/', commentLimiter, express.json(), devoirDeLaClasse, async (req, res) => {
   const contenu = typeof req.body?.contenu === 'string' ? req.body.contenu.trim() : '';
   if (!contenu) {
     return res.status(400).json({ error: 'Commentaire vide' });
@@ -65,7 +67,12 @@ router.post('/', express.json(), devoirDeLaClasse, async (req, res) => {
 router.delete('/:commentaireId', devoirDeLaClasse, async (req, res) => {
   try {
     const commentaire = await db.get(
-      'SELECT id, user_id FROM devoir_commentaires WHERE id = ? AND devoir_id = ?',
+      `SELECT c.id, c.user_id, c.contenu, c.created_at,
+              u.username, u.prenom, u.nom, d.titre AS devoir_titre
+       FROM devoir_commentaires c
+       JOIN users u ON u.id = c.user_id
+       JOIN devoirs d ON d.id = c.devoir_id
+       WHERE c.id = ? AND c.devoir_id = ?`,
       [req.params.commentaireId, req.params.devoirId]
     );
     if (!commentaire) {
@@ -76,6 +83,25 @@ router.delete('/:commentaireId', devoirDeLaClasse, async (req, res) => {
     }
 
     await db.run('DELETE FROM devoir_commentaires WHERE id = ?', [commentaire.id]);
+
+    // Garder une trace du message supprimé et de son auteur dans l'Historique
+    await logDevoirAction(req, {
+      devoirId: Number(req.params.devoirId),
+      action: 'delete_commentaire',
+      details: {
+        titre: commentaire.devoir_titre,
+        commentaire: {
+          contenu: commentaire.contenu,
+          created_at: commentaire.created_at,
+          auteur: {
+            username: commentaire.username,
+            prenom: commentaire.prenom,
+            nom: commentaire.nom
+          }
+        }
+      }
+    });
+
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting comment:', error);

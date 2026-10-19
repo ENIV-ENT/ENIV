@@ -18,7 +18,9 @@ const fake = installFakeDb((method, sql, params) => {
   // Le devoir 10 appartient à la classe 4
   if (method === 'get' && sql.includes('FROM devoirs WHERE id')) return params[0] === '10' && params[1] === 4 ? { id: 10 } : undefined;
   // Le commentaire 5 a été écrit par Léa
-  if (method === 'get' && sql.includes('FROM devoir_commentaires WHERE id')) return params[0] === '5' ? { id: 5, user_id: 1 } : undefined;
+  if (method === 'get' && sql.includes('WHERE c.id = ?')) {
+    return params[0] === '5' ? { id: 5, user_id: 1, contenu: 'Question', username: 'lea', prenom: 'Léa', nom: 'Martin', devoir_titre: 'Exercice 3' } : undefined;
+  }
   if (method === 'all' && sql.includes('FROM devoir_commentaires')) {
     return [{ id: 5, contenu: 'Question', user_id: 1, username: 'lea' }, { id: 6, contenu: 'Réponse', user_id: 2, username: 'tom' }];
   }
@@ -80,6 +82,28 @@ describe('commentaires', () => {
     assert.equal((await call(1, 'DELETE', '/10/commentaires/5')).status, 200);
     assert.equal((await call(3, 'DELETE', '/10/commentaires/5')).status, 200);
     assert.equal((await call(1, 'DELETE', '/10/commentaires/999')).status, 404);
+  });
+
+  test('suppression : enregistrée dans l\'Historique avec le message et son auteur', async () => {
+    fake.calls.length = 0;
+    await call(3, 'DELETE', '/10/commentaires/5');
+    const log = fake.calls.find((c) => c.sql.startsWith('INSERT INTO devoir_logs'));
+    assert.deepEqual(log.params.slice(0, 5), [10, 'delete_commentaire', 3, 'prof', 4]);
+    const details = JSON.parse(log.params[5]);
+    assert.equal(details.titre, 'Exercice 3');
+    assert.equal(details.commentaire.contenu, 'Question');
+    assert.deepEqual(details.commentaire.auteur, { username: 'lea', prenom: 'Léa', nom: 'Martin' });
+  });
+
+  test('ajout : 10 commentaires par minute et par compte, puis 429', async () => {
+    for (let i = 0; i < 10; i++) {
+      assert.equal((await call(2, 'POST', '/10/commentaires', { contenu: `Message ${i}` })).status, 200);
+    }
+    const res = await call(2, 'POST', '/10/commentaires', { contenu: 'Un de trop' });
+    assert.equal(res.status, 429);
+    assert.match((await res.json()).error, /Trop de commentaires/);
+    // Le compte d'un camarade n'est pas bloqué
+    assert.equal((await call(1, 'POST', '/10/commentaires', { contenu: 'Moi aussi' })).status, 200);
   });
 
   test('temps réel : la classe reçoit « commentaires » pour ce devoir', async () => {

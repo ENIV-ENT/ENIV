@@ -561,7 +561,8 @@ const LOG_ACTIONS = {
   update: { badge: 'modification', badgeClass: 'log-update', verbe: 'a modifié', cible: 'devoir' },
   delete: { badge: 'suppression', badgeClass: 'log-delete', verbe: 'a supprimé', cible: 'devoir' },
   upload_pdf: { badge: 'document ajouté', badgeClass: 'log-create', verbe: 'a ajouté', cible: 'fichier', preposition: 'au devoir' },
-  delete_pdf: { badge: 'document supprimé', badgeClass: 'log-delete', verbe: 'a supprimé', cible: 'fichier', preposition: 'du devoir' }
+  delete_pdf: { badge: 'document supprimé', badgeClass: 'log-delete', verbe: 'a supprimé', cible: 'fichier', preposition: 'du devoir' },
+  delete_commentaire: { badge: 'commentaire supprimé', badgeClass: 'log-delete', verbe: 'a supprimé', cible: 'commentaire', preposition: 'sous le devoir' }
 };
 
 // Champs du devoir suivis dans l'historique, dans l'ordre d'affichage
@@ -743,6 +744,15 @@ function renderLogDetails(details) {
     }
   }
 
+  // Commentaire supprimé : son texte et sa date
+  const commentaire = details.commentaire;
+  if (commentaire) {
+    rows.push(renderLogDetailRow('Message', `<span class="log-value">${formatLogFieldValue('contenu', commentaire.contenu)}</span>`));
+    if (commentaire.created_at) {
+      rows.push(renderLogDetailRow('Écrit le', `<span class="log-value">${escapeHTML(formatLogDateTime(commentaire.created_at))}</span>`));
+    }
+  }
+
   // Suppression d'un devoir : documents joints perdus au passage
   if (details.fichiers && details.fichiers.length > 0) {
     const items = details.fichiers.map(f => {
@@ -777,6 +787,14 @@ function renderLogSummary(log, config, details) {
     const document = nom ? `<strong>« ${escapeHTML(nom)} »</strong>` : 'un document';
     const rattachement = devoir ? ` ${config.preposition} ${devoir}` : '';
     return `${auteur} ${config.verbe} le document ${document}${rattachement}`;
+  }
+
+  if (config.cible === 'commentaire') {
+    const a = details.commentaire?.auteur || {};
+    const nomComplet = [a.prenom, a.nom].filter(Boolean).join(' ');
+    const ecritPar = a.username ? ` de <strong>${escapeHTML(nomComplet ? `${nomComplet} (${a.username})` : a.username)}</strong>` : '';
+    const rattachement = devoir ? ` ${config.preposition} ${devoir}` : '';
+    return `${auteur} ${config.verbe} un commentaire${ecritPar}${rattachement}`;
   }
 
   return devoir
