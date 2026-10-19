@@ -1,0 +1,34 @@
+# Mises à jour automatiques des dépendances : une PR groupée par semaine,
+# vérifiée par la CI avant tout merge.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 5
+    groups:
+      # Correctifs et versions mineures regroupés ; les versions majeures restent à part
+      mineures:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "chore(ci)"
+
+  # Dockerfile uniquement : l'image MySQL (compose.yaml, ci.yml) suit la version
+  # de production et se met à jour à la main
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "chore(docker)"
