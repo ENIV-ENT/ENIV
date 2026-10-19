@@ -11,15 +11,30 @@ const MAX_LENGTH = 2000;
 
 router.use(requireAuth);
 
-// Le devoir doit exister et appartenir à la classe de l'utilisateur
+// Le devoir doit exister et appartenir à la classe de l'utilisateur.
+// Identifiants entiers seulement : MySQL lirait « 10abc » comme 10.
 async function devoirDeLaClasse(req, res, next) {
-  const devoir = req.user.classe_id
+  const idsValides = [req.params.devoirId, req.params.commentaireId ?? '0'].every((id) => /^\d+$/.test(id));
+  const devoir = idsValides && req.user.classe_id
     ? await db.get('SELECT id FROM devoirs WHERE id = ? AND classe_id = ?', [req.params.devoirId, req.user.classe_id])
     : null;
   if (!devoir) {
     return res.status(404).json({ error: 'Devoir non trouvé' });
   }
   next();
+}
+
+// Joint le nouveau nombre de commentaires à la notification temps réel : la
+// classe met à jour son badge sans recharger tous les devoirs
+// (sans nombre, les clients rechargent les devoirs). Ne lève jamais d'erreur :
+// le commentaire est déjà enregistré, un 500 pousserait à le renvoyer.
+async function joindreNombre(req, res) {
+  try {
+    const { n } = await db.get('SELECT COUNT(*) AS n FROM devoir_commentaires WHERE devoir_id = ?', [req.params.devoirId]);
+    res.locals.realtimeData = { nbCommentaires: Number(n) };
+  } catch (error) {
+    console.error('Error counting comments:', error);
+  }
 }
 
 router.get('/', devoirDeLaClasse, async (req, res) => {
@@ -57,6 +72,7 @@ router.post('/', commentLimiter, express.json(), devoirDeLaClasse, async (req, r
       'INSERT INTO devoir_commentaires (devoir_id, user_id, contenu) VALUES (?, ?, ?)',
       [req.params.devoirId, req.user.id, contenu]
     );
+    await joindreNombre(req, res);
     res.json({ success: true, id: result.lastInsertRowid });
   } catch (error) {
     console.error('Error creating comment:', error);
@@ -102,6 +118,7 @@ router.delete('/:commentaireId', devoirDeLaClasse, async (req, res) => {
       }
     });
 
+    await joindreNombre(req, res);
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting comment:', error);

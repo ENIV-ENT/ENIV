@@ -536,10 +536,19 @@ html.dark-theme .calendar-date.today {
   cursor: pointer;
   transition: opacity 0.2s;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 500;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  /* Le titre se coupe, le badge des commentaires reste visible */
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.devoir-item-titre {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .devoir-item:hover {
@@ -557,6 +566,7 @@ html.dark-theme .calendar-date.today {
   font-weight: 600;
   opacity: 0.9;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .commentaires {
@@ -632,11 +642,12 @@ html.dark-theme .calendar-date.today {
   align-items: flex-end;
 }
 
+/* Hauteur ajustée au texte par ajusterSaisie() (dashboard.js), jusqu'à max-height */
 .modal-content .commentaire-form textarea {
   flex: 1;
-  resize: vertical;
-  min-height: 2.75rem;
-  height: 2.75rem;
+  resize: none;
+  max-height: 12rem;
+  line-height: 1.4;
   margin: 0;
 }
 

@@ -25,6 +25,7 @@ const fake = installFakeDb((method, sql, params) => {
     return [{ id: 5, contenu: 'Question', user_id: 1, username: 'lea' }, { id: 6, contenu: 'Réponse', user_id: 2, username: 'tom' }];
   }
   if (method === 'run' && sql.startsWith('INSERT')) return { lastInsertRowid: 42 };
+  if (method === 'get' && sql.includes('COUNT(*)')) return { n: 3 };
   return undefined;
 });
 
@@ -64,6 +65,13 @@ describe('commentaires', () => {
   test('devoir d\'une autre classe : 404', async () => {
     assert.equal((await call(9, 'GET', '/10/commentaires')).status, 404);
     assert.equal((await call(9, 'POST', '/10/commentaires', { contenu: 'intrus' })).status, 404);
+  });
+
+  test('identifiants non entiers : 404, sans requête sur le devoir', async () => {
+    fake.calls.length = 0;
+    assert.equal((await call(1, 'POST', '/10abc/commentaires', { contenu: 'Bonjour' })).status, 404);
+    assert.equal((await call(3, 'DELETE', '/10/commentaires/5abc')).status, 404);
+    assert.equal(fake.calls.some((c) => c.sql.includes('FROM devoirs')), false);
   });
 
   test('ajout : texte nettoyé, vide ou trop long refusé', async () => {
@@ -113,5 +121,7 @@ describe('commentaires', () => {
     assert.equal(sent[0].classeId, 4);
     assert.equal(sent[0].message.resource, 'commentaires');
     assert.equal(sent[0].message.devoirId, 10);
+    // Le nombre voyage avec la notification : les clients ne rechargent pas les devoirs
+    assert.equal(sent[0].message.nbCommentaires, 3);
   });
 });
