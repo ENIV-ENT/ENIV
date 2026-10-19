@@ -251,7 +251,7 @@ function setupMcpTokens() {
   document.getElementById('mcp-form').addEventListener('submit', handleMcpFormSubmit);
   document.getElementById('mcp-form-close').addEventListener('click', () => toggleModal('mcp-form-modal', false));
   document.getElementById('mcp-form-cancel').addEventListener('click', () => toggleModal('mcp-form-modal', false));
-  document.getElementById('mcp-copy-btn').addEventListener('click', handleCopyMcpUrl);
+  document.getElementById('mcp-copy-btn').addEventListener('click', () => copyField('mcp-url', 'mcp-copy-btn'));
   document.getElementById('mcp-created-done').addEventListener('click', closeMcpCreated);
 
   document.getElementById('mcp-list').addEventListener('click', (e) => {
@@ -318,9 +318,9 @@ function closeMcpCreated() {
   toggleModal('mcp-created-modal', false);
 }
 
-async function handleCopyMcpUrl() {
-  const input = document.getElementById('mcp-url');
-  const button = document.getElementById('mcp-copy-btn');
+async function copyField(inputId, buttonId) {
+  const input = document.getElementById(inputId);
+  const button = document.getElementById(buttonId);
   try {
     await navigator.clipboard.writeText(input.value);
     button.textContent = 'Copié ✓';
@@ -366,17 +366,7 @@ async function setupCalendar() {
     }
     renderCalendarLink({ url: null });
   });
-  document.getElementById('calendar-copy-btn').addEventListener('click', async () => {
-    const input = document.getElementById('calendar-url');
-    const button = document.getElementById('calendar-copy-btn');
-    try {
-      await navigator.clipboard.writeText(input.value);
-      button.textContent = 'Copié ✓';
-      setTimeout(() => { button.textContent = 'Copier'; }, 2000);
-    } catch {
-      input.select();
-    }
-  });
+  document.getElementById('calendar-copy-btn').addEventListener('click', () => copyField('calendar-url', 'calendar-copy-btn'));
 
   const data = await apiCall('/api/calendar/link');
   if (!data.error) renderCalendarLink(data);
