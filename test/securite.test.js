@@ -15,6 +15,12 @@ test('JWT_SECRET manquant : valeur de développement hors production', () => {
   assert.equal(typeof resolveJwtSecret({ NODE_ENV: 'test' }), 'string');
 });
 
+test('JWT_SECRET d\'exemple : refus en production', () => {
+  const secret = 'your-jwt-secret-key-change-in-production';
+  assert.throws(() => resolveJwtSecret({ NODE_ENV: 'production', JWT_SECRET: secret }), /valeur d'exemple/);
+  assert.equal(resolveJwtSecret({ NODE_ENV: 'development', JWT_SECRET: secret }), secret);
+});
+
 test('JWT_SECRET fourni : utilisé tel quel', () => {
   const secret = 'x'.repeat(48);
   assert.equal(resolveJwtSecret({ NODE_ENV: 'production', JWT_SECRET: secret }), secret);
