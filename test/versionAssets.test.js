@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { versionAssets } = require('../scripts/version-assets');
+const { versionAssets, stripVersions } = require('../scripts/version-assets');
 
 // Crée un site temporaire à partir de { 'chemin/relatif': contenu }. Il est
 // placé dans un sous-dossier, pour pouvoir écrire un fichier à côté.
@@ -94,6 +94,21 @@ test('chaque dossier est une racine distincte pour les liens absolus', () => {
   versionAssets([app.root, vitrine.root]);
   assert.equal(app.read('index.html'), `<link rel="stylesheet" href="/css/style.css?v=${hash('a')}">`);
   assert.equal(vitrine.read('index.html'), `<link rel="stylesheet" href="/css/style.css?v=${hash('b')}">`);
+});
+
+test('--retirer remet les fichiers dans l\'état du dépôt, sans toucher aux URL externes', () => {
+  const files = {
+    'index.html': '<link rel="stylesheet" href="/css/a.css">\n<script src="https://cdn.example.com/lib.js?v=3"></script>\n<script type="module" src="/js/page.js"></script>',
+    'css/a.css': 'body {}',
+    'js/page.js': "import { f } from './dom.js';\nimport \"./side.js\";",
+    'js/dom.js': 'export const f = () => {};',
+    'js/side.js': '',
+  };
+  const s = site(files);
+  versionAssets([s.root]);
+  assert.equal(stripVersions([s.root]).length, 2);
+  for (const [name, content] of Object.entries(files)) assert.equal(s.read(name), content, name);
+  assert.deepEqual(stripVersions([s.root]), []);
 });
 
 test('un cycle d\'imports lève une erreur sans rien écrire', () => {
