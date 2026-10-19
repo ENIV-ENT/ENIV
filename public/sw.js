@@ -11,7 +11,7 @@
 //   ignore l'en-tête Authorization : il est vidé à chaque connexion/déconnexion
 //   (voir clearApiCache dans js/utils/api.js).
 //
-// Tout le reste (POST/PUT/DELETE, /uploads, /api/proxy, WebSocket...) n'est
+// Tout le reste (POST/PUT/DELETE, /api/fichiers, /api/proxy, WebSocket...) n'est
 // pas intercepté, y compris quand il est ouvert dans un onglet.
 
 const VERSION = 'v3';
@@ -32,7 +32,7 @@ const PRECACHE_STATIC = [
 
 const CODE_PREFIXES = ['/css/', '/js/', '/quiz/'];
 const IMAGE_PREFIXES = ['/images/', '/vendor/'];
-const BYPASS_PREFIXES = ['/api/', '/uploads/'];
+const BYPASS_PREFIXES = ['/api/'];
 const API_ALLOWLIST = [
   '/api/auth/me',
   '/api/devoirs',
