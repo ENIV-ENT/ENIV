@@ -20,7 +20,7 @@ test('JWT_SECRET fourni : utilisé tel quel', () => {
   assert.equal(resolveJwtSecret({ NODE_ENV: 'production', JWT_SECRET: secret }), secret);
 });
 
-test('connexion : 10 échecs autorisés puis 429, les succès ne comptent pas', async (t) => {
+test('connexion : 10 échecs par identifiant puis 429, plafond large par IP, les succès ne comptent pas', async (t) => {
   const app = express();
   app.use(express.json());
   app.post('/login', loginLimiter, (req, res) => {
@@ -30,13 +30,18 @@ test('connexion : 10 échecs autorisés puis 429, les succès ne comptent pas', 
   const server = app.listen(0);
   t.after(() => server.close());
   const url = `http://127.0.0.1:${server.address().port}/login`;
-  const login = (password) => fetch(url, {
+  const login = (username, password) => fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ username, password }),
   }).then((r) => r.status);
 
-  for (let i = 0; i < 5; i++) assert.equal(await login('ok'), 200);
-  for (let i = 0; i < 10; i++) assert.equal(await login('mauvais'), 401);
-  assert.equal(await login('mauvais'), 429);
+  for (let i = 0; i < 5; i++) assert.equal(await login('alice', 'ok'), 200);
+  for (let i = 0; i < 10; i++) assert.equal(await login('alice', 'mauvais'), 401);
+  assert.equal(await login('Alice', 'mauvais'), 429);
+  // Même IP, autre élève : pas bloqué par les erreurs d'alice
+  assert.equal(await login('bob', 'mauvais'), 401);
+  // Plafond par IP : beaucoup d'identifiants différents finissent bloqués
+  for (let i = 0; i < 100; i++) await login(`eleve${i}`, 'mauvais');
+  assert.equal(await login('carol', 'mauvais'), 429);
 });
