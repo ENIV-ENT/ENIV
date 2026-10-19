@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 // Versionne les liens vers le CSS et le JS par un hash de leur contenu.
 //
-//   node scripts/version-assets.js [dossiers...]   (défaut : public public-site)
+//   node scripts/version-assets.js [--retirer] [dossiers...]
+//                                         (défaut : public public-site)
+//
+// --retirer enlève les `?v=` de ces mêmes liens, pour remettre les fichiers dans
+// l'état du dépôt après un lancement en développement.
 //
 // Lancé par deploy.sh sur le VPS, juste après le git pull : les liens du dépôt
 // n'ont pas de version, et ce script ajoute `?v=<hash>` à chaque src/href des
@@ -57,7 +61,7 @@ function versionAssets(roots = DEFAULT_ROOTS) {
         throw new Error(`Cycle d'imports, impossible de calculer les versions : ${cycle.join(' -> ')}`);
       }
       stack.push(file);
-      const content = rewrite(root, file, version);
+      const content = rewrite(root, file, (target) => `?v=${version(target)}`);
       stack.pop();
       const hash = crypto.createHash('sha256').update(content).digest('hex').slice(0, HASH_LENGTH);
       contents.set(file, content);
@@ -77,6 +81,25 @@ function versionAssets(roots = DEFAULT_ROOTS) {
   return changed;
 }
 
+/**
+ * Retire les `?v=` des liens que versionAssets réécrit.
+ * @param {string[]} roots dossiers servis à la racine du site
+ * @returns {string[]} chemins des fichiers modifiés
+ */
+function stripVersions(roots = DEFAULT_ROOTS) {
+  const changed = [];
+  for (const root of roots.map((dir) => path.resolve(dir))) {
+    for (const file of listFiles(root)) {
+      const content = rewrite(root, file, () => '');
+      if (content !== fs.readFileSync(file, 'utf8')) {
+        fs.writeFileSync(file, content);
+        changed.push(file);
+      }
+    }
+  }
+  return changed;
+}
+
 function listFiles(root) {
   return fs.readdirSync(root, { recursive: true })
     .map((name) => path.join(root, name))
@@ -84,12 +107,14 @@ function listFiles(root) {
     .sort();
 }
 
-function rewrite(root, file, version) {
+// Remplace l'éventuel `?v=` de chaque lien vers un fichier du dossier par
+// `suffix(fichier visé)`
+function rewrite(root, file, suffix) {
   let content = fs.readFileSync(file, 'utf8');
   for (const pattern of PATTERNS[path.extname(file)] || []) {
     content = content.replace(pattern, (match, prefix, url) => {
       const target = resolve(root, file, url);
-      return target ? `${prefix}${url}?v=${version(target)}` : match;
+      return target ? `${prefix}${url}${suffix(target)}` : match;
     });
   }
   return content;
@@ -104,10 +129,12 @@ function resolve(root, from, url) {
   return fs.statSync(target, { throwIfNoEntry: false })?.isFile() ? target : null;
 }
 
-module.exports = { versionAssets };
+module.exports = { versionAssets, stripVersions };
 
 if (require.main === module) {
-  const roots = process.argv.slice(2);
-  const changed = versionAssets(roots.length ? roots : DEFAULT_ROOTS);
-  console.log(`Versions des assets : ${changed.length} fichier(s) mis à jour`);
+  const args = process.argv.slice(2);
+  const strip = args.includes('--retirer');
+  const roots = args.filter((arg) => arg !== '--retirer');
+  const changed = (strip ? stripVersions : versionAssets)(roots.length ? roots : DEFAULT_ROOTS);
+  console.log(`Versions des assets ${strip ? 'retirées' : 'mises à jour'} : ${changed.length} fichier(s) modifié(s)`);
 }
