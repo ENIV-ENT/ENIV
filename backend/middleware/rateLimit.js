@@ -7,37 +7,37 @@ const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 // Le registre est en mémoire : il suppose un unique processus Node, comme le
 // service temps réel.
 //
-// Tout un établissement sort souvent par la même IP publique : les plafonds par IP seule sont donc larges, pour ne pas bloquer une classe entière.
+// Tout un établissement sort souvent par la même IP publique : les plafonds par
+// IP seule sont donc larges, pour ne pas bloquer une classe entière.
 
-function limiter({ windowMinutes, limit, message, skipSuccessfulRequests = false, keyGenerator }) {
+function limiter({ windowMinutes, message, ...options }) {
   return rateLimit({
     windowMs: windowMinutes * 60 * 1000,
-    limit,
-    skipSuccessfulRequests,
-    keyGenerator,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
     message: { error: message },
+    ...options,
   });
 }
 
-// Connexion : seuls les échecs comptent, un élève qui se reconnecte souvent
-// n'est jamais bloqué. Les échecs sont comptés par IP + identifiant (les fautes de frappe d'un élève ne bloquent pas ses voisins), avec un plafond large par IP seule contre l'essai de nombreux identifiants.
-const loginMessage = 'Trop de tentatives de connexion. Réessayez dans 15 minutes.';
+// Connexion : seuls les mauvais identifiants (401) comptent. Un élève qui se
+// reconnecte souvent n'est jamais bloqué, ni une classe pendant une panne (500).
+// Les échecs sont comptés par IP + identifiant, pour que les fautes de frappe
+// d'un élève ne bloquent pas ses voisins, avec un plafond large par IP seule
+// contre l'essai de nombreux identifiants.
+const loginOptions = {
+  windowMinutes: 15,
+  skipSuccessfulRequests: true,
+  requestWasSuccessful: (req, res) => res.statusCode !== 401,
+  message: 'Trop de tentatives de connexion. Réessayez dans 15 minutes.',
+};
 const loginLimiter = [
+  limiter({ ...loginOptions, limit: 100 }),
   limiter({
-    windowMinutes: 15,
-    limit: 100,
-    skipSuccessfulRequests: true,
-    message: loginMessage,
-  }),
-  limiter({
-    windowMinutes: 15,
+    ...loginOptions,
     limit: 10,
-    skipSuccessfulRequests: true,
     // Minuscules : la connexion ignore la casse de l'identifiant
     keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${String(req.body?.username ?? '').toLowerCase()}`,
-    message: loginMessage,
   }),
 ];
 

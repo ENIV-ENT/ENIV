@@ -20,10 +20,11 @@ test('JWT_SECRET fourni : utilisé tel quel', () => {
   assert.equal(resolveJwtSecret({ NODE_ENV: 'production', JWT_SECRET: secret }), secret);
 });
 
-test('connexion : 10 échecs par identifiant puis 429, plafond large par IP, les succès ne comptent pas', async (t) => {
+test('connexion : 10 échecs par identifiant puis 429, plafond large par IP, seuls les 401 comptent', async (t) => {
   const app = express();
   app.use(express.json());
   app.post('/login', loginLimiter, (req, res) => {
+    if (!req.body.password) return res.status(400).json({ error: 'Identifiant et mot de passe requis' });
     if (req.body.password === 'ok') return res.json({ success: true });
     res.status(401).json({ error: 'Identifiants invalides' });
   });
@@ -37,6 +38,8 @@ test('connexion : 10 échecs par identifiant puis 429, plafond large par IP, les
   }).then((r) => r.status);
 
   for (let i = 0; i < 5; i++) assert.equal(await login('alice', 'ok'), 200);
+  // Seuls les 401 comptent : les requêtes incomplètes ne bloquent personne
+  for (let i = 0; i < 20; i++) assert.equal(await login('alice', ''), 400);
   for (let i = 0; i < 10; i++) assert.equal(await login('alice', 'mauvais'), 401);
   assert.equal(await login('Alice', 'mauvais'), 429);
   // Même IP, autre élève : pas bloqué par les erreurs d'alice
