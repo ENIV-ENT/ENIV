@@ -17,6 +17,11 @@ const DEVOIR_WITH_MATIERE_SQL = `
   LEFT JOIN matieres m ON d.matiere_id = m.id
   WHERE d.id = ? AND d.classe_id = ?`;
 
+// La matière doit appartenir à la classe du devoir
+async function matiereDeLaClasse(matiereId, classeId) {
+  return db.get('SELECT id FROM matieres WHERE id = ? AND classe_id = ?', [matiereId, classeId]);
+}
+
 // Configuration de multer pour l'upload de fichiers PDF
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -72,6 +77,10 @@ router.post('/', express.json(), async (req, res) => {
     const classeId = req.user.classe_id;
     if (!classeId) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
+    }
+
+    if (!await matiereDeLaClasse(matiere_id, classeId)) {
+      return res.status(400).json({ error: 'Matière inconnue' });
     }
 
     const result = await db.run(
@@ -176,6 +185,10 @@ router.put('/:id', express.json(), async (req, res) => {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
+    if (!await matiereDeLaClasse(matiere_id, classeId)) {
+      return res.status(400).json({ error: 'Matière inconnue' });
+    }
+
     await db.run(
       'UPDATE devoirs SET titre = ?, description = ?, matiere_id = ?, date = ? WHERE id = ? AND classe_id = ?',
       [titre, description || null, matiere_id, date || null, req.params.id, classeId]
@@ -246,6 +259,15 @@ router.post('/:id/statut', express.json(), async (req, res) => {
   const { fait } = req.body;
 
   try {
+    // Un élève ne peut cocher que les devoirs de sa propre classe
+    const devoir = await db.get(
+      'SELECT id FROM devoirs WHERE id = ? AND classe_id = ?',
+      [req.params.id, req.user.classe_id]
+    );
+    if (!devoir) {
+      return res.status(404).json({ error: 'Devoir non trouvé' });
+    }
+
     await db.run(
       `INSERT INTO devoir_statuts (devoir_id, user_id, fait)
        VALUES (?, ?, ?)

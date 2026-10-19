@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const db = require("../models/dbHelper");
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const { JWT_SECRET } = require('../config/jwt');
 const LAST_LOGIN_THROTTLE_MS = 5 * 60 * 1000;
 
 // Helper pour extraire et vérifier le token
@@ -73,4 +73,4 @@ const requireAdmin = authChecker((user) => user.role === "admin", "Accès refus�
 const requireEleve = authChecker((user) => user.role === "eleve", "Accès refusé - Élève requis");
 const requireSuperAdmin = authChecker((user) => user.role === "superadmin", "Accès refusé - SuperAdmin requis");
 
-module.exports = {verifyToken, requireAuth, requireAdmin, requireEleve, requireSuperAdmin};
+module.exports = {verifyToken, requireAuth, requireAdmin, requireEleve, requireSuperAdmin};
