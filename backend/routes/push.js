@@ -24,8 +24,8 @@ router.post('/subscribe', express.json(), async (req, res) => {
   }
 
   try {
-    if (!await push.saveSubscription(req.user.id, subscription)) {
-      return res.status(409).json({ error: 'Trop d\'appareils reçoivent déjà les notifications de ce compte. Désactivez-les sur un ancien appareil.' });
+    if (!await push.saveSubscription(req.user.id, subscription, req.headers['user-agent'])) {
+      return res.status(409).json({ error: 'Trop d\'appareils reçoivent déjà les notifications de ce compte. Retirez un ancien appareil dans Paramètres › Notifications.' });
     }
     res.json({ success: true });
   } catch (error) {
@@ -49,13 +49,31 @@ router.post('/unsubscribe', express.json(), async (req, res) => {
   }
 });
 
+// Appareils abonnés du compte, pour en retirer un auquel on n'a plus accès
+router.get('/subscriptions', async (req, res) => {
+  try {
+    res.json(await push.listSubscriptions(req.user.id));
+  } catch (error) {
+    console.error('Error listing push subscriptions:', error);
+    res.status(500).json({ error: 'Erreur lors de la récupération des appareils' });
+  }
+});
+
+router.delete('/subscriptions/:id', async (req, res) => {
+  try {
+    if (!await push.deleteSubscriptionById(req.user.id, req.params.id)) {
+      return res.status(404).json({ error: 'Appareil introuvable' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting push subscription:', error);
+    res.status(500).json({ error: 'Erreur lors du retrait de l\'appareil' });
+  }
+});
+
 router.get('/preferences', async (req, res) => {
   try {
-    const [preferences, appareils] = await Promise.all([
-      push.getPreferences(req.user.id),
-      push.countSubscriptions(req.user.id),
-    ]);
-    res.json({ preferences, appareils });
+    res.json({ preferences: await push.getPreferences(req.user.id) });
   } catch (error) {
     console.error('Error reading push preferences:', error);
     res.status(500).json({ error: 'Erreur lors de la récupération des préférences' });

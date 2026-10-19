@@ -226,6 +226,7 @@ async function setupPush() {
     const result = active ? await disablePush() : await enablePush();
     if (!result.ok) await showAlert(result.error, 'Notifications');
     await renderPushState();
+    await loadPushDevices();
   });
 
   testBtn.addEventListener('click', async () => {
@@ -233,8 +234,70 @@ async function setupPush() {
     if (result.error) await showAlert(result.error, 'Erreur');
   });
 
+  document.getElementById('push-devices').addEventListener('click', (e) => {
+    const button = e.target.closest('button[data-action="remove"]');
+    const device = button && pushDevices.find((d) => String(d.id) === button.dataset.id);
+    if (device) handleRemovePushDevice(device);
+  });
+
   await syncPushSubscription();
   await renderPushState();
+  await loadPushDevices();
+}
+
+// Appareils abonnés du compte : permet de retirer un appareil perdu. Celui-ci
+// se gère avec le bouton Activer/Désactiver, il n'a donc pas de bouton Retirer.
+let pushDevices = [];
+
+async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function loadPushDevices() {
+  const data = await apiCall('/api/push/subscriptions');
+  if (data.error) return;
+  const subscription = await getPushSubscription().catch(() => null);
+  const currentHash = subscription ? await sha256Hex(subscription.endpoint) : null;
+  pushDevices = data.map((device) => ({ ...device, current: device.endpoint_hash === currentHash }));
+  renderPushDevices();
+}
+
+function renderPushDevices() {
+  document.getElementById('push-devices-block').hidden = pushDevices.length === 0;
+  document.getElementById('push-devices').innerHTML = pushDevices.map((device) => {
+    const meta = [`Ajouté le ${formatDateFr(device.created_at)}`];
+    meta.push(device.last_success_at
+      ? `dernière notification le ${formatDateFr(device.last_success_at, true)}`
+      : 'aucune notification reçue');
+
+    return `
+      <li class="token-item">
+        <div>
+          <div class="token-name">${escapeHTML(device.appareil)}${device.current ? '<span class="token-badge info">Cet appareil</span>' : ''}</div>
+          <div class="token-meta">${meta.join(' · ')}</div>
+        </div>
+        ${device.current ? '' : `
+        <div class="token-actions">
+          <button type="button" class="btn-link danger" data-action="remove" data-id="${device.id}">Retirer</button>
+        </div>`}
+      </li>`;
+  }).join('');
+}
+
+async function handleRemovePushDevice(device) {
+  const confirmed = await showConfirm(
+    `« ${device.appareil} » ne recevra plus les notifications de votre compte.`,
+    'Retirer l\'appareil'
+  );
+  if (!confirmed) return;
+
+  const data = await apiCall(`/api/push/subscriptions/${device.id}`, { method: 'DELETE' });
+  if (data.error) {
+    await showAlert(data.error, 'Erreur');
+    return;
+  }
+  await loadPushDevices();
 }
 
 async function renderPushState() {

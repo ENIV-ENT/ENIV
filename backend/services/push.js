@@ -105,7 +105,7 @@ function parseSubscription(body) {
 /**
  * @returns {Promise<boolean>} false si le compte a déjà trop d'appareils abonnés
  */
-async function saveSubscription(userId, subscription) {
+async function saveSubscription(userId, subscription, userAgent) {
   const endpointHash = hashEndpoint(subscription.endpoint);
   // Renvoyer un abonnement déjà enregistré pour ce compte reste toujours possible
   const others = await db.get(
@@ -116,12 +116,59 @@ async function saveSubscription(userId, subscription) {
 
   // Un même navigateur peut changer de compte : l'abonnement suit le dernier connecté
   await db.run(
-    `INSERT INTO push_subscriptions (user_id, endpoint, endpoint_hash, p256dh, auth)
-     VALUES (?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), p256dh = VALUES(p256dh), auth = VALUES(auth)`,
-    [userId, subscription.endpoint, endpointHash, subscription.p256dh, subscription.auth]
+    `INSERT INTO push_subscriptions (user_id, endpoint, endpoint_hash, p256dh, auth, user_agent)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), p256dh = VALUES(p256dh),
+       auth = VALUES(auth), user_agent = VALUES(user_agent)`,
+    [userId, subscription.endpoint, endpointHash, subscription.p256dh, subscription.auth,
+      userAgent ? String(userAgent).slice(0, 255) : null]
   );
   return true;
+}
+
+// L'ordre compte : Edge, Opera et Samsung Internet se déclarent aussi Chrome,
+// Chrome se déclare Safari, et un iPhone se déclare « Mac OS X »
+const BROWSERS = [
+  [/Edg(e|A|iOS)?\//, 'Edge'],
+  [/OPR\/|Opera/, 'Opera'],
+  [/SamsungBrowser/, 'Samsung Internet'],
+  [/Firefox\/|FxiOS/, 'Firefox'],
+  [/Chrome\/|CriOS/, 'Chrome'],
+  [/Safari\//, 'Safari'],
+];
+const SYSTEMS = [
+  [/iPhone/, 'iPhone'],
+  [/iPad/, 'iPad'],
+  [/Android/, 'Android'],
+  [/Windows/, 'Windows'],
+  [/CrOS/, 'ChromeOS'],
+  [/Macintosh|Mac OS X/, 'Mac'],
+  [/Linux/, 'Linux'],
+];
+
+/**
+ * Nom lisible d'un appareil à partir de son user-agent : « Chrome sur Android ».
+ */
+function describeUserAgent(userAgent) {
+  const find = (list) => (list.find(([pattern]) => pattern.test(userAgent || '')) || [])[1];
+  const browser = find(BROWSERS);
+  const system = find(SYSTEMS);
+  if (browser && system) return `${browser} sur ${system}`;
+  return browser || system || 'Appareil inconnu';
+}
+
+async function listSubscriptions(userId) {
+  const rows = await db.all(
+    `SELECT id, endpoint_hash, user_agent, created_at, last_success_at
+     FROM push_subscriptions WHERE user_id = ? ORDER BY created_at DESC, id DESC`,
+    [userId]
+  );
+  return rows.map(({ user_agent: userAgent, ...row }) => ({ ...row, appareil: describeUserAgent(userAgent) }));
+}
+
+async function deleteSubscriptionById(userId, id) {
+  const result = await db.run('DELETE FROM push_subscriptions WHERE id = ? AND user_id = ?', [id, userId]);
+  return result.affectedRows > 0;
 }
 
 async function deleteSubscription(userId, endpoint) {
@@ -130,11 +177,6 @@ async function deleteSubscription(userId, endpoint) {
     [userId, hashEndpoint(endpoint)]
   );
   return result.changes > 0;
-}
-
-async function countSubscriptions(userId) {
-  const row = await db.get('SELECT COUNT(*) AS n FROM push_subscriptions WHERE user_id = ?', [userId]);
-  return Number(row.n);
 }
 
 async function getPreferences(userId) {
@@ -250,7 +292,9 @@ module.exports = {
   parseSubscription,
   saveSubscription,
   deleteSubscription,
-  countSubscriptions,
+  describeUserAgent,
+  listSubscriptions,
+  deleteSubscriptionById,
   getPreferences,
   setPreferences,
   sendToUser,

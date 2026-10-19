@@ -126,6 +126,47 @@ describe('abonnements', () => {
     assert.match(count.sql, /endpoint_hash <> \?/);
   });
 
+  test('user-agent enregistré, tronqué à 255 caractères', async () => {
+    const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/abc', p256dh: 'p', auth: 'a' };
+    fake.calls.length = 0;
+    fake.setHandler((method) => (method === 'get' ? { n: 0 } : undefined));
+    await push.saveSubscription(1, sub, 'x'.repeat(300));
+    const insert = fake.calls.find((c) => c.method === 'run');
+    assert.equal(insert.params.at(-1), 'x'.repeat(255));
+  });
+
+  test('nom d\'appareil lisible à partir du user-agent', () => {
+    const cas = {
+      'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36': 'Chrome sur Android',
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1': 'Safari sur iPhone',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36 Edg/130.0': 'Edge sur Windows',
+      'Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0': 'Firefox sur Linux',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15': 'Safari sur Mac',
+    };
+    for (const [userAgent, attendu] of Object.entries(cas)) {
+      assert.equal(push.describeUserAgent(userAgent), attendu);
+    }
+    assert.equal(push.describeUserAgent(null), 'Appareil inconnu');
+  });
+
+  test('retirer un appareil : limité aux abonnements du compte', async () => {
+    fake.calls.length = 0;
+    fake.setHandler(() => undefined); // aucune ligne supprimée
+    assert.equal(await push.deleteSubscriptionById(1, 7), false);
+    const del = fake.calls.find((c) => c.method === 'run');
+    assert.match(del.sql, /WHERE id = \? AND user_id = \?/);
+    assert.deepEqual(del.params, [7, 1]);
+  });
+
+  test('liste des appareils : nom lisible, user-agent brut non renvoyé', async () => {
+    fake.setHandler((method) => (method === 'all'
+      ? [{ id: 3, endpoint_hash: 'h', user_agent: 'Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0', created_at: 'c', last_success_at: null }]
+      : undefined));
+    assert.deepEqual(await push.listSubscriptions(1), [
+      { id: 3, endpoint_hash: 'h', created_at: 'c', last_success_at: null, appareil: 'Firefox sur Linux' },
+    ]);
+  });
+
   test('préférences par défaut : tout activé', async () => {
     fake.setHandler(() => undefined);
     assert.deepEqual(await push.getPreferences(1), { nouveau_devoir: true, devoir_modifie: true, rappel_veille: true });
