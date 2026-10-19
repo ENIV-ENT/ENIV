@@ -350,6 +350,85 @@ header h1 {
   color: var(--dark);
 }
 
+/* Bouton flottant d'ajout : vue mobile à défilement uniquement */
+.add-devoir-fab {
+  display: none;
+}
+
+body.vue-defilement .add-devoir-fab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  font-size: 2rem;
+  line-height: 1;
+  box-shadow: 0 4px 12px var(--shadow);
+  cursor: pointer;
+  z-index: 50;
+}
+
+/* Bascule « devoirs à venir » / « devoirs passés » */
+.vue-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.vue-label {
+  font-weight: 600;
+  color: var(--dark);
+}
+
+/* Devoirs passés : une semaine, jours sans devoir omis */
+.past-day {
+  margin-bottom: 1rem;
+}
+
+.past-day-title {
+  font-weight: 600;
+  color: var(--secondary);
+  margin-bottom: 0.5rem;
+}
+
+.past-view .mobile-devoir-item {
+  background: var(--light);
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.past-view .mobile-devoir-item.fait {
+  opacity: 0.7;
+}
+
+.past-view .mobile-devoir-item.fait .mobile-devoir-title {
+  text-decoration: line-through;
+}
+
+.past-view .mobile-devoir-title {
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 0.25rem;
+}
+
+.past-empty {
+  padding: 1rem;
+  color: var(--secondary);
+  font-style: italic;
+  text-align: center;
+}
+
 /* Calendar */
 .calendar {
   background: var(--bg-primary);
@@ -1389,6 +1468,32 @@ input[type="color"] {
   .mobile-view {
     display: block !important;
   }
+  /* Défilement continu : pas de navigation par semaine, ni de titre */
+  .calendar-header.defilement {
+    display: none;
+  }
+
+  .mobile-month-separator {
+    font-weight: 700;
+    color: var(--dark);
+    margin: 1.25rem 0 0.5rem 0.25rem;
+  }
+
+  .mobile-month-separator:first-child {
+    margin-top: 0;
+  }
+
+  .mobile-scroll-sentinel {
+    height: 1px;
+  }
+
+  .mobile-scroll-end {
+    text-align: center;
+    color: var(--secondary);
+    font-style: italic;
+    padding: 1rem;
+  }
+
   .week-day-card {
     background: var(--bg-primary);
     margin-bottom: 0.75rem;

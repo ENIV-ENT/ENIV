@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="1200" height="360" role="img" aria-labelledby="titre desc">
+  <title id="titre">Eniv</title>
+  <desc id="desc">Les devoirs de la classe, partagés et toujours à jour.</desc>
+  <defs>
+    <linearGradient id="fond" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2f6fc4"/>
+      <stop offset="0.55" stop-color="#4a90e2"/>
+      <stop offset="1" stop-color="#6aa9f0"/>
+    </linearGradient>
+    <filter id="ombre" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0b2a55" flood-opacity="0.28"/>
+    </filter>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+      .titre { font-size: 96px; font-weight: 800; fill: #fff; letter-spacing: -2px; }
+      .sous-titre { font-size: 26px; font-weight: 500; fill: #eaf3ff; }
+      .puce { font-size: 18px; font-weight: 600; fill: #ffffff; opacity: 0.92; }
+      .carte-titre { font-size: 17px; font-weight: 700; fill: #263238; }
+      .carte-matiere { font-size: 14px; font-weight: 600; }
+      .carte-date { font-size: 13px; fill: #78909c; }
+
+      .apparait { opacity: 0; animation: apparait 0.8s ease-out forwards; }
+      .flotte { animation: flotte 6s ease-in-out infinite; }
+      .carte { opacity: 0; animation: glisse 0.9s cubic-bezier(.2,.8,.2,1) forwards; }
+      .c1 { animation-delay: 0.4s; } .c2 { animation-delay: 0.7s; } .c3 { animation-delay: 1s; }
+      .coche { stroke-dasharray: 30; stroke-dashoffset: 30; animation: coche 0.6s 1.9s ease-out forwards; }
+      .barre { transform-box: fill-box; transform-origin: left center; transform: scaleX(0); animation: barre 0.5s 2.3s ease-out forwards; }
+      .cloche { transform-box: fill-box; transform-origin: 50% 0%; animation: cloche 4s 2.6s ease-in-out infinite; }
+      .bulle { opacity: 0.12; animation: bulle 14s linear infinite; }
+
+      @keyframes apparait { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+      @keyframes glisse { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; transform: none; } }
+      @keyframes flotte { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+      @keyframes coche { to { stroke-dashoffset: 0; } }
+      @keyframes barre { to { transform: scaleX(1); } }
+      @keyframes cloche { 0%, 20%, 100% { transform: rotate(0); } 4% { transform: rotate(16deg); } 8% { transform: rotate(-14deg); } 12% { transform: rotate(10deg); } 16% { transform: rotate(-6deg); } }
+      @keyframes bulle { from { transform: translateY(0); } to { transform: translateY(-420px); } }
+
+      @media (prefers-reduced-motion: reduce) {
+        .apparait, .carte { animation: none; opacity: 1; }
+        .flotte, .cloche, .bulle { animation: none; }
+        .coche { animation: none; stroke-dashoffset: 0; }
+        .barre { animation: none; transform: none; }
+      }
+    </style>
+  </defs>
+
+  <rect width="1200" height="360" rx="24" fill="url(#fond)"/>
+
+  <!-- Bulles décoratives -->
+  <circle class="bulle" cx="90" cy="420" r="38" fill="#fff"/>
+  <circle class="bulle" cx="520" cy="470" r="22" fill="#fff" style="animation-delay:-5s"/>
+  <circle class="bulle" cx="700" cy="440" r="56" fill="#fff" style="animation-delay:-9s"/>
+  <circle class="bulle" cx="1140" cy="460" r="30" fill="#fff" style="animation-delay:-3s"/>
+
+  <!-- Texte -->
+  <g class="apparait">
+    <text x="70" y="150" class="titre">Eniv</text>
+  </g>
+  <g class="apparait" style="animation-delay:0.2s">
+    <text x="74" y="198" class="sous-titre">Les devoirs de la classe, partagés et toujours à jour.</text>
+  </g>
+  <g class="apparait" style="animation-delay:0.5s">
+    <text x="74" y="262" class="puce" xml:space="preserve">📅 Calendrier   ⚡ Temps réel   📱 Appli installable   🧠 Quiz IA</text>
+  </g>
+
+  <!-- Cartes de devoirs -->
+  <g class="flotte">
+    <g class="carte c1" filter="url(#ombre)">
+      <rect x="780" y="44" width="340" height="80" rx="14" fill="#fff"/>
+      <rect x="780" y="44" width="7" height="80" rx="3" fill="#3498db"/>
+      <text x="806" y="76" class="carte-titre">Exercices 12 à 15 p.84</text>
+      <text x="806" y="102" class="carte-matiere" fill="#3498db">Mathématiques</text>
+      <text x="1000" y="102" class="carte-date">pour lundi</text>
+    </g>
+
+    <g class="carte c2" filter="url(#ombre)">
+      <rect x="820" y="140" width="340" height="80" rx="14" fill="#fff"/>
+      <rect x="820" y="140" width="7" height="80" rx="3" fill="#9b59b6"/>
+      <text x="846" y="172" class="carte-titre">Dissertation : la liberté</text>
+      <text x="846" y="198" class="carte-matiere" fill="#9b59b6">Philosophie</text>
+      <text x="1040" y="198" class="carte-date">mercredi</text>
+      <!-- Cloche de notification -->
+      <g class="cloche">
+        <circle cx="1150" cy="146" r="17" fill="#ff6b6b"/>
+        <path d="M1144 151h12l-1.5-2v-4a4.5 4.5 0 0 0-9 0v4z M1148.5 153a1.5 1.5 0 0 0 3 0" fill="#fff"/>
+      </g>
+    </g>
+
+    <g class="carte c3" filter="url(#ombre)">
+      <rect x="780" y="236" width="340" height="80" rx="14" fill="#fff"/>
+      <rect x="780" y="236" width="7" height="80" rx="3" fill="#2ecc71"/>
+      <text x="806" y="268" class="carte-titre" fill-opacity="0.55">TP titrage — compte rendu</text>
+      <rect class="barre" x="806" y="262" width="214" height="2" fill="#78909c"/>
+      <text x="806" y="294" class="carte-matiere" fill="#2ecc71">Physique-Chimie</text>
+      <circle cx="1084" cy="276" r="16" fill="#2ecc71"/>
+      <path class="coche" d="M1076 276l6 6 11-12" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>
