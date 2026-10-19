@@ -13,7 +13,8 @@ const TIMEOUT_S = Number(process.env.SMOKE_TIMEOUT_S || 60);
 
 // [description, chemin, statut attendu, vérification facultative du corps]
 const CHECKS = [
-  ['API + base de données', '/api/registration/etablissements', 200, (body) => Array.isArray(JSON.parse(body))],
+  // Requête SQL sur classes et users, 500 si la base ou les tables manquent
+  ['API + base de données', '/api/registration/classes?etablissement_id=0', 200, (body) => Array.isArray(JSON.parse(body))],
   ['Jeton absent refusé', '/api/auth/me', 401],
   ['Route protégée refusée', '/api/devoirs', 401],
 ];

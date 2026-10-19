@@ -24,6 +24,8 @@ updates:
     commit-message:
       prefix: "chore(ci)"
 
+  # Dockerfile uniquement : l'image MySQL (compose.yaml, ci.yml) suit la version
+  # de production et se met à jour à la main
   - package-ecosystem: docker
     directory: /
     schedule:
