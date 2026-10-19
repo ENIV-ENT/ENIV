@@ -1,5 +1,6 @@
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const MigrationManager = require('../migrations/migrationManager');
 
 // Configuration de la connexion MySQL
@@ -135,12 +136,29 @@ async function initDatabase() {
     const migrationManager = new MigrationManager(pool);
     await migrationManager.runMigrations();
 
-    // Créer un superadmin par défaut si aucun n'existe
+    // Créer le superadmin s'il n'existe pas. Son mot de passe vient de
+    // SUPERADMIN_PASSWORD, sinon il est tiré au hasard et affiché une seule fois
+    // dans les journaux : plus de mot de passe connu de tous.
     const [rows] = await connection.query('SELECT COUNT(*) as count FROM users WHERE role = ?', ['superadmin']);
     if (rows[0].count === 0) {
-      const hashedPassword = bcrypt.hashSync('superadmin123', 10);
+      const fromEnv = process.env.SUPERADMIN_PASSWORD;
+      const password = fromEnv || crypto.randomBytes(12).toString('base64url');
+      const hashedPassword = bcrypt.hashSync(password, 10);
       await connection.query('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', ['superadmin', hashedPassword, 'superadmin']);
-      console.log('Superadmin par défaut créé: username=superadmin, password=superadmin123');
+      if (fromEnv) {
+        console.log('Superadmin créé : username=superadmin, mot de passe = SUPERADMIN_PASSWORD');
+      } else {
+        console.log(`Superadmin créé : username=superadmin, password=${password} (à changer dès la première connexion)`);
+      }
+    }
+
+    // Les bases créées avant ce correctif peuvent garder l'ancien mot de passe
+    // connu de tous : on le signale à chaque démarrage tant qu'il n'est pas changé.
+    const [superadmins] = await connection.query('SELECT username, password FROM users WHERE role = ?', ['superadmin']);
+    for (const { username, password } of superadmins) {
+      if (await bcrypt.compare('superadmin123', password)) {
+        console.warn(`⚠ Le superadmin « ${username} » utilise encore le mot de passe par défaut superadmin123 : changez-le immédiatement.`);
+      }
     }
   } catch (error) {
     console.error('Erreur lors de l\'initialisation de la base de données:', error);

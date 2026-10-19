@@ -1,0 +1,144 @@
+name: CI
+
+# Vérifie chaque pull request et chaque push sur main.
+# Le déploiement (deploy-vps.yml) n'est lancé que si ce workflow passe sur main.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Un nouveau push sur la même branche annule la vérification devenue inutile
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Syntaxe et tests unitaires
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci --no-audit --no-fund
+
+      - name: Vérifier la syntaxe de tous les fichiers JavaScript
+        run: git ls-files '*.js' | xargs -n 1 node --check
+
+      - name: Tests unitaires
+        run: npm test
+
+  demarrage:
+    name: Démarrage sur MySQL (migrations + test de fumée)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mysql:
+        # Même version que la production et que compose.yaml ; à aligner à la main,
+        # Dependabot ne met à jour que le Dockerfile
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci
+          MYSQL_DATABASE: ent
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci --silent"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      NODE_ENV: development
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_NAME: ent
+      DB_USER: root
+      DB_PASSWORD: ci
+      JWT_SECRET: ci-jwt-secret-ci-jwt-secret-ci-jwt-secret
+      BASE_URL: http://127.0.0.1:3000
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci --no-audit --no-fund
+
+      - name: Démarrer l'application sur une base vide
+        run: |
+          node server.js > server.log 2>&1 &
+          echo $! > server.pid
+
+      - name: Toutes les migrations ont été jouées
+        run: |
+          # Les migrations tournent en arrière-plan au démarrage : on attend leur fin
+          for _ in $(seq 1 60); do grep -q "Migrations terminées" server.log && break; sleep 1; done
+          grep -q "Migrations terminées" server.log
+
+      - name: Test de fumée
+        run: node scripts/smoke-test.js http://127.0.0.1:3000
+
+      - name: Redémarrage sur la base existante (migrations idempotentes)
+        run: |
+          pid="$(cat server.pid)"
+          kill "$pid"
+          # Attendre l'arrêt réel, sinon le nouveau serveur échoue sur EADDRINUSE
+          for _ in $(seq 1 30); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+          if kill -0 "$pid" 2>/dev/null; then echo "L'ancien serveur ne s'arrête pas"; exit 1; fi
+          node server.js > server2.log 2>&1 &
+          for _ in $(seq 1 30); do grep -q "Aucune migration en attente" server2.log && break; sleep 1; done
+          grep -q "Aucune migration en attente" server2.log
+          node scripts/smoke-test.js http://127.0.0.1:3000
+
+      - name: Aucune erreur de migration ni d'initialisation
+        # Après les tests de fumée, pour attraper aussi les erreurs postérieures aux
+        # messages attendus ; `if` car `! grep` ne déclenche pas errexit.
+        run: |
+          if grep -e "Erreur lors de la migration" -e "Erreur lors de l'initialisation" server.log server2.log; then exit 1; fi
+
+      - name: Journaux du serveur
+        if: always()
+        run: cat server.log server2.log 2>/dev/null || true
+
+  docker:
+    name: Construction de l'image Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - name: Construire l'image de production
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          tags: eniv:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  audit:
+    name: Audit des dépendances
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Informatif : une faille publiée dans une dépendance ne doit pas bloquer
+    # un correctif urgent. Le check apparaît en rouge mais n'empêche pas le
+    # reste de la CI de réussir.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: npm audit (production, sévérité élevée)
+        run: npm audit --omit=dev --audit-level=high

@@ -31,7 +31,8 @@ function toDateString(value) {
   if (value instanceof Date) {
     if (Number.isNaN(value.getTime())) return null;
     const pad = (n) => String(n).padStart(2, '0');
-    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+    // UTC comme le pool mysql2 (timezone "Z") : pas de jour décalé selon le fuseau du serveur
+    return `${value.getUTCFullYear()}-${pad(value.getUTCMonth() + 1)}-${pad(value.getUTCDate())}`;
   }
 
   const text = String(value).trim();

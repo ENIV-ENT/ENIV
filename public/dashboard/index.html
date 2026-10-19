@@ -12,7 +12,7 @@
   <script src="/js/pwa.js?v=1" defer></script>
   <!-- Doit rester synchrone et avant les styles : applique le thème avant le premier rendu -->
   <script src="/js/theme-init.js?v=1"></script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=7">
+  <link rel="stylesheet" href="/css/dashboard.css?v=9">
   <link rel="stylesheet" href="/css/loading.css?v=3">
 </head>
 <body>
@@ -99,6 +99,10 @@
 
   <!-- Calendrier -->
   <div class="container">
+    <div class="vue-toggle">
+      <span id="vue-label" class="vue-label"></span>
+      <button id="vue-toggle-btn" class="btn-secondary">Devoirs passés</button>
+    </div>
     <div class="calendar-header">
       <button id="prev-month" class="btn-secondary">&lt;</button>
       <h2 id="current-month"></h2>
@@ -107,6 +111,8 @@
 
     <div id="calendar" class="calendar"></div>
   </div>
+
+  <button id="add-devoir-fab" class="add-devoir-fab" aria-label="Ajouter un devoir">+</button>
 
   <!-- Modals pour les devoirs (gardés identiques) -->
   <div id="devoir-modal" class="modal">
@@ -224,6 +230,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/pages/dashboard.js?v=8"></script>
+  <script type="module" src="/js/pages/dashboard.js?v=11"></script>
 </body>
 </html>
