@@ -2,6 +2,9 @@ import { apiCall, checkAuth, logout } from '../utils/api.js?v=4';
 import { showAlert, showConfirm, escapeHTML, toggleModal } from '../utils/dom.js?v=2';
 
 async function init() {
+  // En premier : un chargement qui traîne ne doit pas rendre la page inerte
+  setupEventListeners();
+
   const auth = await checkAuth();
 
   document.getElementById('user-info').textContent = auth.username;
@@ -9,11 +12,8 @@ async function init() {
 
   loadThemePreference();
 
-  await loadUserInfo();
-  await loadMcpTokens();
-  await checkEmploiTempsButton();
-  await setupCalendar();
-  setupEventListeners();
+  // En parallèle : une section lente ne retarde pas les autres
+  await Promise.all([loadUserInfo(), loadMcpTokens(), checkEmploiTempsButton(), setupCalendar()]);
 }
 
 // Le thème lui-même est déjà appliqué par /js/theme-init.js avant le premier rendu,
