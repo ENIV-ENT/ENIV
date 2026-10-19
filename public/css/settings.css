@@ -507,6 +507,7 @@ html.dark-theme .optional {
 .copy-field input {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.85rem;
+  margin-bottom: 0;
 }
 
 .howto {
