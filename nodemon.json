@@ -1,7 +1,6 @@
 {
   "watch": [
     "server.js",
-    "deploy.js",
     "backend/**/*.js",
     "public/**/*.js",
     "public/**/*.html",
@@ -10,7 +9,6 @@
   "ignore": [
     "node_modules",
     "backend/uploads/**",
-    "backend/ent.db",
     "*.log"
   ],
   "env": {

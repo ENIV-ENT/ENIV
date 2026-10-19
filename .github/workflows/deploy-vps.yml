@@ -1,7 +1,12 @@
 name: Déploiement
 
+# Déploie main sur le VPS, uniquement quand la CI est verte sur ce commit.
+# Lancement manuel possible depuis l'onglet Actions (workflow_dispatch).
+
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -11,9 +16,31 @@ concurrency:
 
 jobs:
   deploy:
+    # workflow_run se déclenche aussi quand la CI échoue : on ne déploie que sur un
+    # push de main dont la CI a réussi
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
+    environment: production
     steps:
+      # deploy.sh met en ligne la tête de main, pas forcément le commit validé ici.
+      # Si main a avancé, on s'abstient : la CI du commit suivant déploiera.
+      - name: Vérifier que main pointe toujours sur le commit validé
+        id: verif
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          if [ "$main" != "$SHA" ]; then
+            echo "::notice::main est passé à $main : déploiement laissé à la CI de ce commit"
+            echo "perime=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Lancer deploy.sh sur le VPS
+        if: steps.verif.outputs.perime != 'true'
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
@@ -25,3 +52,16 @@ jobs:
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           # La clé est restreinte côté serveur : la seule commande acceptée est le nom du projet.
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes deploy@"$HOST" eniv
+
+      - uses: actions/checkout@v5
+        if: steps.verif.outputs.perime != 'true' && vars.APP_URL != ''
+        with:
+          sparse-checkout: scripts
+
+      - name: Test de fumée sur la production
+        if: steps.verif.outputs.perime != 'true' && vars.APP_URL != ''
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+          # Laisse le temps au conteneur de reconstruire et redémarrer
+          SMOKE_TIMEOUT_S: 180
+        run: node scripts/smoke-test.js "$APP_URL"

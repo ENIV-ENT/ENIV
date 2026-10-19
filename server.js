@@ -8,6 +8,11 @@ const realtimeNotifier = require('./backend/middleware/realtimeNotifier');
 
 const app = express();
 const server = http.createServer(app);
+
+// Le conteneur n'écoute que sur 127.0.0.1 et Caddy est le seul relais : on fait
+// confiance à un saut de proxy pour lire la vraie IP (limites de débit).
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
 realtime.init(server);
 
 // Middleware
@@ -36,13 +41,10 @@ app.use('/api/quiz', require('./backend/routes/quiz'));
 app.use('/api/registration', require('./backend/routes/registration'));
 app.use('/api/proxy', require('./backend/routes/proxy'));
 app.use('/api/mcp', require('./backend/routes/mcp'));
-
-// Route pour le webhook GitHub
-const { handleWebhook } = require('./deploy');
-app.post('/api/deploy', handleWebhook);
+// Documents joints : uniquement par lien temporaire (backend/services/fichierLinks.js)
+app.use('/api/fichiers', require('./backend/routes/fichiers'));
 
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'backend/uploads')));
 // Bibliothèques front servies directement depuis node_modules
 app.use('/vendor/markdown-it', express.static(path.join(__dirname, 'node_modules/markdown-it/dist/browser')));
 

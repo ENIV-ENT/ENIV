@@ -4,14 +4,22 @@ const jwt = require('jsonwebtoken');
 const db = require('../models/dbHelper');
 const {requireAuth, verifyToken} = require("../middleware/auth");
 const mcpTokens = require('../services/mcpTokens');
+const { loginLimiter } = require('../middleware/rateLimit');
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const { JWT_SECRET } = require('../config/jwt');
 const JWT_EXPIRES_IN = '3650d';
+// Comparé quand l'identifiant est inconnu, pour que le temps de réponse ne
+// révèle pas quels comptes existent (même coût que les vrais hash).
+const DUMMY_HASH = bcrypt.hashSync('compte-inexistant', 10);
 
 // Login
-router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
+router.post('/login', loginLimiter, async (req, res) => {
+  const { username, password } = req.body || {};
+
+  if (typeof username !== 'string' || typeof password !== 'string' || !username || !password) {
+    return res.status(400).json({ error: 'Identifiant et mot de passe requis' });
+  }
 
   try {
     // Rechercher l'utilisateur par username OU par email
@@ -20,12 +28,8 @@ router.post('/login', async (req, res) => {
       [username, username]
     );
 
-    if (!user) {
-      return res.status(401).json({ error: 'Identifiants invalides' });
-    }
-
-    const validPassword = bcrypt.compareSync(password, user.password);
-    if (!validPassword) {
+    const validPassword = await bcrypt.compare(password, user?.password ?? DUMMY_HASH);
+    if (!user || !validPassword) {
       return res.status(401).json({ error: 'Identifiants invalides' });
     }
 

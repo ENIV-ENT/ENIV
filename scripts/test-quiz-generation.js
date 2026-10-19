@@ -2,11 +2,11 @@
 /**
  * Script de test pour la génération de quiz
  * 
- * Usage: node test-quiz-generation.js
+ * Usage: node scripts/test-quiz-generation.js
  */
 
 require('dotenv').config();
-const { generateQuizWithAI } = require('./backend/services/quizGenerator');
+const { generateQuizWithAI } = require('../backend/services/quizGenerator');
 
 // Devoir de test
 const testDevoir = {
