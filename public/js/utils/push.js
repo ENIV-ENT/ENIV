@@ -26,10 +26,6 @@ export function needsHomeScreenInstall() {
   return isIOS && !standalone;
 }
 
-async function getRegistration() {
-  return navigator.serviceWorker.ready;
-}
-
 export async function getPushSubscription() {
   if (!isPushSupported()) return null;
   // Pas serviceWorker.ready : elle n'aboutit jamais si l'enregistrement échoue
@@ -79,7 +75,13 @@ export async function enablePush() {
   const { publicKey, error } = await apiCall('/api/push/public-key');
   if (error || !publicKey) return { ok: false, error: error || 'Notifications indisponibles.' };
 
-  const registration = await getRegistration();
+  let registration;
+  try {
+    // serviceWorker.ready n'aboutit jamais si le service worker ne s'enregistre pas
+    registration = await withTimeout(navigator.serviceWorker.ready, SUBSCRIBE_TIMEOUT_MS);
+  } catch {
+    return { ok: false, error: 'Eniv n\'a pas pu préparer les notifications dans ce navigateur. Rechargez la page puis réessayez.' };
+  }
   let subscription = await registration.pushManager.getSubscription();
   // Un abonnement créé avec une autre clé serveur ne recevrait rien : on le refait
   const key = subscription?.options?.applicationServerKey;

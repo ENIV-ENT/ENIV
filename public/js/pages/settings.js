@@ -3,6 +3,9 @@ import { showAlert, showConfirm, escapeHTML, toggleModal } from '../utils/dom.js
 import { isPushSupported, needsHomeScreenInstall, getPushSubscription, enablePush, disablePush, syncPushSubscription } from '../utils/push.js?v=2';
 
 async function init() {
+  // En premier : un chargement qui traîne ne doit pas rendre la page inerte
+  setupEventListeners();
+
   const auth = await checkAuth();
 
   document.getElementById('user-info').textContent = auth.username;
@@ -10,11 +13,8 @@ async function init() {
 
   loadThemePreference();
 
-  await loadUserInfo();
-  await loadMcpTokens();
-  await setupPush();
-  await checkEmploiTempsButton();
-  setupEventListeners();
+  // En parallèle : une section lente ne retarde pas les autres
+  await Promise.all([loadUserInfo(), loadMcpTokens(), setupPush(), checkEmploiTempsButton()]);
 }
 
 // Le thème lui-même est déjà appliqué par /js/theme-init.js avant le premier rendu,
@@ -200,14 +200,7 @@ async function setupPush() {
   const testBtn = document.getElementById('push-test-btn');
   const fieldset = document.getElementById('push-preferences');
 
-  const data = await apiCall('/api/push/preferences');
-  if (!data.error) {
-    for (const [key, value] of Object.entries(data.preferences)) {
-      const input = fieldset.querySelector(`input[name="${key}"]`);
-      if (input) input.checked = value;
-    }
-  }
-
+  // Gestionnaires d'abord, chargements ensuite (voir init)
   fieldset.addEventListener('change', async (e) => {
     const input = e.target;
     const result = await apiCall('/api/push/preferences', {
@@ -239,6 +232,15 @@ async function setupPush() {
     const device = button && pushDevices.find((d) => String(d.id) === button.dataset.id);
     if (device) handleRemovePushDevice(device);
   });
+
+  // Les cases restent désactivées tant que renderPushState ne les a pas activées
+  const data = await apiCall('/api/push/preferences');
+  if (!data.error) {
+    for (const [key, value] of Object.entries(data.preferences)) {
+      const input = fieldset.querySelector(`input[name="${key}"]`);
+      if (input) input.checked = value;
+    }
+  }
 
   await syncPushSubscription();
   await renderPushState();
