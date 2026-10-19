@@ -24,7 +24,23 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
+      # deploy.sh met en ligne la tête de main, pas forcément le commit validé ici.
+      # Si main a avancé, on s'abstient : la CI du commit suivant déploiera.
+      - name: Vérifier que main pointe toujours sur le commit validé
+        id: verif
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          if [ "$main" != "$SHA" ]; then
+            echo "::notice::main est passé à $main : déploiement laissé à la CI de ce commit"
+            echo "perime=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Lancer deploy.sh sur le VPS
+        if: steps.verif.outputs.perime != 'true'
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
@@ -38,13 +54,14 @@ jobs:
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes deploy@"$HOST" eniv
 
       - uses: actions/checkout@v5
-        if: vars.APP_URL != ''
+        if: steps.verif.outputs.perime != 'true' && vars.APP_URL != ''
         with:
           sparse-checkout: scripts
 
       - name: Test de fumée sur la production
-        if: vars.APP_URL != ''
+        if: steps.verif.outputs.perime != 'true' && vars.APP_URL != ''
         env:
+          APP_URL: ${{ vars.APP_URL }}
           # Laisse le temps au conteneur de reconstruire et redémarrer
           SMOKE_TIMEOUT_S: 180
-        run: node scripts/smoke-test.js "${{ vars.APP_URL }}"
+        run: node scripts/smoke-test.js "$APP_URL"
