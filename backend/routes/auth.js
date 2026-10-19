@@ -9,6 +9,9 @@ const router = express.Router();
 
 const { JWT_SECRET } = require('../config/jwt');
 const JWT_EXPIRES_IN = '3650d';
+// Comparé quand l'identifiant est inconnu, pour que le temps de réponse ne
+// révèle pas quels comptes existent (même coût que les vrais hash).
+const DUMMY_HASH = bcrypt.hashSync('compte-inexistant', 10);
 
 // Login
 router.post('/login', loginLimiter, async (req, res) => {
@@ -25,12 +28,8 @@ router.post('/login', loginLimiter, async (req, res) => {
       [username, username]
     );
 
-    if (!user) {
-      return res.status(401).json({ error: 'Identifiants invalides' });
-    }
-
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) {
+    const validPassword = await bcrypt.compare(password, user?.password ?? DUMMY_HASH);
+    if (!user || !validPassword) {
       return res.status(401).json({ error: 'Identifiants invalides' });
     }
 
