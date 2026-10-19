@@ -1,4 +1,4 @@
-import { getRealtimeId } from './realtime.js?v=1';
+import { getRealtimeId } from './realtime.js';
 
 export async function apiCall(url, options = {}) {
   try {

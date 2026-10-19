@@ -4,8 +4,8 @@
 //   NETWORK_TIMEOUT_MS à répondre et qu'une copie existe, la copie est servie
 //   et le cache se met à jour en arrière-plan ; sans copie, on attend le
 //   réseau. Le cache n'est servi seul que si la requête échoue (hors ligne).
-//   (Pas de « cache d'abord » sur le JS : certains imports n'ont pas de ?v=N,
-//   un module périmé casserait la page.)
+//   (Pas de « cache d'abord » sur le JS : les ?v=<hash> ne sont ajoutés qu'au
+//   déploiement, un module périmé casserait la page en développement.)
 // - Images : cache d'abord, mise à jour en arrière-plan.
 // - API : uniquement les lectures listées dans API_ALLOWLIST. Le cache API
 //   ignore l'en-tête Authorization : il est vidé à chaque connexion/déconnexion

@@ -1,5 +1,5 @@
-import { apiCall, checkAuth, logout } from '../utils/api.js?v=4';
-import { escapeHTML, formatDate, toggleModal, setupModalClose, showAlert, showConfirm } from '../utils/dom.js?v=2';
+import { apiCall, checkAuth, logout } from '../utils/api.js';
+import { escapeHTML, formatDate, toggleModal, setupModalClose, showAlert, showConfirm } from '../utils/dom.js';
 
 let currentUserId = null;
 let eleves = [];
