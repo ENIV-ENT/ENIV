@@ -180,7 +180,40 @@ function preparer(evenements) {
     });
   });
 
-  return { cours, journees };
+  return { cours: fusionnerSuccessifs(cours), journees };
+}
+
+/**
+ * Réunit les séances identiques qui s'enchaînent sans pause : les exports
+ * découpent souvent un TD de deux heures en deux créneaux d'une heure.
+ * Identiques = même type, même titre, même salle et même description
+ * (enseignant, groupes) : un CM suivi d'un TD de la même matière reste en
+ * deux blocs. Seul l'affichage est concerné.
+ * @param {Array} cours - Triés par début
+ */
+function fusionnerSuccessifs(cours) {
+  const fusionnes = [];
+  // Dernière séance gardée pour chaque contenu : un cours en parallèle (autre
+  // groupe) entre les deux créneaux n'empêche pas la fusion
+  const derniere = new Map();
+
+  for (const c of cours) {
+    const cle = JSON.stringify([c.type, c.titre, c.lieu, c.description]);
+    const precedente = derniere.get(cle);
+
+    if (precedente && precedente.jour === c.jour && precedente.finDate.getTime() === c.debutDate.getTime()) {
+      precedente.finDate = c.finDate;
+      precedente.fin = c.fin;
+      precedente.finMin = c.finMin;
+      continue;
+    }
+
+    const copie = { ...c };
+    fusionnes.push(copie);
+    derniere.set(cle, copie);
+  }
+
+  return fusionnes;
 }
 
 /**
