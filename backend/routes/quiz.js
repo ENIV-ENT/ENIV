@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../models/dbHelper');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { devoirDeLaClasse } = require('../services/appartenanceClasse');
 const router = express.Router();
 
 router.use(requireAuth);
@@ -64,7 +65,7 @@ router.get('/:devoirId', async (req, res) => {
  */
 router.post('/results', express.json(), async (req, res) => {
   try {
-    const { devoirId, score, totalQuestions, correctAnswers, incorrectAnswers, mode } = req.body;
+    const { devoirId, score, totalQuestions, correctAnswers, incorrectAnswers, mode } = req.body || {};
 
     if (!devoirId || score === undefined || !totalQuestions || !mode) {
       return res.status(400).json({ error: 'Données manquantes' });
@@ -136,7 +137,7 @@ router.get('/:devoirId/results', async (req, res) => {
  */
 router.post('/create', requireAdmin, express.json(), async (req, res) => {
   try {
-    const { devoirId, questions, mode } = req.body;
+    const { devoirId, questions, mode } = req.body || {};
 
     if (!devoirId || !questions || !Array.isArray(questions)) {
       return res.status(400).json({ error: 'Données manquantes ou invalides' });
@@ -149,10 +150,7 @@ router.post('/create', requireAdmin, express.json(), async (req, res) => {
     }
 
     // Vérifier que le devoir existe et appartient à la même classe
-    const devoir = await db.get(
-      'SELECT id FROM devoirs WHERE id = ? AND classe_id = ?',
-      [devoirId, classeId]
-    );
+    const devoir = await devoirDeLaClasse(devoirId, classeId);
 
     if (!devoir) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
@@ -201,10 +199,7 @@ router.delete('/:devoirId', requireAdmin, async (req, res) => {
     }
 
     // Vérifier que le devoir existe et appartient à la même classe
-    const devoir = await db.get(
-      'SELECT id FROM devoirs WHERE id = ? AND classe_id = ?',
-      [devoirId, classeId]
-    );
+    const devoir = await devoirDeLaClasse(devoirId, classeId);
 
     if (!devoir) {
       return res.status(404).json({ error: 'Devoir non trouvé' });

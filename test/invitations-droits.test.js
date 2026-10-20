@@ -30,13 +30,15 @@ before(() => {
   app.use(express.json());
   app.use('/api/invitations', router);
   server = app.listen(0);
-  url = `http://127.0.0.1:${server.address().port}/api/invitations/create`;
+  url = `http://127.0.0.1:${server.address().port}/api/invitations`;
 });
 after(() => server.close());
 
-const invite = (userId, body) => fetch(url, {
+const bearer = (userId) => `Bearer ${jwt.sign({ userId }, JWT_SECRET)}`;
+
+const invite = (userId, body) => fetch(`${url}/create`, {
   method: 'POST',
-  headers: { 'content-type': 'application/json', authorization: `Bearer ${jwt.sign({ userId }, JWT_SECRET)}` },
+  headers: { 'content-type': 'application/json', authorization: bearer(userId) },
   body: JSON.stringify(body),
 });
 
@@ -53,4 +55,17 @@ test('un admin invite toujours dans sa propre classe', async () => {
   assert.equal(res.status, 200);
   const insert = fake.calls.find((c) => c.sql.startsWith('INSERT INTO invitations'));
   assert.equal(insert.params[3], 4);
+});
+
+test('un élève ne peut pas lister les invitations', async () => {
+  const res = await fetch(`${url}/list`, { headers: { authorization: bearer(1) } });
+  assert.equal(res.status, 403);
+});
+
+// Sans corps JSON, Express 5 laisse req.body à undefined
+test('une requête sans corps renvoie 400, pas 500', async () => {
+  const sansCorps = (path, headers = {}) => fetch(`${url}${path}`, { method: 'POST', headers });
+  assert.equal((await sansCorps('/create', { authorization: bearer(2) })).status, 400);
+  assert.equal((await sansCorps('/check-username')).status, 400);
+  assert.equal((await sansCorps('/complete')).status, 400);
 });

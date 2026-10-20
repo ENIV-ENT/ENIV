@@ -3,20 +3,19 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const db = require('../models/dbHelper');
 const { sendInvitationEmail } = require('../services/email');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdminOrSuperAdmin } = require('../middleware/auth');
 const { signupLimiter, lookupLimiter } = require('../middleware/rateLimit');
 const router = express.Router();
 
-// Créer une invitation (Admin ou Superadmin)
-router.post('/create', requireAuth, async (req, res) => {
-  const { email, role, classe_id } = req.body;
+// Créer une invitation (Admin ou Superadmin). Sans le contrôle de rôle du
+// middleware, un élève pouvait s'inviter (ou inviter un tiers) dans n'importe
+// quelle classe en passant son classe_id.
+router.post('/create', requireAdminOrSuperAdmin, async (req, res) => {
+  const { email, role, classe_id } = req.body || {};
   const creatorRole = req.session.role;
 
-  // Validation des permissions : seuls les admins et le superadmin invitent.
-  // Sans cette vérification, un élève pouvait s'inviter (ou inviter un tiers)
-  // dans n'importe quelle classe en passant son classe_id.
-  if (creatorRole !== 'admin' && creatorRole !== 'superadmin') {
-    return res.status(403).json({ error: 'Accès refusé' });
+  if (!email || !role) {
+    return res.status(400).json({ error: 'Email et rôle requis' });
   }
 
   if (creatorRole === 'admin' && role !== 'eleve') {
@@ -25,10 +24,6 @@ router.post('/create', requireAuth, async (req, res) => {
 
   if (creatorRole === 'superadmin' && role !== 'admin') {
     return res.status(403).json({ error: 'Un superadmin ne peut créer que des comptes admin' });
-  }
-
-  if (!email || !role) {
-    return res.status(400).json({ error: 'Email et rôle requis' });
   }
 
   // Validation de l'email
@@ -134,7 +129,7 @@ router.get('/verify/:token', lookupLimiter, async (req, res) => {
 
 // Vérifier la disponibilité d'un username
 router.post('/check-username', lookupLimiter, async (req, res) => {
-  const { username } = req.body;
+  const { username } = req.body || {};
 
   if (!username) {
     return res.status(400).json({ error: 'Nom d\'utilisateur requis' });
@@ -160,7 +155,7 @@ router.post('/check-username', lookupLimiter, async (req, res) => {
 
 // Finaliser l'inscription avec une invitation
 router.post('/complete', signupLimiter, async (req, res) => {
-  const { token, username, password, nom, prenom } = req.body;
+  const { token, username, password, nom, prenom } = req.body || {};
 
   if (!token || !username || !password || !nom || !prenom) {
     return res.status(400).json({ error: 'Tous les champs sont requis' });
@@ -198,11 +193,12 @@ router.post('/complete', signupLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Cet email est déjà associé à un compte' });
     }
 
+    // Hasher le mot de passe avant d'ouvrir la transaction : inutile de garder
+    // une connexion MySQL pendant le hachage
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     // Créer le compte dans une transaction
     const userId = await db.transaction(async (connection) => {
-      // Hasher le mot de passe
-      const hashedPassword = bcrypt.hashSync(password, 10);
-
       // Créer l'utilisateur
       const [result] = await connection.query(
         'INSERT INTO users (username, password, email, nom, prenom, role, classe_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -226,12 +222,7 @@ router.post('/complete', signupLimiter, async (req, res) => {
 });
 
 // Lister les invitations (Admin/Superadmin)
-router.get('/list', requireAuth, async (req, res) => {
-  const role = req.session.role;
-  if (role !== 'admin' && role !== 'superadmin') {
-    return res.status(403).json({ error: 'Accès refusé' });
-  }
-
+router.get('/list', requireAdminOrSuperAdmin, async (req, res) => {
   try {
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     const invitations = await db.all(

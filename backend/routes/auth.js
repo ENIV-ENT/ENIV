@@ -111,7 +111,7 @@ router.get('/me', async (req, res) => {
 });
 
 router.post('/change-password', requireAuth, async (req, res) => {
-  const { oldPassword, newPassword } = req.body;
+  const { oldPassword, newPassword } = req.body || {};
 
   if (!oldPassword || !newPassword) {
     return res.status(400).json({ error: 'Ancien et nouveau mot de passe requis' });
@@ -122,12 +122,12 @@ router.post('/change-password', requireAuth, async (req, res) => {
   }
 
   try {
-    const validPassword = bcrypt.compareSync(oldPassword, req.user.password);
+    const validPassword = await bcrypt.compare(oldPassword, req.user.password);
     if (!validPassword) {
       return res.status(400).json({ error: 'Mot de passe actuel incorrect' });
     }
 
-    const hashedPassword = bcrypt.hashSync(newPassword, 10);
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
     await db.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, req.session.userId]);
 
     res.json({ success: true, message: 'Mot de passe modifié avec succès' });
@@ -139,7 +139,7 @@ router.post('/change-password', requireAuth, async (req, res) => {
 
 // Update user information
 router.post('/update-info', requireAuth, async (req, res) => {
-  const { email, nom, prenom } = req.body;
+  const { email, nom, prenom } = req.body || {};
 
   if (!email || !nom || !prenom) {
     return res.status(400).json({ error: 'Tous les champs sont requis' });

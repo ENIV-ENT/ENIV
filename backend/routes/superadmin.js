@@ -5,7 +5,7 @@ const { requireSuperAdmin } = require('../middleware/auth');
 const router = express.Router();
 
 router.post('/classes', requireSuperAdmin, express.json(), async (req, res) => {
-  const { nom } = req.body;
+  const { nom } = req.body || {};
 
   if (!nom) {
     return res.status(400).json({ error: 'Nom de classe requis' });
@@ -35,7 +35,7 @@ router.get('/classes', requireSuperAdmin, async (req, res) => {
 });
 
 router.put('/classes/:id', requireSuperAdmin, express.json(), async (req, res) => {
-  const { nom } = req.body;
+  const { nom } = req.body || {};
 
   if (!nom) {
     return res.status(400).json({ error: 'Nom de classe requis' });
@@ -51,7 +51,7 @@ router.put('/classes/:id', requireSuperAdmin, express.json(), async (req, res) =
 });
 
 router.put('/classes/:id/premium', requireSuperAdmin, express.json(), async (req, res) => {
-  const premium = req.body.premium === true ? 1 : 0;
+  const premium = req.body?.premium === true ? 1 : 0;
 
   try {
     await db.run('UPDATE classes SET premium = ? WHERE id = ?', [premium, req.params.id]);
@@ -73,14 +73,14 @@ router.delete('/classes/:id', requireSuperAdmin, async (req, res) => {
 });
 
 router.post('/admins', requireSuperAdmin, express.json(), async (req, res) => {
-  const { username, password, classe_id } = req.body;
+  const { username, password, classe_id } = req.body || {};
 
   if (!username || !password || !classe_id) {
     return res.status(400).json({ error: 'Tous les champs sont requis' });
   }
 
   try {
-    const hashedPassword = bcrypt.hashSync(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
     const result = await db.run(
       'INSERT INTO users (username, password, role, classe_id) VALUES (?, ?, ?, ?)',
       [username, hashedPassword, 'admin', classe_id]
@@ -119,7 +119,7 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
 });
 
 router.put('/admins/:id', requireSuperAdmin, express.json(), async (req, res) => {
-  const { username, password, classe_id } = req.body;
+  const { username, password, classe_id } = req.body || {};
 
   if (!username || !classe_id) {
     return res.status(400).json({ error: 'Username et classe_id requis' });
@@ -127,7 +127,7 @@ router.put('/admins/:id', requireSuperAdmin, express.json(), async (req, res) =>
 
   try {
     if (password) {
-      const hashedPassword = bcrypt.hashSync(password, 10);
+      const hashedPassword = await bcrypt.hash(password, 10);
       await db.run(
         'UPDATE users SET username = ?, password = ?, classe_id = ? WHERE id = ? AND role = ?',
         [username, hashedPassword, classe_id, req.params.id, 'admin']
@@ -176,7 +176,7 @@ router.get('/etablissement-requests', requireSuperAdmin, async (req, res) => {
 });
 
 router.post('/etablissement-requests/:id/accept', requireSuperAdmin, express.json(), async (req, res) => {
-  const { nom, commune, code_postal } = req.body;
+  const { nom, commune, code_postal } = req.body || {};
   const requestId = req.params.id;
 
   try {

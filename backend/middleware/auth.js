@@ -72,5 +72,6 @@ const requireAuth = authChecker(() => true, "Non authentifié");
 const requireAdmin = authChecker((user) => user.role === "admin", "Accès refusé - Admin requis");
 const requireEleve = authChecker((user) => user.role === "eleve", "Accès refusé - Élève requis");
 const requireSuperAdmin = authChecker((user) => user.role === "superadmin", "Accès refusé - SuperAdmin requis");
+const requireAdminOrSuperAdmin = authChecker((user) => user.role === "admin" || user.role === "superadmin", "Accès refusé");
 
-module.exports = {verifyToken, requireAuth, requireAdmin, requireEleve, requireSuperAdmin};
+module.exports = {verifyToken, requireAuth, requireAdmin, requireEleve, requireSuperAdmin, requireAdminOrSuperAdmin};

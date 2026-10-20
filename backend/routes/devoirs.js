@@ -10,6 +10,7 @@ const { snapshotDevoir, diffSnapshots, logDevoirAction } = require('../services/
 const push = require('../services/push');
 const pushMessages = require('../services/pushMessages');
 const { creerJeton } = require('../services/fichierLinks');
+const { matiereDeLaClasse, devoirDeLaClasse } = require('../services/appartenanceClasse');
 const router = express.Router();
 
 // Devoir avec le nom de sa matière, utilisé pour construire les instantanés des logs
@@ -18,11 +19,6 @@ const DEVOIR_WITH_MATIERE_SQL = `
   FROM devoirs d
   LEFT JOIN matieres m ON d.matiere_id = m.id
   WHERE d.id = ? AND d.classe_id = ?`;
-
-// La matière doit appartenir à la classe du devoir
-async function matiereDeLaClasse(matiereId, classeId) {
-  return db.get('SELECT id FROM matieres WHERE id = ? AND classe_id = ?', [matiereId, classeId]);
-}
 
 // Configuration de multer pour l'upload de fichiers PDF
 const storage = multer.diskStorage({
@@ -73,7 +69,7 @@ const upload = multer({
 router.use(requireAuth);
 
 router.post('/', express.json(), async (req, res) => {
-  const { titre, description, matiere_id, date } = req.body;
+  const { titre, description, matiere_id, date } = req.body || {};
 
   if (!titre || !matiere_id) {
     return res.status(400).json({ error: 'Titre et matière requis' });
@@ -181,7 +177,11 @@ router.get('/:id', async (req, res) => {
 });
 
 router.put('/:id', express.json(), async (req, res) => {
-  const { titre, description, matiere_id, date } = req.body;
+  const { titre, description, matiere_id, date } = req.body || {};
+
+  if (!titre || !matiere_id) {
+    return res.status(400).json({ error: 'Titre et matière requis' });
+  }
 
   try {
     const classeId = req.user.classe_id;
@@ -268,14 +268,11 @@ router.delete('/:id', async (req, res) => {
 });
 
 router.post('/:id/statut', express.json(), async (req, res) => {
-  const { fait } = req.body;
+  const { fait } = req.body || {};
 
   try {
     // Un élève ne peut cocher que les devoirs de sa propre classe
-    const devoir = await db.get(
-      'SELECT id FROM devoirs WHERE id = ? AND classe_id = ?',
-      [req.params.id, req.user.classe_id]
-    );
+    const devoir = await devoirDeLaClasse(req.params.id, req.user.classe_id);
     if (!devoir) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
@@ -324,10 +321,7 @@ router.post('/:id/upload', upload.single('pdf'), async (req, res) => {
     }
 
     // Vérifier que le devoir existe et appartient à la même classe
-    const devoir = await db.get(
-      'SELECT id, titre FROM devoirs WHERE id = ? AND classe_id = ?',
-      [req.params.id, classeId]
-    );
+    const devoir = await devoirDeLaClasse(req.params.id, classeId);
 
     if (!devoir) {
       // Supprimer le fichier uploadé
@@ -397,10 +391,7 @@ router.get('/:id/fichiers', async (req, res) => {
     }
 
     // Vérifier que le devoir existe et appartient à la même classe
-    const devoir = await db.get(
-      'SELECT id FROM devoirs WHERE id = ? AND classe_id = ?',
-      [req.params.id, classeId]
-    );
+    const devoir = await devoirDeLaClasse(req.params.id, classeId);
 
     if (!devoir) {
       return res.status(404).json({ error: 'Devoir non trouvé' });

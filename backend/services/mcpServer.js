@@ -9,6 +9,7 @@ const { extractTextFromPDF } = require('./quizGenerator');
 const { toDateString, snapshotDevoir, diffSnapshots, logDevoirAction } = require('./devoirLogger');
 const push = require('./push');
 const pushMessages = require('./pushMessages');
+const { matiereDeLaClasse } = require('./appartenanceClasse');
 
 /**
  * Serveur MCP d'ENIV : expose les devoirs de la classe de l'utilisateur à un
@@ -106,8 +107,7 @@ function createMcpServer(user) {
     return row ? formatDevoir(row) : null;
   };
 
-  const matiereExists = async (matiereId) =>
-    Boolean(await db.get('SELECT id FROM matieres WHERE id = ? AND classe_id = ?', [matiereId, classeId]));
+  const matiereExists = async (matiereId) => Boolean(await matiereDeLaClasse(matiereId, classeId));
 
   server.registerTool('lister_matieres', {
     title: 'Lister les matières',
