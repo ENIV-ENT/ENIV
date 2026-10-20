@@ -162,6 +162,7 @@ IMPORTANT :
 - Les mauvaises réponses doivent être plausibles et basées sur des erreurs de compréhension courantes
 - CHAMP "example" : il est affiché APRÈS la réponse, ne mets JAMAIS du code de la question dedans
 - Si tu dois montrer du code à analyser, mets-le dans "question", pas dans "example"
+- CHAQUE QUESTION SE SUFFIT À ELLE-MÊME : l'étudiant n'a ni le cours ni les TPs sous les yeux. Une question sur un code, un Dockerfile, un fichier ou une commande contient ce code en entier dans "question", entre ''' ''' (ex : "Que fait ce Dockerfile ? '''FROM node COPY . /app'''"). Sans code à montrer, pose une question générale qui ne le désigne pas (ex : "Quelle instruction définit l'image de base d'un Dockerfile ?" et non "Que fait ce Dockerfile ?")
 - Le champ "example" sert à montrer une APPLICATION ou UTILISATION du concept, pas à poser la question
 - UNE SEULE BONNE RÉPONSE : le champ "correct" doit pointer vers UNE SEULE option (0, 1, 2 ou 3)
 - NE RÉFÉRENCE JAMAIS les positions A/B/C/D ou 1/2/3/4 : les réponses sont affichées dans un ordre ALÉATOIRE
@@ -249,6 +250,24 @@ function extractJSON(text) {
 }
 
 /**
+ * Détecter une question qui renvoie à un code (« ce Dockerfile », « le code
+ * ci-dessous »...) sans l'inclure : l'étudiant n'aurait rien à analyser.
+ * Seuls les démonstratifs (ce, cette...) et « suivant / ci-dessous » comptent :
+ * « la commande pour lister les conteneurs » est une question de cours.
+ */
+const OBJETS_CODE = String.raw`code|dockerfile|script|extrait|fichier|commande|configuration|pipeline|requête|snippet|programme|pom|\.?gitlab-ci(?:\.ya?ml)?|ya?ml|compose|makefile`;
+const REFERENCE_CODE = new RegExp(
+  String.raw`\b(?:ce|cet|cette|ces)\s+(?:${OBJETS_CODE})\b|\b(?:${OBJETS_CODE})\s+(?:suivante?s?|ci-dessous|ci-dessus)`,
+  'i'
+);
+// Bloc ''' ''' ou ``` ```, ou code en ligne entre accents graves
+const BLOC_CODE = /'''[\s\S]*?'''|```[\s\S]*?```|`[^`\n]+`/;
+
+function referencesMissingCode(q) {
+  return REFERENCE_CODE.test(q.question) && !BLOC_CODE.test(q.question);
+}
+
+/**
  * Valider le format des questions (sans vérifier le minimum)
  */
 function validateQuestionsFormat(questions) {
@@ -315,6 +334,7 @@ RÈGLES STRICTES :
 - Les mauvaises réponses doivent être crédibles et basées sur des erreurs courantes
 - CHAMP "example" : affiché APRÈS la réponse, pour montrer l'UTILISATION du concept, pas pour poser la question
 - Si tu veux montrer du code à analyser, mets-le dans "question", JAMAIS dans "example"
+- CHAQUE QUESTION SE SUFFIT À ELLE-MÊME : une question sur un code, un Dockerfile, un fichier ou une commande contient ce code en entier dans "question", entre ''' '''. Sans code à montrer, pose une question générale qui ne le désigne pas (« Quelle instruction définit l'image de base ? » et non « Que fait ce Dockerfile ? »)
 - UNE SEULE BONNE RÉPONSE : le champ "correct" doit être 0, 1, 2 ou 3 (une seule valeur)
 - NE RÉFÉRENCE JAMAIS A/B/C/D ou 1/2/3/4 : les réponses sont affichées dans un ORDRE ALÉATOIRE
 - Dans l'explication, parle du CONTENU de la réponse, pas de sa position (pas de "la réponse B" ou "la deuxième option")`;
@@ -385,6 +405,13 @@ async function generate_with_retry(devoir, isPremium, documentsText) {
       // Valider le format
       validateQuestionsFormat(newQuestions);
       
+      // Écarter les questions qui parlent d'un code absent
+      const avantFiltre = newQuestions.length;
+      newQuestions = newQuestions.filter(q => !referencesMissingCode(q));
+      if (newQuestions.length < avantFiltre) {
+        console.warn(`⚠️ ${avantFiltre - newQuestions.length} question(s) écartée(s) : elles renvoient à un code absent`);
+      }
+
       // Ajouter les nouvelles questions
       allQuestions = allQuestions.concat(newQuestions);
       
@@ -471,5 +498,6 @@ async function generateQuizWithAI(devoir, isPremium, fichiers) {
 
 module.exports = {
   generateQuizWithAI,
-  extractTextFromPDF
+  extractTextFromPDF,
+  referencesMissingCode
 };
