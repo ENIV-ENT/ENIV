@@ -14,7 +14,7 @@
 // Tout le reste (POST/PUT/DELETE, /api/fichiers, /api/proxy, WebSocket...) n'est
 // pas intercepté, y compris quand il est ouvert dans un onglet.
 
-const VERSION = 'v3';
+const VERSION = 'v4';
 const PAGES_CACHE = `eniv-pages-${VERSION}`;
 const STATIC_CACHE = `eniv-static-${VERSION}`;
 const API_CACHE = 'eniv-api'; // nom fixe : partagé avec la page qui le vide
@@ -22,7 +22,7 @@ const KNOWN_CACHES = [PAGES_CACHE, STATIC_CACHE, API_CACHE];
 
 const NETWORK_TIMEOUT_MS = 3000;
 
-const PRECACHE_PAGES = ['/', '/dashboard/'];
+const PRECACHE_PAGES = ['/', '/dashboard/', '/emploi-du-temps/'];
 const PRECACHE_STATIC = [
   '/manifest.webmanifest',
   '/images/logo.png',
@@ -38,6 +38,9 @@ const API_ALLOWLIST = [
   '/api/devoirs',
   '/api/devoirs/settings/emploi-temps',
   '/api/admin/matieres',
+  // Le serveur garde déjà la dernière version si la source ICS tombe ; ce
+  // cache couvre en plus l'absence de réseau côté appareil
+  '/api/emploi-temps',
 ];
 
 self.addEventListener('install', (event) => {

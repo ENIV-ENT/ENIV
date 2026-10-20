@@ -44,6 +44,7 @@ app.use('/api/proxy', require('./backend/routes/proxy'));
 app.use('/api/mcp', require('./backend/routes/mcp'));
 app.use('/api/push', require('./backend/routes/push'));
 app.use('/api/calendar', require('./backend/routes/calendar'));
+app.use('/api/emploi-temps', require('./backend/routes/emploiTemps'));
 // Documents joints : uniquement par lien temporaire (backend/services/fichierLinks.js)
 app.use('/api/fichiers', require('./backend/routes/fichiers'));
 
@@ -61,6 +62,10 @@ app.get('/dashboard', (req, res) => {
 
 app.get('/settings', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'settings', 'index.html'));
+});
+
+app.get('/emploi-du-temps', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'emploi-du-temps', 'index.html'));
 });
 
 app.get('/admin', (req, res) => {

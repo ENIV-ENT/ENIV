@@ -32,7 +32,7 @@ function setLoadingScreenVisible(visible) {
 }
 
 function getExpectedPaths(role) {
-  const commonPaths = ["/settings/", "/quiz/", "/devoir-pdf/"];
+  const commonPaths = ["/settings/", "/quiz/", "/devoir-pdf/", "/emploi-du-temps/"];
 
   if (role === 'superadmin') {
     return ["/superadmin/dashboard/", ...commonPaths];

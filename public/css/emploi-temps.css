@@ -1,0 +1,538 @@
+/* Emploi du temps (page /emploi-du-temps), chargé après dashboard.css */
+
+:root {
+  /* Teinte de fond par type de séance ; le type est aussi écrit dans le bloc */
+  --edt-cm: #dce9f9;
+  --edt-td: #d9f0e6;
+  --edt-tp: #f8e7cc;
+  --edt-autre: var(--bg-secondary);
+  /* Assez haut pour qu'une séance d'une heure montre titre, salle et horaire */
+  --edt-heure: 64px;
+  --edt-gouttiere: 3.25rem;
+}
+
+html.dark-theme {
+  --edt-cm: #1f3550;
+  --edt-td: #1d3d31;
+  --edt-tp: #45361d;
+}
+
+.edt {
+  max-width: 1280px;
+}
+
+/* Barre de titre et navigation */
+.edt-barre {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.edt-titre h2 {
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.edt-maj {
+  min-height: 1.4em;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.edt-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.edt-semaine {
+  min-width: 15rem;
+  text-align: center;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.edt-fleche,
+.edt-aujourdhui {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.25rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.edt-fleche {
+  width: 2.25rem;
+}
+
+.edt-aujourdhui {
+  padding: 0 0.875rem;
+  margin-left: 0.25rem;
+}
+
+.edt-fleche:hover:not(:disabled),
+.edt-aujourdhui:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.edt-fleche:disabled,
+.edt-aujourdhui:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.edt button:focus-visible,
+.edt a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Source injoignable : version gardée affichée */
+.edt-bandeau {
+  margin-bottom: 1rem;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid #e0a030;
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+/* États : non configuré, erreur, semaine vide */
+.edt-etat {
+  padding: 3rem 1.5rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  text-align: center;
+}
+
+.edt-etat p {
+  max-width: 36rem;
+  margin: 0 auto 0.75rem;
+}
+
+.edt-etat .edt-etat-detail {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.edt-lien-bouton {
+  display: inline-block;
+  text-decoration: none;
+}
+
+/* Séance (grille semaine et liste du jour) */
+.edt-cours {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  overflow: hidden;
+  padding: 0.25rem 0.4rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--edt-autre);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+}
+
+.edt-cours--cm { background: var(--edt-cm); }
+.edt-cours--td { background: var(--edt-td); }
+.edt-cours--tp { background: var(--edt-tp); }
+.edt-cours--autre { box-shadow: inset 0 0 0 1px var(--border); }
+
+/* Couleur de la matière (souvent très saturée) : en filet à gauche et en
+   teinte légère derrière le texte, qui reste lisible dans les deux thèmes */
+.edt-cours--matiere {
+  padding-left: calc(0.4rem + 4px);
+  background: color-mix(in srgb, var(--edt-matiere) 30%, var(--bg-primary));
+  box-shadow: inset 4px 0 0 var(--edt-matiere);
+}
+
+.edt-cours:hover {
+  filter: brightness(0.97);
+}
+
+html.dark-theme .edt-cours:hover {
+  filter: brightness(1.12);
+}
+
+.edt-cours-titre {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.edt-cours-type {
+  font-weight: 700;
+}
+
+.edt-cours-lieu,
+.edt-cours-heure {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+html.dark-theme .edt-cours-lieu,
+html.dark-theme .edt-cours-heure {
+  color: #c4c4c4;
+}
+
+/* Le cours en cours, ou le prochain */
+.edt-cours--relief {
+  box-shadow: inset 0 0 0 2px var(--primary);
+}
+
+.edt-cours--matiere.edt-cours--relief {
+  box-shadow: inset 4px 0 0 var(--edt-matiere), inset 0 0 0 2px var(--primary);
+}
+
+.edt-relief {
+  color: var(--primary-dark);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+html.dark-theme .edt-relief {
+  color: #8cbcf0;
+}
+
+/* Journée entière (stage, férié...) */
+.edt-journee {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  padding: 0.125rem 0.4rem;
+  border: none;
+  border-radius: 4px;
+  background: var(--edt-autre);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.75rem;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.edt-journee.edt-cours--autre {
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.edt-journee.edt-cours--matiere {
+  padding-left: calc(0.4rem + 4px);
+  background: color-mix(in srgb, var(--edt-matiere) 30%, var(--bg-primary));
+}
+
+/* --- Grille de la semaine ------------------------------------------------- */
+
+.edt-grille {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-primary);
+}
+
+.edt-entete,
+.edt-corps {
+  display: grid;
+  grid-template-columns: var(--edt-gouttiere) repeat(var(--edt-jours), minmax(0, 1fr));
+}
+
+.edt-entete {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-primary);
+}
+
+.edt-entete-jour {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  border-left: 1px solid var(--border);
+  min-width: 0;
+}
+
+.edt-jour-nom {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.edt-entete-jour.edt-aujourdhui-jour .edt-jour-nom {
+  color: var(--primary);
+}
+
+.edt-journees {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.edt-corps {
+  position: relative;
+  height: calc(var(--edt-heures) * var(--edt-heure));
+}
+
+.edt-graduations {
+  position: relative;
+}
+
+.edt-graduation {
+  position: absolute;
+  right: 0.5rem;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.edt-graduation:first-child {
+  transform: none;
+  margin-top: 0.125rem;
+}
+
+.edt-colonne {
+  position: relative;
+  border-left: 1px solid var(--border);
+  /* Un trait par heure */
+  background-image: linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 100% var(--edt-heure);
+}
+
+.edt-colonne.edt-aujourdhui-jour {
+  background-color: rgba(74, 144, 226, 0.05);
+}
+
+.edt-colonne .edt-cours {
+  position: absolute;
+  /* Marge visuelle entre deux séances accolées ou côte à côte */
+  border: 2px solid var(--bg-primary);
+  border-radius: 8px;
+}
+
+.edt-colonne .edt-cours--court .edt-cours-titre {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Dans la grille, le contour suffit : « En cours » reste lu par les lecteurs
+   d'écran sans prendre la ligne de la salle ou de l'horaire */
+.edt-colonne .edt-relief {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.edt-colonne .edt-cours:focus-visible {
+  z-index: 1;
+}
+
+/* Heure actuelle */
+.edt-maintenant {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--primary);
+  pointer-events: none;
+}
+
+.edt-maintenant::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+/* --- Vue jour (mobile) ---------------------------------------------------- */
+
+.edt-vue-jour {
+  display: none;
+}
+
+.edt-bande {
+  display: flex;
+  gap: 0.375rem;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+}
+
+.edt-bande-jour {
+  display: flex;
+  flex: 1 0 3.25rem;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.375rem 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.edt-bande-num {
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.edt-bande-jour--vide {
+  color: var(--text-secondary);
+}
+
+.edt-bande-jour.edt-aujourdhui-jour {
+  border-color: var(--primary);
+}
+
+.edt-bande-jour[aria-pressed="true"] {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: white;
+}
+
+.edt-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  list-style: none;
+}
+
+.edt-liste-item {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.75rem;
+}
+
+.edt-liste-heure {
+  padding-top: 0.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.edt-liste .edt-cours {
+  gap: 0.125rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.edt-liste .edt-relief {
+  font-size: 0.75rem;
+}
+
+.edt-liste-journees {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-left: 4.25rem;
+}
+
+.edt-liste-journees .edt-journee {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.edt-pause {
+  margin-left: 4.25rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.edt-vide-jour {
+  padding: 2rem 0;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* Détail d'une séance */
+.edt-modal {
+  max-width: 520px;
+}
+
+.edt-modal .modal-header {
+  gap: 1rem;
+}
+
+.edt-modal .modal-header h2 {
+  font-size: 1.2rem;
+  line-height: 1.35;
+}
+
+.edt-modal .modal-close {
+  flex-shrink: 0;
+}
+
+.edt-details {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.5rem 1rem;
+}
+
+.edt-details dt {
+  color: var(--text-secondary);
+}
+
+.edt-details dd {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 768px) {
+  .edt-vue-semaine {
+    display: none;
+  }
+
+  .edt-vue-jour {
+    display: block;
+  }
+
+  .edt-barre {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .edt-nav {
+    justify-content: space-between;
+  }
+
+  .edt-semaine {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.9rem;
+  }
+
+  .edt-semaine-prefixe {
+    display: none;
+  }
+}

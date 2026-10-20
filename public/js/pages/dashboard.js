@@ -363,12 +363,17 @@ function setupUserMenu() {
 
 async function checkEmploiTemps() {
   const data = await apiCall('/api/devoirs/settings/emploi-temps');
-  if (!data.lien) return;
+  if (!data.ics && !data.lien) return;
 
   const btn = document.getElementById('emploi-temps-btn');
   if (btn) {
     btn.classList.remove('hidden');
     btn.addEventListener('click', () => {
+      // Lien ICS : emploi du temps affiché dans Eniv
+      if (data.ics) {
+        window.location.href = '/emploi-du-temps';
+        return;
+      }
       window.open(data.lien, '_blank');
       document.getElementById('user-dropdown').classList.add('hidden');
     });
