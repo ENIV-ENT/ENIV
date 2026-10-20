@@ -17,6 +17,7 @@ const RESOURCE_RULES = [
   [/^\/api\/devoirs\/fichiers\//, 'fichiers'],
   [/^\/api\/devoirs\/\d+\/upload$/, 'fichiers'],
   [/^\/api\/devoirs\/\d+\/generate-quiz$/, 'quiz'],
+  [/^\/api\/devoirs\/\d+\/commentaires(\/|$)/, 'commentaires'],
   [/^\/api\/devoirs/, 'devoirs'],
   [/^\/api\/admin\/matieres/, 'matieres'],
   [/^\/api\/quiz/, 'quiz'],
@@ -64,12 +65,15 @@ function realtimeNotifier(req, res, next) {
       // lui rediffuser l'événement provoquerait un appel d'API inutile.
       const origin = req.headers['x-realtime-id'];
 
+      // res.locals.realtimeData : données jointes par la route, pour éviter aux
+      // clients de tout recharger (nombre de commentaires par exemple).
       notifyClasse(classeId, {
         type: 'update',
         resource,
         devoirId: deriveDevoirId(fullPath),
         method: req.method,
-        at: Date.now()
+        at: Date.now(),
+        ...res.locals.realtimeData
       }, typeof origin === 'string' ? origin : null);
     } catch (error) {
       // Une notification ratée ne doit jamais casser la réponse HTTP.

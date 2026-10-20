@@ -34,6 +34,8 @@ initScheduler();
 app.use('/api/auth', require('./backend/routes/auth'));
 app.use('/api/superadmin', require('./backend/routes/superadmin'));
 app.use('/api/admin', require('./backend/routes/admin'));
+// Avant /api/devoirs, dont le requireAuth authentifierait chaque requête une seconde fois
+app.use('/api/devoirs/:devoirId/commentaires', require('./backend/routes/commentaires'));
 app.use('/api/devoirs', require('./backend/routes/devoirs'));
 app.use('/api/invitations', require('./backend/routes/invitations'));
 app.use('/api/quiz', require('./backend/routes/quiz'));
