@@ -147,6 +147,11 @@ function createConfirmModal() {
         </div>
         <div class="modal-body">
           <p id="confirm-modal-message" style="margin: 0; line-height: 1.6;"></p>
+          <label id="confirm-modal-checkbox-row" style="align-items: center; gap: 10px; width: fit-content; margin-top: 16px; font-size: 0.95rem; cursor: pointer;">
+            <!-- Styles en ligne : certaines pages donnent width: 100% à tous les input des modales -->
+            <input type="checkbox" id="confirm-modal-checkbox" style="width: 18px; height: 18px; margin: 0; padding: 0; flex-shrink: 0; accent-color: var(--primary); cursor: pointer;">
+            <span id="confirm-modal-checkbox-label"></span>
+          </label>
         </div>
         <div class="form-actions" style="margin-top: 20px; display: flex; gap: 10px;">
           <button class="btn-secondary" id="confirm-modal-cancel">Annuler</button>
@@ -166,10 +171,11 @@ function createConfirmModal() {
     }
   });
 
+  // « Annuler » est une réponse ; la croix et le clic à côté ferment sans répondre
   document.getElementById('confirm-modal-cancel').addEventListener('click', () => {
     toggleModal('global-confirm-modal', false);
-    if (confirmModalElement.rejectCallback) {
-      confirmModalElement.rejectCallback();
+    if (confirmModalElement.resolveCallback) {
+      confirmModalElement.resolveCallback(false);
     }
   });
 
@@ -221,17 +227,30 @@ export function showAlert(message, title = 'Information') {
   });
 }
 
-export function showConfirm(message, title = 'Confirmation') {
+/**
+ * Avec checkboxLabel, une case à cocher est affichée et la promesse renvoie
+ * { confirmed, checked }, ou null si la fenêtre est fermée sans répondre.
+ * Sans, elle renvoie un booléen.
+ */
+export function showConfirm(message, title = 'Confirmation', { confirmLabel = 'Confirmer', cancelLabel = 'Annuler', checkboxLabel = null } = {}) {
   createConfirmModal();
 
   document.getElementById('confirm-modal-title').textContent = title;
   document.getElementById('confirm-modal-message').textContent = message;
+  document.getElementById('confirm-modal-ok').textContent = confirmLabel;
+  document.getElementById('confirm-modal-cancel').textContent = cancelLabel;
+  const checkbox = document.getElementById('confirm-modal-checkbox');
+  checkbox.checked = false;
+  document.getElementById('confirm-modal-checkbox-label').textContent = checkboxLabel || '';
+  document.getElementById('confirm-modal-checkbox-row').style.display = checkboxLabel ? 'flex' : 'none';
 
   toggleModal('global-confirm-modal', true);
 
   return new Promise((resolve) => {
-    confirmModalElement.resolveCallback = resolve;
-    confirmModalElement.rejectCallback = () => resolve(false);
+    confirmModalElement.resolveCallback = (confirmed) => resolve(
+      checkboxLabel ? { confirmed, checked: checkbox.checked } : confirmed
+    );
+    confirmModalElement.rejectCallback = () => resolve(checkboxLabel ? null : false);
   });
 }
 
