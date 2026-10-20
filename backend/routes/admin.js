@@ -386,7 +386,9 @@ router.get('/settings/emploi-temps', requireAuth, async (req, res) => {
 
 // Configurer le lien ICS : l'emploi du temps s'affiche alors dans Eniv
 router.post('/settings/emploi-temps-ics', requireAdmin, express.json(), async (req, res) => {
-  const lien = typeof req.body.lien === 'string' ? req.body.lien.trim() : '';
+  // Sans corps JSON, req.body vaut undefined sous Express 5
+  const { lien: saisi } = req.body || {};
+  const lien = typeof saisi === 'string' ? saisi.trim() : '';
 
   const classeId = req.user.classe_id;
   if (!classeId) {

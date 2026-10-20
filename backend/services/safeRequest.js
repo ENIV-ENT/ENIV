@@ -120,7 +120,7 @@ function validateTarget(url) {
  * @returns {Promise<{contentType: string, contentLength: number|null, stream: import('stream').Readable}>}
  */
 function request(url, options, redirectsLeft) {
-  const { accept, userAgent, allowedTypes, maxBytes, timeoutMs, label } = options;
+  const { accept, userAgent, allowedTypes, maxBytes, timeoutMs, label, lookup, tracker } = options;
 
   return new Promise((resolve, reject) => {
     const client = url.protocol === 'https:' ? https : http;
@@ -128,7 +128,7 @@ function request(url, options, redirectsLeft) {
     // Aucun en-tête du client n'est transmis : ni cookie, ni Referer, ni son User-Agent.
     // identity évite une compression qui rendrait Content-Length incohérent.
     const req = client.request(url, {
-      lookup: safeLookup,
+      lookup,
       timeout: timeoutMs,
       headers: {
         Accept: accept,
@@ -173,12 +173,16 @@ function request(url, options, redirectsLeft) {
         return reject(new ProxyError('Contenu trop volumineux', 413));
       }
 
+      if (tracker) tracker.response = response;
       resolve({
         contentType,
         contentLength: Number.isFinite(contentLength) ? contentLength : null,
         stream: response
       });
     });
+
+    // Redirection comprise : la durée maximale vise la requête en cours
+    if (tracker) tracker.req = req;
 
     req.on('timeout', () => {
       req.destroy(new ProxyError(`${capitalize(label)} ne répond pas`, 504));
@@ -230,12 +234,35 @@ function prepareUrl(rawUrl) {
  * @param {Set<string>} options.allowedTypes - Types de contenu acceptés
  * @param {number} options.maxBytes - Taille maximale annoncée par Content-Length
  * @param {number} [options.timeoutMs] - Délai d'inactivité du socket
+ * @param {number} [options.deadlineMs] - Durée maximale de l'ensemble (redirections et
+ *   lecture du flux comprises), au-delà de laquelle la requête est abandonnée
  * @param {string} options.label - Désignation de la cible dans les messages d'erreur
+ * @param {Function} [options.lookup] - Résolution DNS : ne remplacer que dans les tests
  * @returns {Promise<{contentType: string, contentLength: number|null, stream: import('stream').Readable}>}
  * @throws {ProxyError} URL refusée, hôte injoignable ou réponse inexploitable
  */
 async function openRemote(rawUrl, options) {
-  return request(prepareUrl(rawUrl), { timeoutMs: DEFAULT_TIMEOUT_MS, ...options }, MAX_REDIRECTS);
+  const url = prepareUrl(rawUrl);
+  const settings = { timeoutMs: DEFAULT_TIMEOUT_MS, lookup: safeLookup, ...options };
+  if (!settings.deadlineMs) return request(url, settings, MAX_REDIRECTS);
+
+  // Le délai d'inactivité ne coupe pas une source qui envoie un octet de temps
+  // en temps : sans durée maximale, elle garderait la connexion indéfiniment
+  const tracker = { req: null, response: null };
+  const deadline = new ProxyError(`${capitalize(settings.label)} met trop de temps à répondre`, 504);
+  const timer = setTimeout(() => {
+    if (tracker.response) tracker.response.destroy(deadline);
+    else if (tracker.req) tracker.req.destroy(deadline);
+  }, settings.deadlineMs);
+
+  try {
+    const remote = await request(url, { ...settings, tracker }, MAX_REDIRECTS);
+    remote.stream.once('close', () => clearTimeout(timer));
+    return remote;
+  } catch (error) {
+    clearTimeout(timer);
+    throw error;
+  }
 }
 
 /**
@@ -260,7 +287,10 @@ function readLimited(stream, maxBytes) {
     });
 
     stream.on('end', () => resolve(Buffer.concat(chunks)));
-    stream.on('error', () => reject(new ProxyError('Réception interrompue', 502)));
+    // Une ProxyError vient de openRemote (durée maximale dépassée) : elle est gardée
+    stream.on('error', error => reject(error instanceof ProxyError
+      ? error
+      : new ProxyError('Réception interrompue', 502)));
   });
 }
 

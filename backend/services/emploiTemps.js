@@ -20,7 +20,11 @@ const RETRY_MS = 5 * 60 * 1000;
 const REFRESH_PAUSE_MS = 2000;
 
 const MAX_BYTES = 10 * 1024 * 1024;
+// Inactivité du socket, puis durée maximale du téléchargement complet : une
+// source qui envoie un octet de temps en temps ne doit pas bloquer
+// refreshAll, qui traite les classes l'une après l'autre
 const TIMEOUT_MS = 15000;
+const DEADLINE_MS = 30000;
 
 // Selon les serveurs, un .ics est servi sous l'un ou l'autre de ces types ;
 // le contenu est de toute façon vérifié par parseIcs
@@ -96,6 +100,7 @@ async function download(url) {
     allowedTypes: ALLOWED_CONTENT_TYPES,
     maxBytes: MAX_BYTES,
     timeoutMs: TIMEOUT_MS,
+    deadlineMs: DEADLINE_MS,
     label: "la source de l'emploi du temps"
   });
 

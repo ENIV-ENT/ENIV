@@ -67,6 +67,15 @@ test('liens refusés : autre schéma, adresse interne, trop long', async () => {
   assert.equal(writes().length, 0);
 });
 
+test('sans corps JSON : pas d\'erreur 500, traité comme un lien absent', async () => {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${jwt.sign({ userId: 2 }, JWT_SECRET)}` },
+  });
+  assert.equal(res.status, 200);
+  assert.match(writes()[0].sql, /^DELETE FROM emploi_temps_ics/);
+});
+
 test('un lien vide supprime la configuration', async () => {
   const res = await save(2, '  ');
   assert.equal(res.status, 200);
