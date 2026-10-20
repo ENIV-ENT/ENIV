@@ -1587,9 +1587,13 @@ input[type="color"] {
     font-size: 1.2rem;
   }
 
-  /* Vue mobile : liste de devoirs par jour au lieu du calendrier grille */
+  /* Vue mobile : liste de devoirs par jour au lieu du calendrier grille.
+     Le fond blanc va d'un bord à l'autre de l'écran (marges négatives sur le
+     padding de .container) ; le padding garde les cartes des jours à leur largeur. */
   .calendar {
-    padding: 0;
+    margin: 0 -0.5rem;
+    padding: 0 0.5rem;
+    border-radius: 0;
   }
 
   .calendar-days,
