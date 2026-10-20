@@ -364,6 +364,30 @@ header h1 {
     margin-top: 30px;
 }
 
+.resume-notice {
+    margin-top: 8px;
+    font-size: 0.9em;
+    color: var(--secondary);
+}
+
+.quit-quiz {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.btn-quit {
+    background: none;
+    border: none;
+    color: var(--secondary);
+    font-size: 0.9em;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.btn-quit:hover {
+    color: var(--danger);
+}
+
 .btn {
     flex: 1;
     padding: 15px 30px;

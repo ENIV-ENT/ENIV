@@ -13,6 +13,144 @@ let quizMode = null;
 let answeredQuestions = new Set(); // Pour empêcher la modification des anciennes réponses
 let answersHistory = {}; // Stocker l'historique des réponses {questionIndex: {selectedOption, isCorrect, mode}}
 let devoirId = null;
+let userId = null;
+let questionOrder = [];  // ordre mélangé des questions : indices dans quizData.questions
+let resolveUserReady;
+const userReady = new Promise((resolve) => { resolveUserReady = resolve; });
+
+// ============= REPRISE DU QUIZ =============
+// La progression reste dans le navigateur tant que le quiz n'est ni terminé ni
+// abandonné : un rechargement ou un changement de page ne fait plus tout perdre.
+
+const SAVE_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+
+function saveKey() {
+    return `eniv-quiz-${userId ?? 'anonyme'}-${devoirId}`;
+}
+
+// Empreinte du contenu : un quiz régénéré ou modifié invalide la progression gardée
+function quizSignature(questions) {
+    let hash = 5381;
+    const text = JSON.stringify(questions.map(q => [q.question, q.options]));
+    for (let i = 0; i < text.length; i++) {
+        hash = ((hash << 5) + hash + text.charCodeAt(i)) | 0;
+    }
+    return `${questions.length}:${hash}`;
+}
+
+function saveProgress() {
+    if (!quizMode || !quizData) return;
+    try {
+        localStorage.setItem(saveKey(), JSON.stringify({
+            savedAt: Date.now(),
+            signature: quizSignature(quizData.questions || []),
+            mode: quizMode,
+            order: questionOrder,
+            options: currentQuestions.map(q => (q.shuffledOptions ? q.shuffledOptions.map(o => o.originalIndex) : null)),
+            index: currentQuestionIndex,
+            score,
+            correct: correctCount,
+            incorrect: incorrectCount,
+            answered: [...answeredQuestions],
+            history: answersHistory
+        }));
+    } catch {
+        // Stockage plein ou refusé : la reprise est un confort, elle ne bloque pas le quiz
+    }
+}
+
+function clearProgress() {
+    try {
+        localStorage.removeItem(saveKey());
+    } catch {
+        // Voir saveProgress
+    }
+}
+
+const isIndex = (value, length) => Number.isInteger(value) && value >= 0 && value < length;
+
+// Progression gardée si elle correspond encore à ce quiz, sinon null
+function readProgress() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(saveKey()));
+        const questions = quizData.questions || [];
+        if (!saved || Date.now() - saved.savedAt > SAVE_MAX_AGE_MS) return null;
+        if (saved.signature !== quizSignature(questions)) return null;
+        // Un quiz limité à un mode ne reprend pas dans l'autre
+        if (saved.mode !== 'choice' && saved.mode !== 'oral') return null;
+        if (quizData.mode && quizData.mode !== saved.mode) return null;
+
+        const n = questions.length;
+        const order = saved.order;
+        if (!Array.isArray(order) || order.length !== n || new Set(order).size !== n || !order.every(i => isIndex(i, n))) return null;
+        if (!isIndex(saved.index, n)) return null;
+        if (!Array.isArray(saved.answered) || !saved.answered.every(i => isIndex(i, n))) return null;
+        if (!Array.isArray(saved.options) || saved.options.length !== n) return null;
+
+        const validOptions = saved.options.every((perm, i) => {
+            if (perm === null) return true;
+            const count = questions[order[i]].options.length;
+            return Array.isArray(perm) && perm.length === count && new Set(perm).size === count && perm.every(o => isIndex(o, count));
+        });
+        if (!validOptions) return null;
+        if (!saved.history || typeof saved.history !== 'object') return null;
+        return saved;
+    } catch {
+        return null;
+    }
+}
+
+function resumeQuiz(saved) {
+    quizMode = saved.mode;
+    questionOrder = saved.order;
+    currentQuestions = questionOrder.map(i => quizData.questions[i]);
+    currentQuestions.forEach((question, i) => {
+        const perm = saved.options[i];
+        if (perm) {
+            question.shuffledOptions = perm.map(o => ({ text: question.options[o], originalIndex: o }));
+        } else {
+            delete question.shuffledOptions;
+        }
+    });
+
+    currentQuestionIndex = saved.index;
+    score = saved.score || 0;
+    correctCount = saved.correct || 0;
+    incorrectCount = saved.incorrect || 0;
+    answeredQuestions = new Set(saved.answered);
+    answersHistory = saved.history;
+
+    updateStats();
+    document.getElementById('resumeNotice').style.display = 'block';
+    document.getElementById('modeSelector').style.display = 'none';
+    document.getElementById('progressBar').style.display = 'block';
+    document.getElementById('quizCard').style.display = 'block';
+    loadQuestion();
+}
+
+// Abandonner : la progression gardée est effacée
+function abandonQuiz() {
+    if (!confirm('Abandonner ce quiz ? Votre progression sera perdue.')) return;
+    clearProgress();
+
+    // Quiz limité à un mode : rien à choisir, retour aux devoirs
+    if (quizData.mode === 'choice' || quizData.mode === 'oral') {
+        window.location.href = '/dashboard';
+        return;
+    }
+
+    answeredQuestions.clear();
+    answersHistory = {};
+    score = 0;
+    correctCount = 0;
+    incorrectCount = 0;
+    quizMode = null;
+    updateStats();
+    document.getElementById('resumeNotice').style.display = 'none';
+    document.getElementById('quizCard').style.display = 'none';
+    document.getElementById('progressBar').style.display = 'none';
+    document.getElementById('modeSelector').style.display = 'block';
+}
 
 // Fonction pour formater le texte avec des blocs de code
 function formatTextWithCode(text) {
@@ -65,6 +203,14 @@ async function loadQuizData() {
         // Mettre à jour le titre
         document.getElementById('quizTitle').textContent = quizData.titre || 'Quiz';
 
+        // Quiz en cours : reprise là où on l'avait laissé (l'utilisateur est nécessaire à la clé)
+        await userReady;
+        const saved = readProgress();
+        if (saved) {
+            resumeQuiz(saved);
+            return;
+        }
+
         // Afficher le sélecteur de mode
         document.getElementById('modeSelector').style.display = 'block';
 
@@ -91,13 +237,15 @@ function startQuiz(mode) {
         return;
     }
 
-    // Mélanger les questions
-    currentQuestions = shuffleArray(currentQuestions);
+    // Mélanger les questions : l'ordre est gardé pour pouvoir reprendre
+    questionOrder = shuffleArray(currentQuestions.map((_, i) => i));
+    currentQuestions = questionOrder.map(i => currentQuestions[i]);
     currentQuestionIndex = 0;
     score = 0;
     correctCount = 0;
     incorrectCount = 0;
     answeredQuestions.clear();
+    answersHistory = {};
 
     updateStats();
     document.getElementById('modeSelector').style.display = 'none';
@@ -272,6 +420,8 @@ function loadQuestion() {
 
     // Gérer l'affichage du bouton précédent
     document.getElementById('prevBtn').disabled = currentQuestionIndex === 0;
+
+    saveProgress();
 }
 
 // Sélectionner une option
@@ -339,6 +489,7 @@ function validateAnswer() {
     }
 
     updateStats();
+    saveProgress();
 
     document.getElementById('validateBtn').style.display = 'none';
     document.getElementById('nextBtn').style.display = 'inline-block';
@@ -413,6 +564,7 @@ function evaluateAnswer(isCorrect) {
     }
 
     updateStats();
+    saveProgress();
 
     const evalButtons = document.querySelectorAll('.eval-buttons button');
     evalButtons.forEach(btn => btn.disabled = true);
@@ -447,6 +599,8 @@ function updateStats() {
 
 // Afficher les résultats
 async function showResults() {
+    // Quiz terminé : plus rien à reprendre
+    clearProgress();
     document.getElementById('quizCard').style.display = 'none';
     document.getElementById('progressBar').style.display = 'none';
 
@@ -491,6 +645,8 @@ async function showResults() {
 
 // Recommencer le quiz
 function restartQuiz() {
+    clearProgress();
+    document.getElementById('resumeNotice').style.display = 'none';
     document.getElementById('resultCard').classList.remove('show');
     document.getElementById('modeSelector').style.display = 'block';
     answeredQuestions.clear();
@@ -517,6 +673,8 @@ async function loadUserInfo() {
 
         if (response.ok) {
             const data = await response.json();
+            userId = data.userId ?? null;
+            resolveUserReady();
             const eleveInfo = document.getElementById('eleve-info');
             if (eleveInfo) {
                 eleveInfo.textContent = data.username || data.email;
@@ -556,6 +714,9 @@ async function loadUserInfo() {
         }
     } catch (error) {
         console.error('Erreur lors du chargement des infos utilisateur:', error);
+    } finally {
+        // Sans identité (erreur réseau...), la reprise se fait quand même, sous une clé anonyme
+        resolveUserReady();
     }
 }
 
@@ -661,4 +822,5 @@ window.previousQuestion = previousQuestion;
 window.validateAnswer = validateAnswer;
 window.nextQuestion = nextQuestion;
 window.restartQuiz = restartQuiz;
+window.abandonQuiz = abandonQuiz;
 window.goBack = goBack;
