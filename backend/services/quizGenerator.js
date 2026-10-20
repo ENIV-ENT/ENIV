@@ -162,6 +162,7 @@ IMPORTANT :
 - Les mauvaises réponses doivent être plausibles et basées sur des erreurs de compréhension courantes
 - CHAMP "example" : il est affiché APRÈS la réponse, ne mets JAMAIS du code de la question dedans
 - Si tu dois montrer du code à analyser, mets-le dans "question", pas dans "example"
+- JAMAIS de question qui renvoie à un code absent : si la question dit « ce code », « ce Dockerfile », « ce fichier YAML » ou « cette commande », le code complet DOIT figurer dans "question" entre ''' ''' (sinon l'étudiant ne voit rien à analyser). Si tu ne peux pas l'inclure, reformule la question sans y faire référence
 - Le champ "example" sert à montrer une APPLICATION ou UTILISATION du concept, pas à poser la question
 - UNE SEULE BONNE RÉPONSE : le champ "correct" doit pointer vers UNE SEULE option (0, 1, 2 ou 3)
 - NE RÉFÉRENCE JAMAIS les positions A/B/C/D ou 1/2/3/4 : les réponses sont affichées dans un ordre ALÉATOIRE
@@ -315,6 +316,7 @@ RÈGLES STRICTES :
 - Les mauvaises réponses doivent être crédibles et basées sur des erreurs courantes
 - CHAMP "example" : affiché APRÈS la réponse, pour montrer l'UTILISATION du concept, pas pour poser la question
 - Si tu veux montrer du code à analyser, mets-le dans "question", JAMAIS dans "example"
+- JAMAIS de question qui renvoie à un code absent (« ce code », « ce Dockerfile », « ce fichier YAML »...) : le code complet DOIT figurer dans "question" entre ''' ''', sinon reformule sans y faire référence
 - UNE SEULE BONNE RÉPONSE : le champ "correct" doit être 0, 1, 2 ou 3 (une seule valeur)
 - NE RÉFÉRENCE JAMAIS A/B/C/D ou 1/2/3/4 : les réponses sont affichées dans un ORDRE ALÉATOIRE
 - Dans l'explication, parle du CONTENU de la réponse, pas de sa position (pas de "la réponse B" ou "la deuxième option")`;
