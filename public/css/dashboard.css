@@ -23,6 +23,7 @@
   --text-primary: #343a40;
   --text-secondary: #6c757d;
   --shadow: rgba(0, 0, 0, 0.1);
+  --info-bg: #e3f2fd;
 }
 
 html.dark-theme {
@@ -36,6 +37,13 @@ html.dark-theme {
   --text-primary: #e4e4e4;
   --text-secondary: #a0a0a0;
   --shadow: rgba(0, 0, 0, 0.3);
+  --info-bg: #1d3a5c;
+}
+
+/* Liens du détail d'un devoir (matière, description) : le bleu par défaut est
+   illisible sur le fond sombre */
+html.dark-theme #modal-body a {
+  color: var(--primary);
 }
 
 html.dark-theme .calendar-date.today {
@@ -579,8 +587,9 @@ html.dark-theme .calendar-date.today {
   font-size: 1rem;
 }
 
-/* Ligne « Commentaires (n) » qui déplie la discussion */
-.commentaires-toggle {
+/* Ligne « Commentaires (n) » / « Documents (n) » qui déplie son contenu */
+.commentaires-toggle,
+.documents-toggle {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -595,7 +604,8 @@ html.dark-theme .calendar-date.today {
 }
 
 /* Triangle ▸ (replié) / ▾ (déplié), de largeur fixe pour que le titre ne bouge pas */
-.commentaires-signe {
+.commentaires-signe,
+.documents-signe {
   width: 1em;
   font-size: 0.9rem;
   line-height: 1;
@@ -604,6 +614,99 @@ html.dark-theme .calendar-date.today {
 
 .commentaires-contenu {
   margin-top: 0.75rem;
+}
+
+/* Documents joints au devoir (repliables) */
+.documents {
+  margin: 1rem 0;
+}
+
+.documents h4 {
+  font-size: 1rem;
+}
+
+.documents-contenu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+/* [hidden] perd contre display:flex ci-dessus */
+.documents-contenu[hidden] {
+  display: none;
+}
+
+.document-item {
+  padding: 0.75rem;
+  background: var(--light);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+}
+
+.document-item:hover {
+  border-color: var(--primary);
+}
+
+.document-infos {
+  flex: 1;
+  min-width: 0;
+}
+
+.document-nom {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.document-auteur {
+  font-size: 0.8rem;
+  color: var(--secondary);
+}
+
+/* Quiz du devoir : hors du bloc des documents, toujours visible */
+.quiz-box {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: var(--info-bg);
+  border-radius: 6px;
+  border-left: 4px solid #2196f3;
+}
+
+.quiz-box-ligne {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.quiz-box-titre {
+  font-weight: 600;
+  color: #2196f3;
+}
+
+.quiz-box-texte {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.quiz-spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #2196f3;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .commentaires-liste {
