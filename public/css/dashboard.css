@@ -576,8 +576,31 @@ html.dark-theme .calendar-date.today {
 }
 
 .commentaires h4 {
-  margin-bottom: 0.75rem;
   font-size: 1rem;
+}
+
+/* Ligne « Commentaires (n) » qui déplie la discussion */
+.commentaires-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0.25rem 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.commentaires-signe {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.commentaires-contenu {
+  margin-top: 0.75rem;
 }
 
 .commentaires-liste {
@@ -642,17 +665,22 @@ html.dark-theme .calendar-date.today {
   align-items: flex-end;
 }
 
-/* Hauteur ajustée au texte par ajusterSaisie() (dashboard.js), jusqu'à max-height */
+/* Une ligne : même hauteur que le bouton Envoyer. Hauteur ajustée au texte par
+   ajusterSaisie() (dashboard.js), jusqu'à max-height */
 .modal-content .commentaire-form textarea {
   flex: 1;
   resize: none;
+  min-height: 2.4rem;
   max-height: 12rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.875rem;
   line-height: 1.4;
   margin: 0;
 }
 
 .modal-content .commentaire-form button {
   flex-shrink: 0;
+  height: 2.4rem;
 }
 
 /* Devoirs Grid */

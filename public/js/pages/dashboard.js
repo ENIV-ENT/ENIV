@@ -883,6 +883,10 @@ async function showDevoirModal(devoirId) {
   const ancienneSaisie = currentDevoirId === devoirId ? document.querySelector('#devoir-commentaires textarea') : null;
   const brouillon = ancienneSaisie?.value || '';
   const saisieActive = ancienneSaisie !== null && document.activeElement === ancienneSaisie;
+  // Commentaires repliés à l'ouverture du devoir, laissés ouverts s'il est seulement redessiné
+  const commentairesOuverts = currentDevoirId === devoirId
+    && document.getElementById('devoir-modal')?.classList.contains('active')
+    && document.querySelector('#devoir-commentaires .commentaires-contenu:not([hidden])') !== null;
 
   currentDevoirId = devoirId;
   currentDevoirSignature = devoirSignature(devoir);
@@ -914,7 +918,7 @@ async function showDevoirModal(devoirId) {
   hydrateMarkdownImages(modalBody);
   loadDevoirModalFichiers(devoirId);
   loadQuizStatus(devoirId);
-  initCommentaires(devoirId, brouillon);
+  initCommentaires(devoirId, brouillon, commentairesOuverts || saisieActive);
   if (saisieActive) document.querySelector('#devoir-commentaires textarea').focus();
   loadCommentaires(devoirId);
 
@@ -1016,22 +1020,50 @@ function ajusterSaisie(textarea) {
   textarea.style.overflowY = textarea.scrollHeight > textarea.clientHeight ? 'auto' : 'hidden';
 }
 
+function titreCommentaires(n) {
+  return `💬 Commentaires (${Number(n) || 0})`;
+}
+
 // Formulaire construit une fois par affichage du devoir : les rafraîchissements ne
-// remplacent que la liste, pour ne pas perturber une saisie en cours
-function initCommentaires(devoirId, brouillon) {
+// remplacent que la liste, pour ne pas perturber une saisie en cours.
+// Repliés par défaut : seule la ligne « Commentaires (n) » est visible, un clic
+// affiche la discussion et la zone de saisie
+function initCommentaires(devoirId, brouillon, ouverts = false) {
+  const devoir = devoirs.find(d => d.id === devoirId);
   const section = document.getElementById('devoir-commentaires');
   section.innerHTML = `
-    <h4>💬 Commentaires</h4>
-    <div class="commentaires-fil"></div>
-    <form class="commentaire-form">
-      <textarea rows="1" maxlength="2000" placeholder="Écrire un commentaire…" required></textarea>
-      <button type="submit" class="btn-primary">Envoyer</button>
-    </form>`;
+    <h4>
+      <button type="button" class="commentaires-toggle" aria-expanded="${ouverts}" aria-controls="commentaires-contenu">
+        <span class="commentaires-titre">${titreCommentaires(devoir?.nb_commentaires)}</span>
+        <span class="commentaires-signe" aria-hidden="true">${ouverts ? '+' : '-'}</span>
+      </button>
+    </h4>
+    <div class="commentaires-contenu" id="commentaires-contenu"${ouverts ? '' : ' hidden'}>
+      <div class="commentaires-fil"></div>
+      <form class="commentaire-form">
+        <textarea rows="1" maxlength="2000" placeholder="Écrire un commentaire…" required></textarea>
+        <button type="submit" class="btn-primary">Envoyer</button>
+      </form>
+    </div>`;
 
   const form = section.querySelector('form');
   const textarea = form.querySelector('textarea');
   textarea.value = brouillon;
   ajusterSaisie(textarea);
+
+  const toggle = section.querySelector('.commentaires-toggle');
+  const contenu = section.querySelector('.commentaires-contenu');
+  toggle.addEventListener('click', () => {
+    const ouvrir = contenu.hidden;
+    contenu.hidden = !ouvrir;
+    toggle.setAttribute('aria-expanded', String(ouvrir));
+    toggle.querySelector('.commentaires-signe').textContent = ouvrir ? '+' : '-';
+    if (!ouvrir) return;
+    // Mesurable seulement une fois visible : hauteur de la saisie, dernier message en bas
+    ajusterSaisie(textarea);
+    const liste = section.querySelector('.commentaires-liste');
+    if (liste) liste.scrollTop = liste.scrollHeight;
+  });
   textarea.addEventListener('input', () => ajusterSaisie(textarea));
   // Entrée envoie, Maj+Entrée va à la ligne. Sur écran tactile (pas de Maj) et
   // pendant une composition IME, Entrée garde son rôle normal.
@@ -1118,7 +1150,7 @@ async function loadCommentaires(devoirId) {
   const enBas = ancienne && ancienne.scrollHeight - ancienne.scrollTop - ancienne.clientHeight < 4;
   const scrollTop = ancienne?.scrollTop || 0;
 
-  section.querySelector('h4').textContent = `💬 Commentaires${commentaires.length ? ` (${commentaires.length})` : ''}`;
+  section.querySelector('.commentaires-titre').textContent = titreCommentaires(commentaires.length);
   fil.innerHTML = liste
     ? `<ul class="commentaires-liste">${liste}</ul>`
     : '<p class="commentaires-vide">Une question sur ce devoir ? Posez-la à la classe.</p>';
