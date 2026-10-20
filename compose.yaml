@@ -31,7 +31,7 @@ services:
       start_period: 30s
 
   app:
-    image: node:24-bookworm-slim
+    image: node:26-bookworm-slim
     working_dir: /app
     command: sh -c "npm ci && npm start"
     environment:

@@ -42,6 +42,7 @@ app.use('/api/quiz', require('./backend/routes/quiz'));
 app.use('/api/registration', require('./backend/routes/registration'));
 app.use('/api/proxy', require('./backend/routes/proxy'));
 app.use('/api/mcp', require('./backend/routes/mcp'));
+app.use('/api/push', require('./backend/routes/push'));
 // Documents joints : uniquement par lien temporaire (backend/services/fichierLinks.js)
 app.use('/api/fichiers', require('./backend/routes/fichiers'));
 

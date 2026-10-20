@@ -12,7 +12,7 @@
   <script src="/js/pwa.js?v=1" defer></script>
   <!-- Doit rester synchrone et avant les styles : applique le thème avant le premier rendu -->
   <script src="/js/theme-init.js?v=1"></script>
-  <link rel="stylesheet" href="/css/settings.css?v=5">
+  <link rel="stylesheet" href="/css/settings.css?v=6">
   <link rel="stylesheet" href="/css/loading.css?v=3">
 </head>
 <body>
@@ -126,6 +126,33 @@
       <button type="submit" class="btn-primary">Modifier le mot de passe</button>
     </form>
 
+    <section id="push-section" class="form-container">
+      <div class="section-header">
+        <h2>Notifications</h2>
+        <button type="button" id="push-toggle-btn" class="btn-primary" disabled>Activer</button>
+      </div>
+      <p class="section-intro" id="push-status">Vérification de la prise en charge…</p>
+      <fieldset id="push-preferences" class="push-preferences" disabled>
+        <label class="push-pref">
+          <input type="checkbox" name="nouveau_devoir">
+          <span><strong>Nouveau devoir</strong> dans ma classe</span>
+        </label>
+        <label class="push-pref">
+          <input type="checkbox" name="devoir_modifie">
+          <span><strong>Devoir modifié</strong> : date, consignes ou matière changées</span>
+        </label>
+        <label class="push-pref">
+          <input type="checkbox" name="rappel_veille">
+          <span><strong>Rappel la veille à 18 h</strong> des devoirs pas encore faits</span>
+        </label>
+      </fieldset>
+      <button type="button" id="push-test-btn" class="btn-link" hidden>Envoyer une notification de test</button>
+      <div id="push-devices-block" hidden>
+        <p class="section-intro">Appareils qui reçoivent les notifications de ce compte :</p>
+        <ul id="push-devices" class="token-list"></ul>
+      </div>
+    </section>
+
     <section id="mcp-section" class="form-container">
       <div class="section-header">
         <h2>Assistant IA</h2>
@@ -184,6 +211,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/pages/settings.js?v=7"></script>
+  <script type="module" src="/js/pages/settings.js?v=9"></script>
 </body>
 </html>
