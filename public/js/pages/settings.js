@@ -14,7 +14,7 @@ async function init() {
   loadThemePreference();
 
   // En parallèle : une section lente ne retarde pas les autres
-  await Promise.all([loadUserInfo(), loadMcpTokens(), setupPush(), checkEmploiTempsButton()]);
+  await Promise.all([loadUserInfo(), loadMcpTokens(), setupPush(), checkEmploiTempsButton(), setupCalendar()]);
 }
 
 // Le thème lui-même est déjà appliqué par /js/theme-init.js avant le premier rendu,
@@ -394,7 +394,7 @@ function setupMcpTokens() {
   document.getElementById('mcp-form').addEventListener('submit', handleMcpFormSubmit);
   document.getElementById('mcp-form-close').addEventListener('click', () => toggleModal('mcp-form-modal', false));
   document.getElementById('mcp-form-cancel').addEventListener('click', () => toggleModal('mcp-form-modal', false));
-  document.getElementById('mcp-copy-btn').addEventListener('click', handleCopyMcpUrl);
+  document.getElementById('mcp-copy-btn').addEventListener('click', () => copyField('mcp-url', 'mcp-copy-btn'));
   document.getElementById('mcp-created-done').addEventListener('click', closeMcpCreated);
 
   document.getElementById('mcp-list').addEventListener('click', (e) => {
@@ -461,9 +461,9 @@ function closeMcpCreated() {
   toggleModal('mcp-created-modal', false);
 }
 
-async function handleCopyMcpUrl() {
-  const input = document.getElementById('mcp-url');
-  const button = document.getElementById('mcp-copy-btn');
+async function copyField(inputId, buttonId) {
+  const input = document.getElementById(inputId);
+  const button = document.getElementById(buttonId);
   try {
     await navigator.clipboard.writeText(input.value);
     button.textContent = 'Copié ✓';
@@ -486,6 +486,53 @@ async function handleRevokeMcpToken(token) {
     return;
   }
   await loadMcpTokens();
+}
+
+// Agenda : lien d'abonnement iCal, relu par les applications d'agenda.
+// Contrairement aux liens MCP, il reste affichable : il ne donne qu'un accès en lecture.
+async function setupCalendar() {
+  document.getElementById('calendar-create-btn').addEventListener('click', () => createCalendarLink());
+  document.getElementById('calendar-regenerate-btn').addEventListener('click', async () => {
+    const confirmed = await showConfirm(
+      'L\'ancien lien cessera de fonctionner : il faudra réabonner vos agendas avec le nouveau.',
+      'Régénérer le lien'
+    );
+    if (confirmed) await createCalendarLink();
+  });
+  document.getElementById('calendar-delete-btn').addEventListener('click', async () => {
+    const confirmed = await showConfirm('Vos agendas abonnés ne recevront plus vos devoirs.', 'Désactiver le lien');
+    if (!confirmed) return;
+    const data = await apiCall('/api/calendar/link', { method: 'DELETE' });
+    if (data.error) {
+      await showAlert(data.error, 'Erreur');
+      return;
+    }
+    renderCalendarLink({ url: null });
+  });
+  document.getElementById('calendar-copy-btn').addEventListener('click', () => copyField('calendar-url', 'calendar-copy-btn'));
+
+  const data = await apiCall('/api/calendar/link');
+  if (!data.error) renderCalendarLink(data);
+}
+
+async function createCalendarLink() {
+  const data = await apiCall('/api/calendar/link', { method: 'POST' });
+  if (data.error) {
+    await showAlert(data.error, 'Erreur');
+    return;
+  }
+  renderCalendarLink(data);
+}
+
+function renderCalendarLink(link) {
+  const linked = Boolean(link.url);
+  document.getElementById('calendar-linked').hidden = !linked;
+  document.getElementById('calendar-create-btn').hidden = linked;
+  if (!linked) return;
+
+  document.getElementById('calendar-url').value = link.url;
+  document.getElementById('calendar-google').href = link.google;
+  document.getElementById('calendar-webcal').href = link.webcal;
 }
 
 init();

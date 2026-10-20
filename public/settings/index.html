@@ -12,7 +12,7 @@
   <script src="/js/pwa.js?v=1" defer></script>
   <!-- Doit rester synchrone et avant les styles : applique le thème avant le premier rendu -->
   <script src="/js/theme-init.js?v=1"></script>
-  <link rel="stylesheet" href="/css/settings.css?v=6">
+  <link rel="stylesheet" href="/css/settings.css?v=8">
   <link rel="stylesheet" href="/css/loading.css?v=3">
 </head>
 <body>
@@ -164,6 +164,32 @@
       </p>
       <ul id="mcp-list" class="token-list"></ul>
     </section>
+
+    <section id="calendar-section" class="form-container">
+      <div class="section-header">
+        <h2>Agenda</h2>
+        <button type="button" id="calendar-create-btn" class="btn-primary">Créer mon lien</button>
+      </div>
+      <p class="section-intro">
+        Retrouvez vos devoirs dans Google Agenda, Calendrier (iPhone, Mac) ou Outlook.
+        L'agenda se met à jour tout seul ; les devoirs faits apparaissent avec ✅.
+      </p>
+      <div id="calendar-linked" hidden>
+        <div class="calendar-actions">
+          <a id="calendar-google" class="btn-primary" target="_blank" rel="noopener">Ajouter à Google Agenda</a>
+          <a id="calendar-webcal" class="btn-secondary">Calendrier / Outlook</a>
+        </div>
+        <div class="copy-field">
+          <input type="text" id="calendar-url" readonly aria-label="Lien d'abonnement">
+          <button type="button" id="calendar-copy-btn" class="btn-secondary">Copier</button>
+        </div>
+        <p class="field-hint">Ce lien donne accès à vos devoirs en lecture : ne le partagez pas. Google Agenda le relit toutes les quelques heures.</p>
+        <div class="calendar-manage">
+          <button type="button" id="calendar-regenerate-btn" class="btn-link">Régénérer le lien</button>
+          <button type="button" id="calendar-delete-btn" class="btn-link danger">Désactiver</button>
+        </div>
+      </div>
+    </section>
   </div>
 
   <div id="mcp-form-modal" class="modal">
@@ -211,6 +237,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/pages/settings.js?v=9"></script>
+  <script type="module" src="/js/pages/settings.js?v=10"></script>
 </body>
 </html>
