@@ -76,9 +76,10 @@ function readProgress() {
         const questions = quizData.questions || [];
         if (!saved || Date.now() - saved.savedAt > SAVE_MAX_AGE_MS) return null;
         if (saved.signature !== quizSignature(questions)) return null;
-        // Un quiz limité à un mode ne reprend pas dans l'autre
+        // Un quiz limité à un mode ne reprend pas dans l'autre ('both' : les deux sont permis)
         if (saved.mode !== 'choice' && saved.mode !== 'oral') return null;
-        if (quizData.mode && quizData.mode !== saved.mode) return null;
+        const modeImpose = quizData.mode === 'choice' || quizData.mode === 'oral';
+        if (modeImpose && quizData.mode !== saved.mode) return null;
 
         const n = questions.length;
         const order = saved.order;
