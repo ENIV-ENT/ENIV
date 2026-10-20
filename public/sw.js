@@ -180,10 +180,18 @@ async function handleApi(event, request) {
   }
 }
 
+// Chaque déploiement change le ?v=<hash> des fichiers modifiés : on ne garde
+// que la dernière version reçue de chaque fichier, sinon le cache gonfle à
+// chaque mise en prod.
 async function handleCode(event, request) {
   const cache = await caches.open(STATIC_CACHE);
   const store = async (response) => {
-    if (response.ok) await cache.put(request, response.clone());
+    if (!response.ok) return response;
+    await cache.put(request, response.clone());
+    const versions = await cache.keys(request, { ignoreSearch: true });
+    await Promise.all(versions
+      .filter((cached) => cached.url !== request.url)
+      .map((cached) => cache.delete(cached)));
     return response;
   };
   return networkFirst(event, request, store, () => cache.match(request));
