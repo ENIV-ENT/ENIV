@@ -250,6 +250,17 @@ function extractJSON(text) {
 }
 
 /**
+ * Détecter une question qui renvoie à un code (« ce Dockerfile », « ce code »...)
+ * sans l'inclure : l'étudiant n'aurait rien à analyser.
+ */
+const REFERENCE_CODE = /\b(ce|cet|cette|ces|le|la)\s+(code|dockerfile|script|extrait|fichier|commande|configuration|pipeline|requête|snippet|programme|pom|\.?gitlab-ci(?:\.ya?ml)?|ya?ml|compose|makefile)\b|ci-dessous|ci-dessus/i;
+const BLOC_CODE = /'''[\s\S]*?'''|```[\s\S]*?```/;
+
+function referencesMissingCode(q) {
+  return REFERENCE_CODE.test(q.question) && !BLOC_CODE.test(q.question);
+}
+
+/**
  * Valider le format des questions (sans vérifier le minimum)
  */
 function validateQuestionsFormat(questions) {
@@ -387,6 +398,13 @@ async function generate_with_retry(devoir, isPremium, documentsText) {
       // Valider le format
       validateQuestionsFormat(newQuestions);
       
+      // Écarter les questions qui parlent d'un code absent
+      const avantFiltre = newQuestions.length;
+      newQuestions = newQuestions.filter(q => !referencesMissingCode(q));
+      if (newQuestions.length < avantFiltre) {
+        console.warn(`⚠️ ${avantFiltre - newQuestions.length} question(s) écartée(s) : elles renvoient à un code absent`);
+      }
+
       // Ajouter les nouvelles questions
       allQuestions = allQuestions.concat(newQuestions);
       
@@ -473,5 +491,6 @@ async function generateQuizWithAI(devoir, isPremium, fichiers) {
 
 module.exports = {
   generateQuizWithAI,
-  extractTextFromPDF
+  extractTextFromPDF,
+  referencesMissingCode
 };
