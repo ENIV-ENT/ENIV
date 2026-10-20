@@ -197,8 +197,11 @@ html.dark-theme .edt-cours-heure {
   box-shadow: inset 0 0 0 2px var(--primary);
 }
 
+/* Le contour fait tout le tour ; le filet de la matière passe juste à
+   l'intérieur (la première ombre est dessinée au-dessus des suivantes) */
 .edt-cours--matiere.edt-cours--relief {
-  box-shadow: inset 4px 0 0 var(--edt-matiere), inset 0 0 0 2px var(--primary);
+  padding-left: calc(0.4rem + 6px);
+  box-shadow: inset 0 0 0 2px var(--primary), inset 6px 0 0 var(--edt-matiere);
 }
 
 .edt-relief {
