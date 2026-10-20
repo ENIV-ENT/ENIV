@@ -20,7 +20,7 @@ const VAPID_SETTING_KEY = 'push_vapid_keys';
 const DEFAULT_SUBJECT = 'mailto:contact@eniv.fr';
 
 // Préférences par défaut d'un utilisateur qui n'a jamais rien réglé
-const DEFAULT_PREFERENCES = { nouveau_devoir: true, devoir_modifie: true, rappel_veille: true };
+const DEFAULT_PREFERENCES = { nouveau_devoir: true, devoir_modifie: true, rappel_veille: true, nouveau_commentaire: true };
 const PREFERENCE_KEYS = Object.keys(DEFAULT_PREFERENCES);
 
 // Le serveur envoie un POST à l'endpoint : seuls les services push des
@@ -191,11 +191,12 @@ async function setPreferences(userId, input) {
     if (typeof input[key] === 'boolean') prefs[key] = input[key];
   }
   await db.run(
-    `INSERT INTO push_preferences (user_id, nouveau_devoir, devoir_modifie, rappel_veille)
-     VALUES (?, ?, ?, ?)
+    `INSERT INTO push_preferences (user_id, nouveau_devoir, devoir_modifie, rappel_veille, nouveau_commentaire)
+     VALUES (?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE nouveau_devoir = VALUES(nouveau_devoir),
-       devoir_modifie = VALUES(devoir_modifie), rappel_veille = VALUES(rappel_veille)`,
-    [userId, prefs.nouveau_devoir, prefs.devoir_modifie, prefs.rappel_veille]
+       devoir_modifie = VALUES(devoir_modifie), rappel_veille = VALUES(rappel_veille),
+       nouveau_commentaire = VALUES(nouveau_commentaire)`,
+    [userId, prefs.nouveau_devoir, prefs.devoir_modifie, prefs.rappel_veille, prefs.nouveau_commentaire]
   );
   return prefs;
 }
@@ -243,7 +244,7 @@ async function sendToUser(userId, payload) {
 /**
  * Notifie tous les membres d'une classe ayant activé la préférence donnée.
  * @param {number} classeId
- * @param {'nouveau_devoir'|'devoir_modifie'} preference
+ * @param {'nouveau_devoir'|'devoir_modifie'|'nouveau_commentaire'} preference
  * @param {Object} payload - { title, body, url, tag }
  * @param {number|null} excludeUserId - auteur de l'action, qui n'a pas besoin d'être prévenu
  */

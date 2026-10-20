@@ -90,7 +90,7 @@ Outils exposés : `lister_devoirs`, `voir_devoir`, `lire_document`, `marquer_fai
 
 | Fonctionnalité | Aperçu |
 |---|---|
-| 🔔 **Notifications push** : nouveau devoir, modification, rappel la veille à 18 h | <img src="docs/images/apercus/notifications.png" width="480" alt="Section Notifications des paramètres"> |
+| 🔔 **Notifications push** : nouveau devoir, modification, nouveau commentaire, rappel la veille à 18 h | <img src="docs/images/apercus/notifications.png" width="480" alt="Section Notifications des paramètres"> |
 | 📅 **Abonnement agenda** (Google Agenda, Calendrier, Outlook) | <img src="docs/images/apercus/agenda.png" width="480" alt="Section Agenda des paramètres"> |
 | 📊 **Ma progression** : taux de devoirs faits, série, devoirs à rattraper, semaine à venir | <img src="docs/images/apercus/progression.png" width="360" alt="Fenêtre Ma progression"> |
 | 💬 **Commentaires sous un devoir**, en temps réel | <img src="docs/images/apercus/commentaires.png" width="360" alt="Commentaires sous un devoir"> |

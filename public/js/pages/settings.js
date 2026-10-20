@@ -336,7 +336,7 @@ async function renderPushState() {
   } else if (Notification.permission === 'denied') {
     status.textContent = 'Les notifications sont bloquées pour Eniv dans ce navigateur. Autorisez-les dans ses réglages (icône à gauche de l\'adresse), puis rechargez la page.';
   } else {
-    status.textContent = 'Recevez une alerte pour les nouveaux devoirs et un rappel la veille, même quand Eniv est fermé.';
+    status.textContent = 'Recevez une alerte pour les nouveaux devoirs et commentaires, et un rappel la veille, même quand Eniv est fermé.';
   }
 }
 

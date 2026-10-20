@@ -8,7 +8,7 @@ const { installFakeDb } = require('./helpers/fakeDb');
 process.env.JWT_SECRET = 'test-secret';
 
 const USERS = {
-  1: { id: 1, username: 'lea', role: 'eleve', classe_id: 4 },
+  1: { id: 1, username: 'lea', prenom: 'Léa', nom: 'Martin', role: 'eleve', classe_id: 4 },
   2: { id: 2, username: 'tom', role: 'eleve', classe_id: 4 },
   3: { id: 3, username: 'prof', role: 'admin', classe_id: 4 },
   9: { id: 9, username: 'autre', role: 'eleve', classe_id: 7 },
@@ -16,7 +16,7 @@ const USERS = {
 const fake = installFakeDb((method, sql, params) => {
   if (method === 'get' && sql.startsWith('SELECT * FROM users WHERE id')) return USERS[params[0]];
   // Le devoir 10 appartient à la classe 4
-  if (method === 'get' && sql.includes('FROM devoirs WHERE id')) return params[0] === '10' && params[1] === 4 ? { id: 10 } : undefined;
+  if (method === 'get' && sql.includes('FROM devoirs WHERE id')) return params[0] === '10' && params[1] === 4 ? { id: 10, titre: 'Exercice 3' } : undefined;
   // Le commentaire 5 a été écrit par Léa
   if (method === 'get' && sql.includes('WHERE c.id = ?')) {
     return params[0] === '5' ? { id: 5, user_id: 1, contenu: 'Question', username: 'lea', prenom: 'Léa', nom: 'Martin', devoir_titre: 'Exercice 3' } : undefined;
@@ -33,6 +33,13 @@ const fake = installFakeDb((method, sql, params) => {
 const sent = [];
 const realtimeFile = path.join(__dirname, '../backend/services/realtime.js');
 require.cache[realtimeFile] = { id: realtimeFile, filename: realtimeFile, loaded: true, exports: { notifyClasse: (classeId, message) => sent.push({ classeId, message }) } };
+
+// Notifications push : double qui enregistre les envois au lieu de les faire
+const pushes = [];
+const pushFile = path.join(__dirname, '../backend/services/push.js');
+require.cache[pushFile] = { id: pushFile, filename: pushFile, loaded: true, exports: {
+  notifyClasseInBackground: (classeId, preference, payload, excludeUserId) => pushes.push({ classeId, preference, payload, excludeUserId }),
+} };
 
 const realtimeNotifier = require('../backend/middleware/realtimeNotifier');
 const commentaires = require('../backend/routes/commentaires');
@@ -112,6 +119,36 @@ describe('commentaires', () => {
     assert.match((await res.json()).error, /Trop de commentaires/);
     // Le compte d'un camarade n'est pas bloqué
     assert.equal((await call(1, 'POST', '/10/commentaires', { contenu: 'Moi aussi' })).status, 200);
+  });
+
+  test('push : la classe est prévenue, sauf l\'auteur', async () => {
+    pushes.length = 0;
+    assert.equal((await call(1, 'POST', '/10/commentaires', { contenu: 'C\'est pour lundi ?' })).status, 200);
+    assert.equal(pushes.length, 1);
+    assert.deepEqual(pushes[0], {
+      classeId: 4,
+      preference: 'nouveau_commentaire',
+      payload: {
+        title: '💬 Exercice 3',
+        body: 'Léa Martin : C\'est pour lundi ?',
+        url: '/dashboard/?devoir=10&commentaires=1',
+        tag: 'commentaire-10',
+      },
+      excludeUserId: 1,
+    });
+
+    // Sans prénom ni nom, l'identifiant sert de nom d'auteur
+    pushes.length = 0;
+    await call(3, 'POST', '/10/commentaires', { contenu: 'Oui' });
+    assert.equal(pushes[0].payload.body, 'prof : Oui');
+  });
+
+  test('push : rien n\'est envoyé pour un commentaire refusé', async () => {
+    pushes.length = 0;
+    await call(1, 'POST', '/10/commentaires', { contenu: '   ' });
+    await call(1, 'POST', '/10/commentaires', { contenu: 'a'.repeat(2001) });
+    await call(9, 'POST', '/10/commentaires', { contenu: 'intrus' });
+    assert.equal(pushes.length, 0);
   });
 
   test('temps réel : la classe reçoit « commentaires » pour ce devoir', async () => {

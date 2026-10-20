@@ -55,6 +55,18 @@ describe('messages', () => {
     assert.equal(many.url, '/dashboard/');
   });
 
+  test('nouveau commentaire : auteur et texte sur une ligne, lien qui déplie la discussion', () => {
+    const msg = messages.nouveauCommentaire({ devoirId: 7, titre: 'Exercices p.84', auteur: 'Léa Martin', contenu: 'C\'est pour lundi ?\n\nOu mardi ?' });
+    assert.equal(msg.title, '💬 Exercices p.84');
+    assert.equal(msg.body, 'Léa Martin : C\'est pour lundi ? Ou mardi ?');
+    assert.equal(msg.url, '/dashboard/?devoir=7&commentaires=1');
+    // Distinct de « devoir-7 » : ne remplace pas une notification de devoir encore affichée
+    assert.equal(msg.tag, 'commentaire-7');
+
+    const long = messages.nouveauCommentaire({ devoirId: 7, titre: 'T', auteur: 'lea', contenu: 'a'.repeat(2000) });
+    assert.equal(long.body.length, 140);
+  });
+
   test('textes longs tronqués', () => {
     assert.equal(messages.truncate('a'.repeat(200)).length, 140);
     assert.ok(messages.truncate('a'.repeat(200)).endsWith('…'));
@@ -169,7 +181,17 @@ describe('abonnements', () => {
 
   test('préférences par défaut : tout activé', async () => {
     fake.setHandler(() => undefined);
-    assert.deepEqual(await push.getPreferences(1), { nouveau_devoir: true, devoir_modifie: true, rappel_veille: true });
+    assert.deepEqual(await push.getPreferences(1), { nouveau_devoir: true, devoir_modifie: true, rappel_veille: true, nouveau_commentaire: true });
+  });
+
+  test('préférences : nouveau_commentaire enregistré avec les autres', async () => {
+    fake.calls.length = 0;
+    fake.setHandler(() => undefined);
+    const prefs = await push.setPreferences(1, { nouveau_commentaire: false });
+    assert.equal(prefs.nouveau_commentaire, false);
+    const insert = fake.calls.find((c) => c.method === 'run' && c.sql.includes('push_preferences'));
+    assert.match(insert.sql, /nouveau_commentaire = VALUES\(nouveau_commentaire\)/);
+    assert.deepEqual(insert.params, [1, true, true, true, false]);
   });
 });
 
@@ -222,6 +244,15 @@ describe('envoi', () => {
     });
     assert.deepEqual(await push.notifyDevoirModifie(5, devoir, [{ field: 'titre' }], 42), { sent: 1, removed: 0, failed: 0 });
     assert.equal(sendMock.mock.callCount(), 1);
+  });
+
+  test('notifyClasse filtre sur la préférence nouveau_commentaire', async (t) => {
+    t.mock.method(webpush, 'sendNotification', async () => ({ statusCode: 201 }));
+    fake.calls.length = 0;
+    fake.setHandler(() => []);
+    await push.notifyClasse(5, 'nouveau_commentaire', {}, 42);
+    const select = fake.calls.find((c) => c.method === 'all');
+    assert.match(select.sql, /COALESCE\(pp\.nouveau_commentaire, TRUE\)/);
   });
 
   test('préférence inconnue refusée (pas d\'injection dans la requête)', async () => {
