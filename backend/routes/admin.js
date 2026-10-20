@@ -3,7 +3,11 @@ const bcrypt = require('bcryptjs');
 const db = require('../models/dbHelper');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { sendJoinRequestAcceptedEmail } = require('../services/email');
+const { getEmploiTemps, getSource, setSource } = require('../services/emploiTemps');
+const { prepareUrl } = require('../services/safeRequest');
 const router = express.Router();
+
+const ICS_URL_MAX_LENGTH = 2048;
 
 // Palette de couleurs prédéfinies
 const availableColors = [
@@ -375,6 +379,65 @@ router.get('/settings/emploi-temps', requireAuth, async (req, res) => {
       [key, classeId]
     );
     res.json({ lien: setting ? setting.value : null });
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur lors de la récupération' });
+  }
+});
+
+// Configurer le lien ICS : l'emploi du temps s'affiche alors dans Eniv
+router.post('/settings/emploi-temps-ics', requireAdmin, express.json(), async (req, res) => {
+  // Sans corps JSON, req.body vaut undefined sous Express 5
+  const { lien: saisi } = req.body || {};
+  const lien = typeof saisi === 'string' ? saisi.trim() : '';
+
+  const classeId = req.user.classe_id;
+  if (!classeId) {
+    return res.status(400).json({ error: 'Admin non associé à une classe' });
+  }
+
+  if (lien) {
+    if (lien.length > ICS_URL_MAX_LENGTH) {
+      return res.status(400).json({ error: 'Lien ICS trop long' });
+    }
+
+    try {
+      prepareUrl(lien);
+    } catch (error) {
+      return res.status(400).json({ error: `Lien ICS invalide : ${error.message}` });
+    }
+  }
+
+  try {
+    await setSource(classeId, lien || null);
+
+    if (!lien) {
+      return res.json({ success: true, message: 'Lien ICS supprimé' });
+    }
+
+    // Première récupération tout de suite : l'admin sait si le lien fonctionne.
+    // Une source momentanément injoignable n'empêche pas l'enregistrement.
+    let erreur;
+    try {
+      const emploi = await getEmploiTemps(classeId, { force: true });
+      if (!emploi.horsLigne) {
+        return res.json({ success: true, nombreCours: emploi.evenements.length });
+      }
+      erreur = emploi.erreur;
+    } catch (error) {
+      erreur = error.message;
+    }
+    res.json({ success: true, avertissement: `Lien enregistré, mais l'emploi du temps n'a pas pu être récupéré : ${erreur}` });
+  } catch (error) {
+    console.error('Error configuring ICS link:', error);
+    res.status(500).json({ error: 'Erreur lors de la configuration' });
+  }
+});
+
+// Récupérer le lien ICS
+router.get('/settings/emploi-temps-ics', requireAdmin, async (req, res) => {
+  try {
+    const classeId = req.user.classe_id;
+    res.json({ lien: classeId ? await getSource(classeId) : null });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la récupération' });
   }

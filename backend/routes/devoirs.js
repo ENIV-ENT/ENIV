@@ -11,6 +11,7 @@ const push = require('../services/push');
 const pushMessages = require('../services/pushMessages');
 const { creerJeton } = require('../services/fichierLinks');
 const { matiereDeLaClasse, devoirDeLaClasse } = require('../services/appartenanceClasse');
+const { getSource } = require('../services/emploiTemps');
 const router = express.Router();
 
 // Devoir avec le nom de sa matière, utilisé pour construire les instantanés des logs
@@ -295,12 +296,17 @@ router.get('/settings/emploi-temps', async (req, res) => {
   try {
     const classeId = req.user.classe_id;
     if (!classeId) {
-      return res.json({ lien: null });
+      return res.json({ lien: null, ics: false });
     }
 
     const key = `emploi_temps_lien_${classeId}`;
-    const setting = await db.get('SELECT value FROM settings WHERE `key` = ? AND classe_id = ?', [key, classeId]);
-    res.json({ lien: setting ? setting.value : null });
+    const [setting, ics] = await Promise.all([
+      db.get('SELECT value FROM settings WHERE `key` = ? AND classe_id = ?', [key, classeId]),
+      getSource(classeId)
+    ]);
+    // ics : l'emploi du temps s'affiche dans Eniv (/emploi-du-temps) plutôt
+    // que d'ouvrir le lien dans un nouvel onglet
+    res.json({ lien: setting ? setting.value : null, ics: Boolean(ics) });
   } catch (error) {
     res.status(500).json({ error: 'Erreur lors de la récupération' });
   }

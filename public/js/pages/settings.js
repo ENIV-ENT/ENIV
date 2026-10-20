@@ -72,9 +72,14 @@ async function checkEmploiTempsButton() {
   const data = await apiCall('/api/devoirs/settings/emploi-temps');
   const btn = document.getElementById('emploi-temps-btn');
 
-  if (data.lien) {
+  if (data.ics || data.lien) {
     btn.classList.remove('hidden');
     btn.onclick = () => {
+      // Lien ICS : emploi du temps affiché dans Eniv
+      if (data.ics) {
+        window.location.href = '/emploi-du-temps';
+        return;
+      }
       window.open(data.lien, '_blank');
       // Fermer le dropdown après le clic
       document.getElementById('user-dropdown').classList.add('hidden');

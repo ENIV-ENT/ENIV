@@ -531,11 +531,16 @@ async function loadUserInfo() {
             
             if (settingsResponse.ok) {
                 const settings = await settingsResponse.json();
-                if (settings.lien) {
+                if (settings.ics || settings.lien) {
                     const emploiTempsBtn = document.getElementById('emploi-temps-btn');
                     if (emploiTempsBtn) {
                         emploiTempsBtn.classList.remove('hidden');
                         emploiTempsBtn.onclick = () => {
+                            // Lien ICS : emploi du temps affiché dans Eniv
+                            if (settings.ics) {
+                                window.location.href = '/emploi-du-temps';
+                                return;
+                            }
                             window.open(settings.lien, '_blank');
                             // Fermer le dropdown après le clic
                             document.getElementById('user-dropdown').classList.add('hidden');

@@ -95,12 +95,17 @@ function setupUserMenu() {
 
 async function checkEmploiTemps() {
   const data = await apiCall('/api/devoirs/settings/emploi-temps');
-  if (!data.lien) return;
+  if (!data.ics && !data.lien) return;
 
   const btn = document.getElementById('emploi-temps-btn');
   if (btn) {
     btn.classList.remove('hidden');
     btn.addEventListener('click', () => {
+      // Lien ICS : emploi du temps affiché dans Eniv
+      if (data.ics) {
+        window.location.href = '/emploi-du-temps';
+        return;
+      }
       window.open(data.lien, '_blank');
       document.getElementById('user-dropdown').classList.add('hidden');
     });
@@ -169,6 +174,7 @@ function setupEventListeners() {
   // Settings forms
   document.getElementById('rename-classe-form').addEventListener('submit', handleRenameClasse);
   document.getElementById('emploi-temps-form').addEventListener('submit', handleSaveEmploiTemps);
+  document.getElementById('emploi-temps-ics-form').addEventListener('submit', handleSaveEmploiTempsIcs);
   document.getElementById('discord-webhook-form').addEventListener('submit', handleSaveDiscordWebhook);
 }
 
@@ -854,13 +860,17 @@ function renderLogs() {
 // ==== SETTINGS ====
 
 async function loadSettings() {
-  const [emploi, webhook] = await Promise.all([
+  const [emploi, ics, webhook] = await Promise.all([
     apiCall('/api/admin/settings/emploi-temps'),
+    apiCall('/api/admin/settings/emploi-temps-ics'),
     apiCall('/api/admin/settings/discord-webhook')
   ]);
 
   if (!emploi.error) {
     document.getElementById('emploi-temps-lien').value = emploi.lien || '';
+  }
+  if (!ics.error) {
+    document.getElementById('emploi-temps-ics-lien').value = ics.lien || '';
   }
   if (!webhook.error) {
     document.getElementById('discord-webhook-url').value = webhook.webhook || '';
@@ -911,6 +921,31 @@ async function handleSaveEmploiTemps(e) {
     await showAlert(data.error, 'Erreur');
   } else {
     await showAlert('Paramètres enregistrés', 'Succès');
+  }
+}
+
+async function handleSaveEmploiTempsIcs(e) {
+  e.preventDefault();
+  const button = e.submitter;
+  if (button) button.disabled = true;
+
+  // Le serveur récupère le calendrier avant de répondre : quelques secondes possibles
+  const data = await apiCall('/api/admin/settings/emploi-temps-ics', {
+    method: 'POST',
+    body: JSON.stringify({ lien: document.getElementById('emploi-temps-ics-lien').value })
+  });
+
+  if (button) button.disabled = false;
+
+  if (data.error) {
+    await showAlert(data.error, 'Erreur');
+  } else if (data.avertissement) {
+    await showAlert(data.avertissement, 'Attention');
+  } else if (data.nombreCours !== undefined) {
+    const cours = data.nombreCours > 1 ? `${data.nombreCours} cours importés` : `${data.nombreCours} cours importé`;
+    await showAlert(`Lien ICS enregistré : ${cours}.`, 'Succès');
+  } else {
+    await showAlert(data.message || 'Lien ICS enregistré', 'Succès');
   }
 }
 
