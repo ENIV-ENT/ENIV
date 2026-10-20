@@ -177,7 +177,7 @@ async function createUserWithNewClasse(fields) {
 
 // Inscription d'un nouvel utilisateur
 router.post('/register', signupLimiter, async (req, res) => {
-  const { username, password, email, nom, prenom, etablissement_id, classe_nom, classe_id } = req.body;
+  const { username, password, email, nom, prenom, etablissement_id, classe_nom, classe_id } = req.body || {};
 
   if (!username || !password || !nom || !prenom || !etablissement_id) {
     return res.status(400).json({ error: 'Tous les champs obligatoires doivent etre remplis' });
@@ -204,7 +204,7 @@ router.post('/register', signupLimiter, async (req, res) => {
       }
     }
 
-    const hashedPassword = bcrypt.hashSync(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
     const fields = { username, hashedPassword, email, nom, prenom, etablissement_id, classe_id, classe_nom };
 
     let outcome;
@@ -228,7 +228,7 @@ router.post('/register', signupLimiter, async (req, res) => {
 
 // Verifier la disponibilite d'un username
 router.post('/check-username', lookupLimiter, async (req, res) => {
-  const { username } = req.body;
+  const { username } = req.body || {};
 
   if (!username || username.length < 3) {
     return res.json({ available: false, message: 'Le nom d\'utilisateur doit contenir au moins 3 caracteres' });
@@ -269,7 +269,7 @@ router.get('/invite-info', async (req, res) => {
 
 // Demande d'ajout d'etablissement
 router.post('/etablissement-request', signupLimiter, async (req, res) => {
-  const { nom, commune, code_postal, email_demandeur } = req.body;
+  const { nom, commune, code_postal, email_demandeur } = req.body || {};
 
   if (!nom || !email_demandeur) {
     return res.status(400).json({ error: 'Le nom de l\'etablissement et l\'email sont requis' });
