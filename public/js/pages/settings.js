@@ -1,6 +1,6 @@
-import { apiCall, checkAuth, logout } from '../utils/api.js?v=5';
-import { showAlert, showConfirm, escapeHTML, toggleModal } from '../utils/dom.js?v=3';
-import { isPushSupported, needsHomeScreenInstall, getPushSubscription, enablePush, disablePush, syncPushSubscription } from '../utils/push.js?v=2';
+import { apiCall, checkAuth, logout } from '../utils/api.js';
+import { showAlert, showConfirm, escapeHTML, toggleModal } from '../utils/dom.js';
+import { isPushSupported, needsHomeScreenInstall, getPushSubscription, enablePush, disablePush, syncPushSubscription } from '../utils/push.js';
 
 async function init() {
   // En premier : un chargement qui traîne ne doit pas rendre la page inerte

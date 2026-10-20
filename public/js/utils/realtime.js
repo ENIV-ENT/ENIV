@@ -19,10 +19,12 @@ const CLOSE_TOKEN_EXPIRED = 4003;
 // Identifiant de la connexion courante, fourni par le serveur à l'authentification.
 //
 // Il est stocké sur window et non dans une variable de module, car les imports de
-// ce projet sont versionnés par une chaîne de requête (`realtime.js?v=1`) propre à
-// chaque fichier importateur. Deux importateurs dont les versions divergeraient
-// chargeraient deux instances distinctes du module, et l'identifiant écrit par
-// l'une serait invisible à l'autre — panne silencieuse de la suppression d'écho.
+// ce projet sont versionnés au déploiement par une chaîne de requête
+// (`realtime.js?v=<hash>`) écrite dans chaque fichier importateur. Deux
+// importateurs dont les versions divergeraient (l'un servi par le réseau, l'autre
+// par le cache du service worker) chargeraient deux instances distinctes du
+// module, et l'identifiant écrit par l'une serait invisible à l'autre — panne
+// silencieuse de la suppression d'écho.
 function setClientId(id) {
   window.__enivRealtimeId = id || null;
 }

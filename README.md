@@ -228,7 +228,10 @@ sequenceDiagram
         GA->>GA: workflow « Déploiement »
         GA->>VPS: SSH (clé restreinte à la seule commande « eniv »)
         VPS->>VPS: git pull --ff-only
-        VPS->>VPS: docker compose up -d --build
+        VPS->>VPS: docker compose build
+        VPS->>VPS: scripts/version-assets.js
+        Note over VPS: liens vers le CSS/JS suffixés par le hash du fichier visé
+        VPS->>VPS: docker compose up -d
         Note over VPS: Healthcheck : l'API répond et accède à la base
         GA->>VPS: test de fumée sur la production
     end
@@ -236,6 +239,7 @@ sequenceDiagram
 
 - **Image** : `Dockerfile` (Node 26, dépendances de production uniquement, utilisateur non root).
 - **Production** : `compose.yml`, avec le port exposé sur `127.0.0.1` seulement. Caddy sert les pages statiques et relaie `/api`, `/ws` et `/vendor`. Les documents joints ne sont servis que par lien temporaire, réservé aux membres de la classe (`/api/fichiers/<jeton>`).
+- **Versions des assets** : n'ajoutez pas de `?v=` à la main dans les liens vers le CSS et le JS. Au déploiement, `deploy.sh` les calcule à partir du contenu de chaque fichier (`scripts/version-assets.js`) : seuls les fichiers modifiés, et ceux qui les importent, sont rechargés par les navigateurs. Si vous avez lancé le script en local, `node scripts/version-assets.js --retirer` enlève les versions avant de committer.
 - **Secrets GitHub** : `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`, `DEPLOY_HOST`.
 
 ## 👥 Contributeurs

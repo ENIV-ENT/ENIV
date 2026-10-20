@@ -1,5 +1,5 @@
-import { apiCall, checkAuth, logout } from "../utils/api.js?v=5";
-import { escapeHTML, toggleModal, setupModalClose, showAlert, showConfirm } from "../utils/dom.js?v=3";
+import { apiCall, checkAuth, logout } from "../utils/api.js";
+import { escapeHTML, toggleModal, setupModalClose, showAlert, showConfirm } from "../utils/dom.js";
 
 let classes = [];
 let admins = [];

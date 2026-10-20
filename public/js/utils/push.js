@@ -1,5 +1,5 @@
-import { apiCall } from './api.js?v=5';
-import { showConfirm } from './dom.js?v=3';
+import { apiCall } from './http.js';
+import { showConfirm } from './dom.js';
 
 // Notifications push côté navigateur : permission, abonnement auprès du service
 // push du navigateur, puis enregistrement de cet abonnement sur le serveur
