@@ -228,9 +228,10 @@ sequenceDiagram
         GA->>GA: workflow « Déploiement »
         GA->>VPS: SSH (clé restreinte à la seule commande « eniv »)
         VPS->>VPS: git pull --ff-only
+        VPS->>VPS: docker compose build
         VPS->>VPS: scripts/version-assets.js
         Note over VPS: liens vers le CSS/JS suffixés par le hash du fichier visé
-        VPS->>VPS: docker compose up -d --build
+        VPS->>VPS: docker compose up -d
         Note over VPS: Healthcheck : l'API répond et accède à la base
         GA->>VPS: test de fumée sur la production
     end
