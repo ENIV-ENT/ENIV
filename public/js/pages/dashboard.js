@@ -1034,8 +1034,8 @@ function initCommentaires(devoirId, brouillon, ouverts = false) {
   section.innerHTML = `
     <h4>
       <button type="button" class="commentaires-toggle" aria-expanded="${ouverts}" aria-controls="commentaires-contenu">
+        <span class="commentaires-signe" aria-hidden="true">${ouverts ? '▾' : '▸'}</span>
         <span class="commentaires-titre">${titreCommentaires(devoir?.nb_commentaires)}</span>
-        <span class="commentaires-signe" aria-hidden="true">${ouverts ? '-' : '+'}</span>
       </button>
     </h4>
     <div class="commentaires-contenu" id="commentaires-contenu"${ouverts ? '' : ' hidden'}>
@@ -1057,7 +1057,7 @@ function initCommentaires(devoirId, brouillon, ouverts = false) {
     const ouvrir = contenu.hidden;
     contenu.hidden = !ouvrir;
     toggle.setAttribute('aria-expanded', String(ouvrir));
-    toggle.querySelector('.commentaires-signe').textContent = ouvrir ? '-' : '+';
+    toggle.querySelector('.commentaires-signe').textContent = ouvrir ? '▾' : '▸';
     if (!ouvrir) return;
     // Mesurable seulement une fois visible : hauteur de la saisie, dernier message en bas
     ajusterSaisie(textarea);
