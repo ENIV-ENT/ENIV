@@ -892,6 +892,9 @@ async function showDevoirModal(devoirId) {
   const commentairesOuverts = currentDevoirId === devoirId
     && document.getElementById('devoir-modal')?.classList.contains('active')
     && document.querySelector('#devoir-commentaires .commentaires-contenu:not([hidden])') !== null;
+  const documentsOuverts = currentDevoirId === devoirId
+    && document.getElementById('devoir-modal')?.classList.contains('active')
+    && document.querySelector('#devoir-modal-fichiers .documents-contenu:not([hidden])') !== null;
 
   currentDevoirId = devoirId;
   currentDevoirSignature = devoirSignature(devoir);
@@ -907,7 +910,8 @@ async function showDevoirModal(devoirId) {
   if (devoir.description) {
     html += `<p><strong>Description:</strong></p><div class="markdown-body">${renderMarkdown(devoir.description)}</div>`;
   }
-  html += `<div id="devoir-modal-fichiers" style="margin:1rem 0;"></div>`;
+  // Les documents se replient ; le quiz reste en dehors de ce bloc, toujours visible
+  html += `<div id="devoir-modal-fichiers" class="documents"></div>`;
   html += `<div id="devoir-quiz-section"></div>`;
   html += `<div class="modal-actions">
     <label class="checkbox-container"><input type="checkbox" ${devoir.fait ? 'checked' : ''} id="devoir-statut-${devoir.id}"><span>Marquer comme fait</span></label>
@@ -921,7 +925,7 @@ async function showDevoirModal(devoirId) {
 
   modalBody.innerHTML = html;
   hydrateMarkdownImages(modalBody);
-  loadDevoirModalFichiers(devoirId);
+  loadDevoirModalFichiers(devoirId, documentsOuverts);
   loadQuizStatus(devoirId);
   initCommentaires(devoirId, brouillon, commentairesOuverts || saisieActive);
   if (saisieActive) document.querySelector('#devoir-commentaires textarea').focus();
@@ -1164,22 +1168,45 @@ async function loadCommentaires(devoirId) {
   if (nouvelle) nouvelle.scrollTop = enBas ? nouvelle.scrollHeight : scrollTop;
 }
 
-async function loadDevoirModalFichiers(devoirId) {
+// Documents repliés par défaut : seule la ligne « Documents (n) » est visible, un clic
+// affiche la liste. Un rafraîchissement de la liste garde l'état ; ouvertParDefaut
+// ne sert qu'à l'affichage d'un devoir (redessiné pendant qu'il était ouvert).
+async function loadDevoirModalFichiers(devoirId, ouvertParDefaut = false) {
   const container = document.getElementById('devoir-modal-fichiers');
   if (!container) return;
   try {
     const fichiers = await apiCall(`/api/devoirs/${devoirId}/fichiers`);
     if (!fichiers || fichiers.length === 0) { container.innerHTML = ''; return; }
 
-    let html = '<div style="display:flex;flex-direction:column;gap:0.5rem;">';
-    fichiers.forEach(fichier => {
-      html += `<div style="padding:0.75rem;background:white;border-radius:6px;border:1px solid var(--border);display:flex;align-items:center;gap:0.75rem;cursor:pointer;" onclick="ouvrirFichier(${fichier.id})">`;
-      html += `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>`;
-      html += `<div style="flex:1;min-width:0;"><div style="font-size:0.95rem;font-weight:500;color:var(--primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(fichier.original_name)}</div>`;
-      html += `<div style="font-size:0.8rem;color:var(--secondary);">Uploadé par ${escapeHTML(fichier.uploaded_by_username || 'Inconnu')}</div></div></div>`;
+    const toggleActuel = container.querySelector('.documents-toggle');
+    const ouvert = toggleActuel ? toggleActuel.getAttribute('aria-expanded') === 'true' : ouvertParDefaut;
+
+    const lignes = fichiers.map(fichier => `
+      <div class="document-item" onclick="ouvrirFichier(${fichier.id})">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+        <div class="document-infos">
+          <div class="document-nom">${escapeHTML(fichier.original_name)}</div>
+          <div class="document-auteur">Uploadé par ${escapeHTML(fichier.uploaded_by_username || 'Inconnu')}</div>
+        </div>
+      </div>`).join('');
+
+    container.innerHTML = `
+      <h4>
+        <button type="button" class="documents-toggle" aria-expanded="${ouvert}" aria-controls="documents-contenu">
+          <span class="documents-signe" aria-hidden="true">${ouvert ? '▾' : '▸'}</span>
+          <span>📄 Documents (${fichiers.length})</span>
+        </button>
+      </h4>
+      <div class="documents-contenu" id="documents-contenu"${ouvert ? '' : ' hidden'}>${lignes}</div>`;
+
+    const toggle = container.querySelector('.documents-toggle');
+    const contenu = container.querySelector('.documents-contenu');
+    toggle.addEventListener('click', () => {
+      const ouvrir = contenu.hidden;
+      contenu.hidden = !ouvrir;
+      toggle.setAttribute('aria-expanded', String(ouvrir));
+      toggle.querySelector('.documents-signe').textContent = ouvrir ? '▾' : '▸';
     });
-    html += '</div>';
-    container.innerHTML = html;
   } catch (error) { container.innerHTML = ''; }
 }
 
@@ -1392,22 +1419,22 @@ async function loadQuizStatus(devoirId) {
     const status = await apiCall(`/api/devoirs/${devoirId}/quiz-status`);
     if (!status.hasDocuments) { container.innerHTML = ''; return; }
 
-    let html = '<div style="margin:1rem 0;padding:1rem;background:#e3f2fd;border-radius:6px;border-left:4px solid #2196f3;">';
+    let html = '<div class="quiz-box">';
 
     if (status.isGenerating) {
-      html += `<div style="display:flex;align-items:center;gap:0.75rem;">
-        <div style="width:20px;height:20px;border:3px solid #2196f3;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;"></div>
-        <div><div style="font-weight:600;color:#2196f3;">Génération en cours...</div>
-        <div style="font-size:0.85rem;color:#666;">Vous recevrez un email quand le quiz sera prêt</div></div></div>`;
+      html += `<div class="quiz-box-ligne" style="justify-content:flex-start;gap:0.75rem;">
+        <div class="quiz-spinner"></div>
+        <div><div class="quiz-box-titre">Génération en cours...</div>
+        <div class="quiz-box-texte">Vous recevrez un email quand le quiz sera prêt</div></div></div>`;
     } else if (status.hasQuiz) {
-      html += `<div style="display:flex;justify-content:space-between;align-items:center;">
-        <div><div style="font-weight:600;color:#2196f3;">Quiz disponible</div>
-        <div style="font-size:0.85rem;color:#666;">Réviser avec un questionnaire interactif</div></div>
+      html += `<div class="quiz-box-ligne">
+        <div><div class="quiz-box-titre">Quiz disponible</div>
+        <div class="quiz-box-texte">Réviser avec un questionnaire interactif</div></div>
         <button onclick="startQuiz(${devoirId})" class="btn-primary" style="white-space:nowrap;">S'entraîner</button></div>`;
     } else if (status.quizEnabled) {
-      html += `<div style="display:flex;justify-content:space-between;align-items:center;">
-        <div><div style="font-weight:600;color:#2196f3;">Documents disponibles</div>
-        <div style="font-size:0.85rem;color:#666;">Générer 20-100 questions avec IA</div></div>
+      html += `<div class="quiz-box-ligne">
+        <div><div class="quiz-box-titre">Documents disponibles</div>
+        <div class="quiz-box-texte">Générer 20-100 questions avec IA</div></div>
         <button onclick="generateQuiz(${devoirId})" class="btn-primary" style="white-space:nowrap;">Générer Quiz</button></div>`;
     } else {
       container.innerHTML = '';
@@ -1415,9 +1442,6 @@ async function loadQuizStatus(devoirId) {
     }
 
     html += '</div>';
-    if (status.isGenerating) {
-      html += '<style>@keyframes spin { to { transform: rotate(360deg); } }</style>';
-    }
     container.innerHTML = html;
   } catch (error) { container.innerHTML = ''; }
 }
