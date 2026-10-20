@@ -111,7 +111,7 @@ function diffSnapshots(before, after) {
  * @param {Object} req - Requête Express (req.user doit être renseigné)
  * @param {Object} options
  * @param {number|string} options.devoirId - Devoir concerné
- * @param {string} options.action - create | update | delete | upload_pdf | delete_pdf
+ * @param {string} options.action - create | update | delete | upload_pdf | delete_pdf | delete_commentaire
  * @param {Object} options.details - Détails spécifiques à l'action
  * @returns {Promise<void>}
  */

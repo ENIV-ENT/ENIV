@@ -7,6 +7,8 @@ const { notifyClasse } = require('./realtime');
 const { convertToPDF } = require('./fileConverter');
 const { extractTextFromPDF } = require('./quizGenerator');
 const { toDateString, snapshotDevoir, diffSnapshots, logDevoirAction } = require('./devoirLogger');
+const push = require('./push');
+const pushMessages = require('./pushMessages');
 
 /**
  * Serveur MCP d'ENIV : expose les devoirs de la classe de l'utilisateur à un
@@ -260,6 +262,8 @@ function createMcpServer(user) {
       details: { titre: snapshot.titre, devoir: snapshot, via: 'mcp' }
     });
     notify(devoirId, 'POST');
+    push.notifyClasseInBackground(classeId, 'nouveau_devoir',
+      pushMessages.nouveauDevoir({ id: devoirId, ...snapshot }), user.id);
 
     return ok({ message: 'Devoir créé', devoir: await getDevoir(devoirId) });
   }));
@@ -306,6 +310,7 @@ function createMcpServer(user) {
         details: { titre: after.titre, changes: diff, via: 'mcp' }
       });
       notify(id, 'PUT');
+      push.notifyDevoirModifieInBackground(classeId, { id, ...after }, diff, user.id);
     }
 
     return ok({ message: diff.length > 0 ? 'Devoir modifié' : 'Aucun changement', devoir: await getDevoir(id) });

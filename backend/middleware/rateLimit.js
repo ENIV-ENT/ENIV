@@ -55,4 +55,13 @@ const lookupLimiter = limiter({
   message: 'Trop de requêtes. Réessayez dans quelques minutes.',
 });
 
-module.exports = { loginLimiter, signupLimiter, lookupLimiter };
+// Commentaires : chaque envoi recharge les devoirs de toute la classe en temps
+// réel. Compté par compte (route authentifiée), pas par IP partagée.
+const commentLimiter = limiter({
+  windowMinutes: 1,
+  limit: 10,
+  keyGenerator: (req) => `user:${req.user.id}`,
+  message: 'Trop de commentaires envoyés. Réessayez dans une minute.',
+});
+
+module.exports = { loginLimiter, signupLimiter, lookupLimiter, commentLimiter };

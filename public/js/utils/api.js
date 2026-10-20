@@ -1,4 +1,5 @@
 import { getRealtimeId } from './realtime.js';
+import { handlePushBeforeLogout } from './push.js';
 
 export async function apiCall(url, options = {}) {
   try {
@@ -118,6 +119,8 @@ export async function checkAuth() {
 }
 
 export async function logout() {
+  // Avant l'appel de déconnexion : désabonner l'appareil demande d'être authentifié
+  if (!await handlePushBeforeLogout()) return;
   await apiCall('/api/auth/logout', { method: 'POST' });
   localStorage.removeItem('token');
   setSessionHint(false);

@@ -126,6 +126,33 @@
       <button type="submit" class="btn-primary">Modifier le mot de passe</button>
     </form>
 
+    <section id="push-section" class="form-container">
+      <div class="section-header">
+        <h2>Notifications</h2>
+        <button type="button" id="push-toggle-btn" class="btn-primary" disabled>Activer</button>
+      </div>
+      <p class="section-intro" id="push-status">Vérification de la prise en charge…</p>
+      <fieldset id="push-preferences" class="push-preferences" disabled>
+        <label class="push-pref">
+          <input type="checkbox" name="nouveau_devoir">
+          <span><strong>Nouveau devoir</strong> dans ma classe</span>
+        </label>
+        <label class="push-pref">
+          <input type="checkbox" name="devoir_modifie">
+          <span><strong>Devoir modifié</strong> : date, consignes ou matière changées</span>
+        </label>
+        <label class="push-pref">
+          <input type="checkbox" name="rappel_veille">
+          <span><strong>Rappel la veille à 18 h</strong> des devoirs pas encore faits</span>
+        </label>
+      </fieldset>
+      <button type="button" id="push-test-btn" class="btn-link" hidden>Envoyer une notification de test</button>
+      <div id="push-devices-block" hidden>
+        <p class="section-intro">Appareils qui reçoivent les notifications de ce compte :</p>
+        <ul id="push-devices" class="token-list"></ul>
+      </div>
+    </section>
+
     <section id="mcp-section" class="form-container">
       <div class="section-header">
         <h2>Assistant IA</h2>
@@ -136,6 +163,32 @@
         Chaque lien donne accès à votre compte : ne le partagez pas.
       </p>
       <ul id="mcp-list" class="token-list"></ul>
+    </section>
+
+    <section id="calendar-section" class="form-container">
+      <div class="section-header">
+        <h2>Agenda</h2>
+        <button type="button" id="calendar-create-btn" class="btn-primary">Créer mon lien</button>
+      </div>
+      <p class="section-intro">
+        Retrouvez vos devoirs dans Google Agenda, Calendrier (iPhone, Mac) ou Outlook.
+        L'agenda se met à jour tout seul ; les devoirs faits apparaissent avec ✅.
+      </p>
+      <div id="calendar-linked" hidden>
+        <div class="calendar-actions">
+          <a id="calendar-google" class="btn-primary" target="_blank" rel="noopener">Ajouter à Google Agenda</a>
+          <a id="calendar-webcal" class="btn-secondary">Calendrier / Outlook</a>
+        </div>
+        <div class="copy-field">
+          <input type="text" id="calendar-url" readonly aria-label="Lien d'abonnement">
+          <button type="button" id="calendar-copy-btn" class="btn-secondary">Copier</button>
+        </div>
+        <p class="field-hint">Ce lien donne accès à vos devoirs en lecture : ne le partagez pas. Google Agenda le relit toutes les quelques heures.</p>
+        <div class="calendar-manage">
+          <button type="button" id="calendar-regenerate-btn" class="btn-link">Régénérer le lien</button>
+          <button type="button" id="calendar-delete-btn" class="btn-link danger">Désactiver</button>
+        </div>
+      </div>
     </section>
   </div>
 

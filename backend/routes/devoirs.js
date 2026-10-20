@@ -7,6 +7,8 @@ const { requireAuth } = require('../middleware/auth');
 const { convertToPDF } = require('../services/fileConverter');
 const { check_before_upload } = require('../services/fileCleanup');
 const { snapshotDevoir, diffSnapshots, logDevoirAction } = require('../services/devoirLogger');
+const push = require('../services/push');
+const pushMessages = require('../services/pushMessages');
 const { creerJeton } = require('../services/fichierLinks');
 const router = express.Router();
 
@@ -38,6 +40,10 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
+  // multer lit le nom en latin1 alors que les navigateurs l'envoient en UTF-8 :
+  // on le corrige ici, avant tout usage (stockage, base, journaux)
+  file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+
   // Accepter PDF, DOCX, PPTX
   const allowedMimeTypes = [
     'application/pdf',
@@ -99,6 +105,9 @@ router.post('/', express.json(), async (req, res) => {
       details: { titre: snapshot.titre, devoir: snapshot }
     });
 
+    push.notifyClasseInBackground(classeId, 'nouveau_devoir',
+      pushMessages.nouveauDevoir({ id: devoirId, ...snapshot }), req.user.id);
+
     res.json({
       success: true,
       devoirId,
@@ -122,7 +131,8 @@ router.get('/', async (req, res) => {
         d.*,
         m.nom as matiere_nom,
         u.username as created_by_username,
-        COALESCE(ds.fait, 0) as fait
+        COALESCE(ds.fait, 0) as fait,
+        (SELECT COUNT(*) FROM devoir_commentaires dc WHERE dc.devoir_id = d.id) as nb_commentaires
       FROM devoirs d
       LEFT JOIN matieres m ON d.matiere_id = m.id
       LEFT JOIN users u ON d.created_by = u.id
@@ -207,6 +217,8 @@ router.put('/:id', express.json(), async (req, res) => {
         action: 'update',
         details: { titre: after.titre, changes }
       });
+
+      push.notifyDevoirModifieInBackground(classeId, { id: Number(req.params.id), ...after }, changes, req.user.id);
     }
 
     res.json({ success: true, message: 'Devoir mis à jour' });

@@ -4,7 +4,7 @@
 
 <br>
 
-[![Node.js 24](https://img.shields.io/badge/Node.js-24-5FA04E?logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![Node.js 26](https://img.shields.io/badge/Node.js-26-5FA04E?logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![Express 5](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)](https://expressjs.com)
 [![MariaDB 12](https://img.shields.io/badge/MariaDB-12-003545?logo=mariadb&logoColor=white)](https://mariadb.org)
 [![Docker](https://img.shields.io/badge/Docker-prêt-2496ED?logo=docker&logoColor=white)](compose.yml)
@@ -106,7 +106,7 @@ flowchart TB
 
     subgraph VPS["🖥️ VPS"]
         Caddy["🔒 Caddy<br/><sub>HTTPS · pages statiques</sub>"]
-        subgraph App["🐳 Conteneur eniv (Node 24 · Express 5)"]
+        subgraph App["🐳 Conteneur eniv (Node 26 · Express 5)"]
             API["API REST<br/><sub>/api/*</sub>"]
             WS["Temps réel<br/><sub>WebSocket /ws</sub>"]
             MCP["Serveur MCP<br/><sub>/api/mcp</sub>"]
@@ -183,7 +183,7 @@ docker compose up
 
 ### Sans Docker
 
-Prérequis : **Node.js 24** et **MySQL 8** ou **MariaDB 10.11+** (les deux sont compatibles ; la production tourne sur MariaDB 12).
+Prérequis : **Node.js 26** et **MySQL 8** ou **MariaDB 10.11+** (les deux sont compatibles ; la production tourne sur MariaDB 12).
 
 ```bash
 cp .env.example .env      # puis renseigner DB_* et JWT_SECRET
@@ -236,7 +236,7 @@ sequenceDiagram
     end
 ```
 
-- **Image** : `Dockerfile` (Node 24, dépendances de production uniquement, utilisateur non root).
+- **Image** : `Dockerfile` (Node 26, dépendances de production uniquement, utilisateur non root).
 - **Production** : `compose.yml`, avec le port exposé sur `127.0.0.1` seulement. Caddy sert les pages statiques et relaie `/api`, `/ws` et `/vendor`. Les documents joints ne sont servis que par lien temporaire, réservé aux membres de la classe (`/api/fichiers/<jeton>`).
 - **Versions des assets** : n'ajoutez pas de `?v=` à la main dans les liens vers le CSS et le JS. Au déploiement, `deploy.sh` les calcule à partir du contenu de chaque fichier (`scripts/version-assets.js`) : seuls les fichiers modifiés, et ceux qui les importent, sont rechargés par les navigateurs. Si vous avez lancé le script en local, `node scripts/version-assets.js --retirer` enlève les versions avant de committer.
 - **Secrets GitHub** : `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`, `DEPLOY_HOST`.
