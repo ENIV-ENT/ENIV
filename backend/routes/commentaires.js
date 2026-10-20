@@ -3,6 +3,7 @@ const db = require('../models/dbHelper');
 const { requireAuth } = require('../middleware/auth');
 const { commentLimiter } = require('../middleware/rateLimit');
 const { logDevoirAction } = require('../services/devoirLogger');
+const { devoirDeLaClasse: chercherDevoirDeLaClasse } = require('../services/appartenanceClasse');
 
 // Monté sur /api/devoirs/:devoirId/commentaires
 const router = express.Router({ mergeParams: true });
@@ -15,8 +16,8 @@ router.use(requireAuth);
 // Identifiants entiers seulement : MySQL lirait « 10abc » comme 10.
 async function devoirDeLaClasse(req, res, next) {
   const idsValides = [req.params.devoirId, req.params.commentaireId ?? '0'].every((id) => /^\d+$/.test(id));
-  const devoir = idsValides && req.user.classe_id
-    ? await db.get('SELECT id FROM devoirs WHERE id = ? AND classe_id = ?', [req.params.devoirId, req.user.classe_id])
+  const devoir = idsValides
+    ? await chercherDevoirDeLaClasse(req.params.devoirId, req.user.classe_id)
     : null;
   if (!devoir) {
     return res.status(404).json({ error: 'Devoir non trouvé' });

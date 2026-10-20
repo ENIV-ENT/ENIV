@@ -582,8 +582,8 @@ html.dark-theme .calendar-date.today {
 /* Ligne « Commentaires (n) » qui déplie la discussion */
 .commentaires-toggle {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 0.4rem;
   width: 100%;
   padding: 0.25rem 0;
   background: none;
@@ -594,9 +594,12 @@ html.dark-theme .calendar-date.today {
   cursor: pointer;
 }
 
+/* Triangle ▸ (replié) / ▾ (déplié), de largeur fixe pour que le titre ne bouge pas */
 .commentaires-signe {
-  font-size: 1.25rem;
+  width: 1em;
+  font-size: 0.9rem;
   line-height: 1;
+  text-align: center;
 }
 
 .commentaires-contenu {

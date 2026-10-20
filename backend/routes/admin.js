@@ -42,7 +42,7 @@ async function getUniqueColor() {
 
 // Créer un élève
 router.post('/eleves', requireAdmin, express.json(), async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password } = req.body || {};
 
   if (!username || !password) {
     return res.status(400).json({ error: 'Username et password requis' });
@@ -54,7 +54,7 @@ router.post('/eleves', requireAdmin, express.json(), async (req, res) => {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
-    const hashedPassword = bcrypt.hashSync(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
     const result = await db.run(
       'INSERT INTO users (username, password, role, classe_id) VALUES (?, ?, ?, ?)',
       [username, hashedPassword, 'eleve', classeId]
@@ -94,7 +94,7 @@ router.get('/eleves', requireAdmin, async (req, res) => {
 
 // Modifier un élève (username et/ou mot de passe)
 router.put('/eleves/:id', requireAdmin, express.json(), async (req, res) => {
-  const { username, email, nom, prenom, password } = req.body;
+  const { username, email, nom, prenom, password } = req.body || {};
 
   if (!username) {
     return res.status(400).json({ error: 'Nom d\'utilisateur requis' });
@@ -107,7 +107,7 @@ router.put('/eleves/:id', requireAdmin, express.json(), async (req, res) => {
     }
 
     if (password) {
-      const hashedPassword = bcrypt.hashSync(password, 10);
+      const hashedPassword = await bcrypt.hash(password, 10);
       await db.run(
         'UPDATE users SET username = ?, email = ?, nom = ?, prenom = ?, password = ? WHERE id = ? AND role = ? AND classe_id = ?',
         [username, email, nom, prenom, hashedPassword, req.params.id, 'eleve', classeId]
@@ -130,7 +130,7 @@ router.put('/eleves/:id', requireAdmin, express.json(), async (req, res) => {
 
 // Activer ou désactiver le statut administrateur d'un membre de la classe
 router.put('/eleves/:id/admin', requireAdmin, express.json(), async (req, res) => {
-  const { admin } = req.body;
+  const { admin } = req.body || {};
 
   if (typeof admin !== 'boolean') {
     return res.status(400).json({ error: 'Le champ admin doit être un booléen' });
@@ -233,7 +233,7 @@ router.get('/classe', requireAdmin, async (req, res) => {
 
 // Renommer la classe de l'admin connecté
 router.put('/classe', requireAdmin, express.json(), async (req, res) => {
-  const { nom } = req.body;
+  const { nom } = req.body || {};
 
   if (!nom || !nom.trim()) {
     return res.status(400).json({ error: 'Nom de classe requis' });
@@ -256,7 +256,7 @@ router.put('/classe', requireAdmin, express.json(), async (req, res) => {
 
 // Créer une matière
 router.post('/matieres', requireAdmin, express.json(), async (req, res) => {
-  const { nom, lien, couleur } = req.body;
+  const { nom, lien, couleur } = req.body || {};
 
   if (!nom) {
     return res.status(400).json({ error: 'Nom de matière requis' });
@@ -308,7 +308,7 @@ router.get('/matieres', requireAuth, async (req, res) => {
 
 // Modifier une matière
 router.put('/matieres/:id', requireAdmin, express.json(), async (req, res) => {
-  const { nom, lien, couleur } = req.body;
+  const { nom, lien, couleur } = req.body || {};
 
   try {
     const classeId = req.user.classe_id;
@@ -346,7 +346,7 @@ router.delete('/matieres/:id', requireAdmin, async (req, res) => {
 
 // Configurer le lien emploi du temps
 router.post('/settings/emploi-temps', requireAdmin, express.json(), async (req, res) => {
-  const { lien } = req.body;
+  const { lien } = req.body || {};
 
   try {
     const classeId = req.user.classe_id;
@@ -445,7 +445,7 @@ router.get('/settings/emploi-temps-ics', requireAdmin, async (req, res) => {
 
 // Configurer le webhook Discord
 router.post('/settings/discord-webhook', requireAdmin, express.json(), async (req, res) => {
-  const { webhook } = req.body;
+  const { webhook } = req.body || {};
 
   try {
     const classeId = req.user.classe_id;
