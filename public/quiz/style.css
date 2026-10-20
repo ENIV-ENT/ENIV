@@ -15,6 +15,16 @@
     --border: #dee2e6;
     --surface: white;
     --text: #343a40;
+    /* Fonds d'état (survol, sélection, bonne/mauvaise réponse, explication) :
+       clairs par défaut, assombris en thème sombre pour garder le texte lisible */
+    --hover-bg: #e9ecef;
+    --selected-bg: #e3f2fd;
+    --success-bg: #d4edda;
+    --danger-bg: #f8d7da;
+    --danger-text: #721c24;
+    --warning-bg: #fff3cd;
+    --warning-text: #856404;
+    --example-bg: #e9f5e9;
 }
 
 html.dark-theme {
@@ -23,6 +33,14 @@ html.dark-theme {
     --border: #404040;
     --surface: #2d2d2d;
     --text: #e4e4e4;
+    --hover-bg: #3a3a3a;
+    --selected-bg: #1d3a5c;
+    --success-bg: #1e4228;
+    --danger-bg: #4d2227;
+    --danger-text: #f3b4ba;
+    --warning-bg: #473d1a;
+    --warning-text: #f0d28a;
+    --example-bg: #1e3a28;
 }
 
 html.dark-theme svg {
@@ -243,23 +261,23 @@ header h1 {
 }
 
 .option:hover {
-    background: #e9ecef;
+    background: var(--hover-bg);
     transform: translateX(5px);
 }
 
 .option.selected {
     border-color: var(--primary);
-    background: #e3f2fd;
+    background: var(--selected-bg);
 }
 
 .option.correct {
     border-color: var(--success);
-    background: #d4edda;
+    background: var(--success-bg);
 }
 
 .option.incorrect {
     border-color: var(--danger);
-    background: #f8d7da;
+    background: var(--danger-bg);
 }
 
 .option-letter {
@@ -289,7 +307,7 @@ header h1 {
 }
 
 .explanation {
-    background: #fff3cd;
+    background: var(--warning-bg);
     padding: 20px;
     border-radius: 10px;
     margin-top: 20px;
@@ -303,17 +321,17 @@ header h1 {
 
 .explanation-title {
     font-weight: bold;
-    color: #856404;
+    color: var(--warning-text);
     margin-bottom: 10px;
 }
 
 .explanation-text {
-    color: #856404;
+    color: var(--warning-text);
     line-height: 1.6;
 }
 
 .example {
-    background: #e9f5e9;
+    background: var(--example-bg);
     padding: 15px;
     border-radius: 8px;
     margin-top: 15px;
@@ -327,7 +345,7 @@ header h1 {
 }
 
 .example-text {
-    color: #333;
+    color: var(--text);
     line-height: 1.6;
 }
 
@@ -462,7 +480,7 @@ header h1 {
 }
 
 .mode-btn:hover {
-    background: #e3f2fd;
+    background: var(--selected-bg);
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(74, 144, 226, 0.2);
 }
@@ -470,14 +488,14 @@ header h1 {
 .oral-response {
     margin-bottom: 30px;
     padding: 20px 0;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border);
     text-align: center;
 }
 
 .correct-answer {
     margin-top: 20px;
     padding: 15px;
-    background-color: #d4edda;
+    background-color: var(--success-bg);
     border-radius: 8px;
     border-left: 4px solid var(--success);
 }
@@ -519,10 +537,10 @@ header h1 {
 .recap {
     margin-top: 20px;
     padding: 15px;
-    background-color: #f8d7da;
+    background-color: var(--danger-bg);
     border-radius: 8px;
     border-left: 4px solid var(--danger);
-    color: #721c24;
+    color: var(--danger-text);
 }
 
 /* Code blocks styling */
