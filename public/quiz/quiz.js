@@ -1,4 +1,5 @@
 import {escapeHTML} from "../js/utils/dom.js";
+import {mountHeader, setHeaderUser} from "../js/components/header.js";
 
 // Variables globales
 let quizData = null;
@@ -663,7 +664,7 @@ function goBack() {
     window.location.href = '/dashboard';
 }
 
-// Gestion du menu utilisateur
+// Identité de l'utilisateur : clé de la reprise du quiz et menu du header
 async function loadUserInfo() {
     try {
         const response = await fetch('/api/auth/me', {
@@ -676,42 +677,7 @@ async function loadUserInfo() {
             const data = await response.json();
             userId = data.userId ?? null;
             resolveUserReady();
-            const eleveInfo = document.getElementById('eleve-info');
-            if (eleveInfo) {
-                eleveInfo.textContent = data.username || data.email;
-            }
-
-            // Charger les paramètres pour l'emploi du temps
-            const settingsResponse = await fetch('/api/devoirs/settings/emploi-temps', {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
-            
-            if (settingsResponse.ok) {
-                const settings = await settingsResponse.json();
-                if (settings.ics || settings.lien) {
-                    const emploiTempsBtn = document.getElementById('emploi-temps-btn');
-                    if (emploiTempsBtn) {
-                        emploiTempsBtn.classList.remove('hidden');
-                        emploiTempsBtn.onclick = () => {
-                            // Lien ICS : emploi du temps affiché dans Eniv
-                            if (settings.ics) {
-                                window.location.href = '/emploi-du-temps';
-                                return;
-                            }
-                            window.open(settings.lien, '_blank');
-                            // Fermer le dropdown après le clic
-                            document.getElementById('user-dropdown').classList.add('hidden');
-                        };
-                    }
-                } else {
-                    const emploiTempsBtn = document.getElementById('emploi-temps-btn');
-                    if (emploiTempsBtn) {
-                        emploiTempsBtn.classList.add('hidden');
-                    }
-                }
-            }
+            setHeaderUser(data);
         }
     } catch (error) {
         console.error('Erreur lors du chargement des infos utilisateur:', error);
@@ -721,88 +687,6 @@ async function loadUserInfo() {
     }
 }
 
-// Le theme lui-meme est deja applique par /js/theme-init.js avant le premier rendu,
-// il ne reste qu'a synchroniser le bouton du menu.
-function loadThemePreference() {
-    updateThemeButton(document.documentElement.classList.contains('dark-theme'));
-}
-
-function toggleTheme() {
-    const isDark = document.documentElement.classList.toggle('dark-theme');
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    updateThemeButton(isDark);
-}
-
-function updateThemeButton(isDark) {
-    const themeIcon = document.getElementById('theme-icon');
-    const themeText = document.getElementById('theme-text');
-
-    if (!themeIcon || !themeText) return;
-
-    if (isDark) {
-        themeIcon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
-        themeText.textContent = 'Theme clair';
-    } else {
-        themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
-        themeText.textContent = 'Theme sombre';
-    }
-}
-
-// Gestion du dropdown menu
-const userMenuBtn = document.getElementById('user-menu-btn');
-const userDropdown = document.getElementById('user-dropdown');
-const settingsBtn = document.getElementById('settings-btn');
-const notesBtn = document.getElementById('notes-btn');
-const themeToggleBtn = document.getElementById('theme-toggle-btn');
-const logoutBtn = document.getElementById('logout-btn');
-
-if (userMenuBtn && userDropdown) {
-    userMenuBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        userDropdown.classList.toggle('hidden');
-    });
-
-    // Fermer le menu en cliquant ailleurs
-    document.addEventListener('click', (e) => {
-        if (!userDropdown.classList.contains('hidden') && !e.target.closest('.user-menu')) {
-            userDropdown.classList.add('hidden');
-        }
-    });
-
-    // Empêcher la fermeture en cliquant sur le menu
-    userDropdown.addEventListener('click', (e) => {
-        e.stopPropagation();
-    });
-}
-
-// Bouton paramètres
-if (settingsBtn) {
-    settingsBtn.addEventListener('click', () => {
-        window.location.href = '/settings';
-    });
-}
-
-if (notesBtn) {
-    notesBtn.addEventListener('click', () => {
-        window.open('https://iut-notes.unice.fr', '_blank');
-        if (userDropdown) {
-            userDropdown.classList.add('hidden');
-        }
-    });
-}
-
-if (themeToggleBtn) {
-    themeToggleBtn.addEventListener('click', toggleTheme);
-}
-
-// Bouton déconnexion
-if (logoutBtn) {
-    logoutBtn.addEventListener('click', () => {
-        localStorage.removeItem('token');
-        window.location.href = '/';
-    });
-}
-
 function hideLoadingScreen() {
     const ls = document.getElementById('loading-screen');
     if (ls) ls.classList.add('hidden');
@@ -810,7 +694,7 @@ function hideLoadingScreen() {
 
 // Initialiser le quiz au chargement de la page
 document.addEventListener('DOMContentLoaded', async () => {
-    loadThemePreference();
+    mountHeader({ page: 'quiz' });
     await Promise.all([loadQuizData(), loadUserInfo()]);
     hideLoadingScreen();
 });
