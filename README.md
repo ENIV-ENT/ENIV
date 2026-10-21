@@ -31,8 +31,11 @@ et l'appli s'installe sur le téléphone comme une application native.
 - **Calendrier** mensuel sur ordinateur, **semaine par semaine** sur mobile
 - Devoirs **partagés** avec toute la classe, mis en forme en **Markdown**
 - **« Fait »** coché individuellement, devoirs barrés
+- **Commentaires** sous chaque devoir, en temps réel
 - **Documents joints** (PDF, Word, PowerPoint, Excel), convertis en PDF pour la lecture
-- **Quiz de révision générés par IA** à partir des documents (classes premium)
+- **Quiz de révision générés par IA** à partir des documents (classes premium), avec reprise là où on s'était arrêté
+- **Emploi du temps** de la classe, à la semaine sur ordinateur et jour par jour sur mobile, aux couleurs des matières
+- **Abonnement agenda** (Google Agenda, Calendrier, Outlook)
 - **Partage** d'un devoir par lien direct
 
 </td>
@@ -43,7 +46,7 @@ et l'appli s'installe sur le téléphone comme une application native.
 - **Invitations par e-mail** et **lien d'inscription** à partager
 - **Demandes d'adhésion** à valider
 - **Historique complet** : qui a créé, modifié ou supprimé quoi
-- Lien vers l'**emploi du temps**
+- **Emploi du temps** importé d'un lien ICS (ADE, Hyperplanning…), consultable même si la source ne répond pas
 - **Récapitulatif Discord** chaque soir et chaque samedi
 
 </td>
@@ -54,6 +57,7 @@ et l'appli s'installe sur le téléphone comme une application native.
 ### ⚡ Expérience
 - **Temps réel** (WebSocket) : un devoir ajouté apparaît partout sans recharger
 - **Application installable** (PWA) et **consultable hors ligne**
+- **Notifications push** : nouveau devoir, modification, rappel la veille à 18 h, et nouveaux commentaires (toutes les discussions, seulement celles où l'on participe, ou aucune)
 - **Thème sombre**
 - Inscription libre avec **recherche de l'établissement**
 
@@ -82,20 +86,17 @@ Outils exposés : `lister_devoirs`, `voir_devoir`, `lire_document`, `marquer_fai
 <td align="center" width="50%"><img src="docs/images/mobile.png" alt="Vue mobile semaine par semaine" width="300"></td>
 <td width="50%"><img src="docs/images/admin.png" alt="Administration de la classe"><br><br><img src="docs/images/connexion.jpg" alt="Page de connexion"></td>
 </tr>
+<tr>
+<td align="center" width="50%"><img src="docs/images/apercus/commentaires.png" alt="Commentaires sous un devoir" width="360"></td>
+<td width="50%"><img src="docs/images/apercus/notifications.png" alt="Section Notifications des paramètres"><br><br><img src="docs/images/apercus/agenda.png" alt="Section Agenda des paramètres"></td>
+</tr>
+<tr>
+<td colspan="2"><img src="docs/images/emploi-du-temps.png" alt="Emploi du temps de la classe : grille de la semaine aux couleurs des matières"></td>
+</tr>
+<tr>
+<td align="center" colspan="2"><img src="docs/images/emploi-du-temps-mobile.png" alt="Emploi du temps sur mobile : cours du jour avec les pauses" width="300"></td>
+</tr>
 </table>
-
-<details>
-<summary><b>🧪 En cours de revue : notifications push, agenda, progression, commentaires…</b></summary>
-<br>
-
-| Fonctionnalité | Aperçu |
-|---|---|
-| 🔔 **Notifications push** : nouveau devoir, modification, nouveau commentaire, rappel la veille à 18 h | <img src="docs/images/apercus/notifications.png" width="480" alt="Section Notifications des paramètres"> |
-| 📅 **Abonnement agenda** (Google Agenda, Calendrier, Outlook) | <img src="docs/images/apercus/agenda.png" width="480" alt="Section Agenda des paramètres"> |
-| 📊 **Ma progression** : taux de devoirs faits, série, devoirs à rattraper, semaine à venir | <img src="docs/images/apercus/progression.png" width="360" alt="Fenêtre Ma progression"> |
-| 💬 **Commentaires sous un devoir**, en temps réel | <img src="docs/images/apercus/commentaires.png" width="360" alt="Commentaires sous un devoir"> |
-
-</details>
 
 ## 🏗 Architecture
 
@@ -120,6 +121,8 @@ flowchart TB
         IA["Groq / Anthropic<br/><sub>quiz IA</sub>"]
         Mail["Brevo<br/><sub>e-mails</sub>"]
         Discord["Discord<br/><sub>récapitulatifs</sub>"]
+        Push["Services push des navigateurs<br/><sub>notifications</sub>"]
+        ICS["ADE, Hyperplanning…<br/><sub>emploi du temps ICS</sub>"]
     end
 
     Eleve <-->|HTTPS| Caddy
@@ -133,7 +136,10 @@ flowchart TB
     API --> Up
     API --> IA
     API --> Mail
+    API --> Push
     Cron --> Discord
+    Cron -->|rappel de la veille| Push
+    Cron -->|toutes les 30 min| ICS
 ```
 
 **Chemin d'une modification en temps réel** : un élève ajoute un devoir → `POST /api/devoirs` →
