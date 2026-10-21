@@ -11,7 +11,8 @@ import { apiCall, logout } from '../utils/api.js';
 const NOTES_URL = 'https://iut-notes.unice.fr';
 
 const ICONE_CHEVRON = '<polyline points="6 9 12 15 18 9"></polyline>';
-const ICONE_ADMIN = '<path d="M12 1l3 5 5 1-3.5 4 1 5-5.5-2.5L6 17l1-5L3.5 7l5-1z"></path>';
+// Étoile régulière à 5 branches, centrée dans la boîte 24x24
+const ICONE_ADMIN = '<path d="M12 2.5L14.36 9.76H21.99L15.81 14.24L18.17 21.5L12 17.01L5.83 21.5L8.19 14.24L2.01 9.76H9.64Z"></path>';
 const ICONE_DASHBOARD = '<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>';
 const ICONE_PARAMETRES = '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle>';
 const ICONE_EMPLOI_TEMPS = '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>';
@@ -34,7 +35,7 @@ const HEADER_HTML = `
       </button>
       <div id="user-dropdown" class="user-dropdown hidden">
         <button id="admin-btn" class="dropdown-item hidden">
-          ${icone(ICONE_ADMIN)}
+          ${icone(ICONE_ADMIN, 'fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"')}
           Admin
           <span id="admin-pending-badge" class="dropdown-badge hidden">0</span>
         </button>
