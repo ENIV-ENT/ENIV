@@ -91,13 +91,30 @@ function rappelVeille(devoirs) {
   };
 }
 
+/**
+ * Nouveau commentaire sur un devoir. Le tag est propre au fil de discussion :
+ * plusieurs messages d'affilée ne s'empilent pas, et ne remplacent pas une
+ * notification « Nouveau devoir » ou « Devoir modifié » encore affichée.
+ * L'url déplie directement la discussion.
+ */
+function nouveauCommentaire({ devoirId, titre, auteur, contenu }) {
+  // Une seule ligne : les retours à la ligne du commentaire gaspillent la place
+  const texte = String(contenu || '').replace(/\s+/g, ' ').trim();
+  return {
+    title: `💬 ${titre}`,
+    body: truncate(`${auteur} : ${texte}`),
+    url: `${devoirUrl(devoirId)}&commentaires=1`,
+    tag: `commentaire-${devoirId}`,
+  };
+}
+
 function test() {
   return {
     title: '🔔 Notifications activées',
-    body: 'Tout fonctionne : vous serez prévenu des nouveaux devoirs sur cet appareil.',
+    body: 'Tout fonctionne : vous serez prévenu des nouveaux devoirs et commentaires sur cet appareil.',
     url: '/settings/',
     tag: 'test',
   };
 }
 
-module.exports = { nouveauDevoir, devoirModifie, rappelVeille, test, formatJour, truncate };
+module.exports = { nouveauDevoir, devoirModifie, rappelVeille, nouveauCommentaire, test, formatJour, truncate };

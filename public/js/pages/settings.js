@@ -206,15 +206,21 @@ async function setupPush() {
   const fieldset = document.getElementById('push-preferences');
 
   // Gestionnaires d'abord, chargements ensuite (voir init)
+  // Cases à cocher et listes de choix (la dernière valeur enregistrée d'une
+  // liste est gardée dans dataset.saved pour revenir en arrière en cas d'erreur)
   fieldset.addEventListener('change', async (e) => {
     const input = e.target;
+    const isCheckbox = input.type === 'checkbox';
     const result = await apiCall('/api/push/preferences', {
       method: 'PUT',
-      body: JSON.stringify({ [input.name]: input.checked }),
+      body: JSON.stringify({ [input.name]: isCheckbox ? input.checked : input.value }),
     });
     if (result.error) {
-      input.checked = !input.checked;
+      if (isCheckbox) input.checked = !input.checked;
+      else input.value = input.dataset.saved;
       await showAlert(result.error, 'Erreur');
+    } else if (!isCheckbox) {
+      input.dataset.saved = input.value;
     }
   });
 
@@ -242,8 +248,10 @@ async function setupPush() {
   const data = await apiCall('/api/push/preferences');
   if (!data.error) {
     for (const [key, value] of Object.entries(data.preferences)) {
-      const input = fieldset.querySelector(`input[name="${key}"]`);
-      if (input) input.checked = value;
+      const input = fieldset.querySelector(`[name="${key}"]`);
+      if (!input) continue;
+      if (input.type === 'checkbox') input.checked = value;
+      else input.value = input.dataset.saved = value;
     }
   }
 
@@ -336,7 +344,7 @@ async function renderPushState() {
   } else if (Notification.permission === 'denied') {
     status.textContent = 'Les notifications sont bloquées pour Eniv dans ce navigateur. Autorisez-les dans ses réglages (icône à gauche de l\'adresse), puis rechargez la page.';
   } else {
-    status.textContent = 'Recevez une alerte pour les nouveaux devoirs et un rappel la veille, même quand Eniv est fermé.';
+    status.textContent = 'Recevez une alerte pour les nouveaux devoirs et commentaires, et un rappel la veille, même quand Eniv est fermé.';
   }
 }
 

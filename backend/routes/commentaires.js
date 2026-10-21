@@ -4,6 +4,8 @@ const { requireAuth } = require('../middleware/auth');
 const { commentLimiter } = require('../middleware/rateLimit');
 const { logDevoirAction } = require('../services/devoirLogger');
 const { devoirDeLaClasse: chercherDevoirDeLaClasse } = require('../services/appartenanceClasse');
+const push = require('../services/push');
+const pushMessages = require('../services/pushMessages');
 
 // Monté sur /api/devoirs/:devoirId/commentaires
 const router = express.Router({ mergeParams: true });
@@ -14,6 +16,7 @@ router.use(requireAuth);
 
 // Le devoir doit exister et appartenir à la classe de l'utilisateur.
 // Identifiants entiers seulement : MySQL lirait « 10abc » comme 10.
+// Le devoir trouvé ({ id, titre }) est gardé dans res.locals.devoir.
 async function devoirDeLaClasse(req, res, next) {
   const idsValides = [req.params.devoirId, req.params.commentaireId ?? '0'].every((id) => /^\d+$/.test(id));
   const devoir = idsValides
@@ -22,6 +25,7 @@ async function devoirDeLaClasse(req, res, next) {
   if (!devoir) {
     return res.status(404).json({ error: 'Devoir non trouvé' });
   }
+  res.locals.devoir = devoir;
   next();
 }
 
@@ -74,6 +78,12 @@ router.post('/', commentLimiter, express.json(), devoirDeLaClasse, async (req, r
       [req.params.devoirId, req.user.id, contenu]
     );
     await joindreNombre(req, res);
+
+    const auteur = [req.user.prenom, req.user.nom].filter(Boolean).join(' ') || req.user.username;
+    push.notifyCommentaireInBackground(req.user.classe_id, res.locals.devoir.id,
+      pushMessages.nouveauCommentaire({ devoirId: res.locals.devoir.id, titre: res.locals.devoir.titre, auteur, contenu }),
+      req.user.id);
+
     res.json({ success: true, id: result.lastInsertRowid });
   } catch (error) {
     console.error('Error creating comment:', error);

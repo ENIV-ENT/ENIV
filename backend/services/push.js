@@ -20,8 +20,12 @@ const VAPID_SETTING_KEY = 'push_vapid_keys';
 const DEFAULT_SUBJECT = 'mailto:contact@eniv.fr';
 
 // Préférences par défaut d'un utilisateur qui n'a jamais rien réglé
-const DEFAULT_PREFERENCES = { nouveau_devoir: true, devoir_modifie: true, rappel_veille: true };
-const PREFERENCE_KEYS = Object.keys(DEFAULT_PREFERENCES);
+const DEFAULT_PREFERENCES = { nouveau_devoir: true, devoir_modifie: true, rappel_veille: true, nouveau_commentaire: 'participe' };
+const BOOLEAN_PREFERENCES = ['nouveau_devoir', 'devoir_modifie', 'rappel_veille'];
+
+// Commentaires : tous ceux de la classe, seulement les discussions où l'élève
+// a déjà écrit, ou aucun
+const COMMENTAIRE_MODES = ['tous', 'participe', 'aucun'];
 
 // Le serveur envoie un POST à l'endpoint : seuls les services push des
 // navigateurs sont acceptés, sinon un élève pourrait faire appeler une adresse
@@ -182,20 +186,26 @@ async function deleteSubscription(userId, endpoint) {
 async function getPreferences(userId) {
   const row = await db.get('SELECT * FROM push_preferences WHERE user_id = ?', [userId]);
   if (!row) return { ...DEFAULT_PREFERENCES };
-  return Object.fromEntries(PREFERENCE_KEYS.map((key) => [key, Boolean(row[key])]));
+  const prefs = Object.fromEntries(BOOLEAN_PREFERENCES.map((key) => [key, Boolean(row[key])]));
+  prefs.nouveau_commentaire = COMMENTAIRE_MODES.includes(row.nouveau_commentaire)
+    ? row.nouveau_commentaire
+    : DEFAULT_PREFERENCES.nouveau_commentaire;
+  return prefs;
 }
 
 async function setPreferences(userId, input) {
   const prefs = { ...(await getPreferences(userId)) };
-  for (const key of PREFERENCE_KEYS) {
+  for (const key of BOOLEAN_PREFERENCES) {
     if (typeof input[key] === 'boolean') prefs[key] = input[key];
   }
+  if (COMMENTAIRE_MODES.includes(input.nouveau_commentaire)) prefs.nouveau_commentaire = input.nouveau_commentaire;
   await db.run(
-    `INSERT INTO push_preferences (user_id, nouveau_devoir, devoir_modifie, rappel_veille)
-     VALUES (?, ?, ?, ?)
+    `INSERT INTO push_preferences (user_id, nouveau_devoir, devoir_modifie, rappel_veille, nouveau_commentaire)
+     VALUES (?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE nouveau_devoir = VALUES(nouveau_devoir),
-       devoir_modifie = VALUES(devoir_modifie), rappel_veille = VALUES(rappel_veille)`,
-    [userId, prefs.nouveau_devoir, prefs.devoir_modifie, prefs.rappel_veille]
+       devoir_modifie = VALUES(devoir_modifie), rappel_veille = VALUES(rappel_veille),
+       nouveau_commentaire = VALUES(nouveau_commentaire)`,
+    [userId, prefs.nouveau_devoir, prefs.devoir_modifie, prefs.rappel_veille, prefs.nouveau_commentaire]
   );
   return prefs;
 }
@@ -248,7 +258,7 @@ async function sendToUser(userId, payload) {
  * @param {number|null} excludeUserId - auteur de l'action, qui n'a pas besoin d'être prévenu
  */
 async function notifyClasse(classeId, preference, payload, excludeUserId = null) {
-  if (!PREFERENCE_KEYS.includes(preference)) throw new Error(`Préférence inconnue : ${preference}`);
+  if (!BOOLEAN_PREFERENCES.includes(preference)) throw new Error(`Préférence inconnue : ${preference}`);
 
   const subs = await db.all(
     `SELECT ps.*
@@ -257,6 +267,34 @@ async function notifyClasse(classeId, preference, payload, excludeUserId = null)
      LEFT JOIN push_preferences pp ON pp.user_id = u.id
      WHERE u.classe_id = ? AND u.id <> ? AND COALESCE(pp.${preference}, TRUE)`,
     [classeId, excludeUserId || 0]
+  );
+  return sendToSubscriptions(subs, payload);
+}
+
+/**
+ * Prévient la classe d'un nouveau commentaire sur un devoir, selon la
+ * préférence nouveau_commentaire de chacun. Le commentaire est déjà enregistré :
+ * l'auteur est exclu, son message ne le fait donc pas compter comme participant.
+ * @param {number} classeId
+ * @param {number} devoirId
+ * @param {Object} payload - { title, body, url, tag }
+ * @param {number|null} excludeUserId - auteur du commentaire
+ */
+async function notifyCommentaire(classeId, devoirId, payload, excludeUserId = null) {
+  const subs = await db.all(
+    `SELECT ps.*
+     FROM push_subscriptions ps
+     JOIN users u ON u.id = ps.user_id
+     LEFT JOIN push_preferences pp ON pp.user_id = u.id
+     WHERE u.classe_id = ? AND u.id <> ?
+       AND CASE COALESCE(pp.nouveau_commentaire, ?)
+         WHEN 'tous' THEN TRUE
+         WHEN 'participe' THEN EXISTS (
+           SELECT 1 FROM devoir_commentaires dc WHERE dc.devoir_id = ? AND dc.user_id = u.id
+         )
+         ELSE FALSE
+       END`,
+    [classeId, excludeUserId || 0, DEFAULT_PREFERENCES.nouveau_commentaire, devoirId]
   );
   return sendToSubscriptions(subs, payload);
 }
@@ -300,6 +338,8 @@ module.exports = {
   sendToUser,
   notifyClasse,
   notifyClasseInBackground: inBackground(notifyClasse),
+  notifyCommentaire,
+  notifyCommentaireInBackground: inBackground(notifyCommentaire),
   notifyDevoirModifie,
   notifyDevoirModifieInBackground: inBackground(notifyDevoirModifie),
 };

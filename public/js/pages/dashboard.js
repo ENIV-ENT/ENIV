@@ -880,7 +880,8 @@ function handleCalendarClick(e) {
   }
 }
 
-async function showDevoirModal(devoirId) {
+// deplierCommentaires : ouvrir directement la discussion (lien d'une notification de commentaire)
+async function showDevoirModal(devoirId, deplierCommentaires = false) {
   const devoir = devoirs.find(d => d.id === devoirId);
   if (!devoir) return;
 
@@ -927,7 +928,7 @@ async function showDevoirModal(devoirId) {
   hydrateMarkdownImages(modalBody);
   loadDevoirModalFichiers(devoirId, documentsOuverts);
   loadQuizStatus(devoirId);
-  initCommentaires(devoirId, brouillon, commentairesOuverts || saisieActive);
+  initCommentaires(devoirId, brouillon, deplierCommentaires || commentairesOuverts || saisieActive);
   if (saisieActive) document.querySelector('#devoir-commentaires textarea').focus();
   loadCommentaires(devoirId);
 
@@ -979,17 +980,18 @@ async function partagerDevoir(devoir) {
   }
 }
 
-// Auto-ouvre le modal si on arrive avec ?devoir=123
+// Auto-ouvre le modal si on arrive avec ?devoir=123 (&commentaires=1 : discussion dépliée)
 function ouvrirDevoirDepuisURL() {
   const params = new URLSearchParams(window.location.search);
   const devoirId = parseInt(params.get('devoir'), 10);
   if (!Number.isFinite(devoirId)) return;
+  const deplierCommentaires = params.get('commentaires') === '1';
 
   // Si les devoirs ne sont pas encore chargés, on retente un peu
   const tryOpen = () => {
     const exists = devoirs.some(d => d.id === devoirId);
     if (exists) {
-      showDevoirModal(devoirId);
+      showDevoirModal(devoirId, deplierCommentaires);
       return true;
     }
     return false;
@@ -1154,9 +1156,10 @@ async function loadCommentaires(devoirId) {
     </li>`;
   }).join('');
 
-  // Garder la position de lecture, ou rester en bas si on y était (dernier message visible)
+  // Garder la position de lecture, ou rester en bas si on y était (dernier message visible).
+  // Premier affichage de la liste : en bas, comme au dépliage
   const ancienne = fil.querySelector('.commentaires-liste');
-  const enBas = ancienne && ancienne.scrollHeight - ancienne.scrollTop - ancienne.clientHeight < 4;
+  const enBas = !ancienne || ancienne.scrollHeight - ancienne.scrollTop - ancienne.clientHeight < 4;
   const scrollTop = ancienne?.scrollTop || 0;
 
   section.querySelector('.commentaires-titre').textContent = titreCommentaires(commentaires.length);
