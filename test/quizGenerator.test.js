@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { referencesMissingCode } = require('../backend/services/quizGenerator');
+const { referencesMissingCode, parseQuestions, keepValidQuestions, QUIZ_SCHEMA } = require('../backend/services/quizGenerator');
 
 test('question qui renvoie à un code absent', () => {
   assert.equal(referencesMissingCode({ question: 'Analysez ce Dockerfile. Quel est le problème ?' }), true);
@@ -24,4 +24,91 @@ test('question sans référence à du code', () => {
   assert.equal(referencesMissingCode({ question: 'Quel est le rôle de la configuration du pipeline dans GitLab CI ?' }), false);
   assert.equal(referencesMissingCode({ question: "Dans quel fichier définit-on les services d'une application ?" }), false);
   assert.equal(referencesMissingCode({ question: "Quelle option ci-dessous n'existe pas ?" }), false);
+});
+
+// --- Sortie contrainte -------------------------------------------------------
+
+const question = (extra = {}) => ({
+  question: 'Quelle instruction définit l\'image de base ?',
+  options: ['FROM', 'RUN', 'CMD', 'COPY'],
+  correct: 0,
+  explanation: 'FROM choisit l\'image de départ.',
+  example: '',
+  ...extra
+});
+
+// Règles communes aux schémas stricts de Claude et de Groq
+function checkStrict(schema, path = 'racine') {
+  const interdits = ['minimum', 'maximum', 'multipleOf', 'maxItems', 'minLength', 'maxLength', 'pattern', 'default'];
+  for (const mot of interdits) assert.equal(mot in schema, false, `${path} : « ${mot} » n'est pas accepté`);
+  if ('minItems' in schema) assert.ok([0, 1].includes(schema.minItems), `${path} : minItems doit valoir 0 ou 1`);
+
+  if (schema.type === 'object') {
+    assert.equal(schema.additionalProperties, false, `${path} : objet fermé`);
+    assert.deepEqual([...schema.required].sort(), Object.keys(schema.properties).sort(), `${path} : tous les champs obligatoires`);
+    for (const [nom, sous] of Object.entries(schema.properties)) checkStrict(sous, `${path}.${nom}`);
+  }
+  if (schema.type === 'array') checkStrict(schema.items, `${path}[]`);
+}
+
+test('le schéma respecte les limites des modes stricts de Claude et de Groq', () => {
+  assert.equal(QUIZ_SCHEMA.type, 'object', 'la racine doit être un objet');
+  checkStrict(QUIZ_SCHEMA);
+});
+
+test('le schéma décrit ce que le reste du code attend', () => {
+  const item = QUIZ_SCHEMA.properties.questions.items;
+  assert.deepEqual(Object.keys(item.properties), ['question', 'options', 'correct', 'explanation', 'example']);
+  assert.deepEqual(item.properties.correct.enum, [0, 1, 2, 3]);
+});
+
+test('parseQuestions lit l\'enveloppe { questions } et rend un tableau', () => {
+  const result = parseQuestions(JSON.stringify({ questions: [question(), question({ correct: 2 })] }));
+  assert.equal(Array.isArray(result), true);
+  assert.equal(result.length, 2);
+});
+
+test('parseQuestions accepte aussi un tableau seul', () => {
+  assert.equal(parseQuestions(JSON.stringify([question()])).length, 1);
+});
+
+test('une question invalide est écartée sans perdre les autres', () => {
+  const lot = [
+    question(),
+    question({ options: ['a', 'b', 'c'] }),
+    question({ options: ['a', '', 'c', 'd'] }),
+    question({ question: '  ' }),
+    question({ explanation: '' }),
+    question({ correct: 4 }),
+    question({ correct: 1.5 }),
+    question({ correct: 3 })
+  ];
+  const result = parseQuestions(JSON.stringify({ questions: lot }));
+  assert.deepEqual(result.map(q => q.correct), [0, 3]);
+});
+
+test('l\'exemple manquant devient une chaîne vide', () => {
+  const { example, ...sansExemple } = question();
+  assert.equal(keepValidQuestions([sansExemple])[0].example, '');
+});
+
+test('aucune question valide : erreur, pour que la tentative compte comme échouée', () => {
+  assert.throws(() => parseQuestions(JSON.stringify({ questions: [question({ options: [] })] })), /Aucune question valide/);
+  assert.throws(() => parseQuestions('pas du json'), /Format JSON invalide/);
+  assert.throws(() => parseQuestions(JSON.stringify({ questions: [] })), /Aucune question valide/);
+});
+
+test('réponse coupée par la limite de tokens : les questions entières sont gardées', () => {
+  const complet = JSON.stringify({ questions: [question(), question({ correct: 1, question: 'Autre {question} avec "guillemets" et \\ barre' }), question({ correct: 2 })] });
+  // Coupé au milieu de la troisième question
+  const coupe = complet.slice(0, complet.lastIndexOf('"options"') + 12);
+  assert.throws(() => JSON.parse(coupe));
+
+  const result = parseQuestions(coupe, true);
+  assert.equal(result.length, 2);
+  assert.equal(result[1].question, 'Autre {question} avec "guillemets" et \\ barre');
+});
+
+test('réponse coupée avant la première question entière : erreur claire', () => {
+  assert.throws(() => parseQuestions('{"questions":[{"question":"Que f', true), /aucune question complète/);
 });

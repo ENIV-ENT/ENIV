@@ -139,8 +139,9 @@ INSTRUCTIONS :
 - Le champ "example" doit apporter une valeur ajoutée APRÈS avoir compris la réponse
 
 FORMAT DE RÉPONSE :
-Tu dois répondre UNIQUEMENT avec un tableau JSON valide, sans aucun texte avant ou après.
-Format attendu : ${JSON.stringify(exampleQuestions, null, 2)}
+Tu dois répondre UNIQUEMENT avec un objet JSON valide { "questions": [ ... ] }, sans aucun texte avant ou après.
+Chaque question a ses 5 champs ; "example" vaut "" (chaîne vide) quand il n'y a pas d'exemple pertinent.
+Format attendu : ${JSON.stringify({ questions: exampleQuestions }, null, 2)}
 
 IMPORTANT POUR LE CODE :
 - Si tu inclus du code dans les questions, réponses ou explications, tu DOIS le mettre entre ''' code '''
@@ -170,6 +171,39 @@ IMPORTANT :
 }
 
 /**
+ * Schéma de la réponse, imposé au modèle par décodage contraint (Claude :
+ * output_config.format, Groq : response_format strict). Le JSON reçu est donc
+ * toujours syntaxiquement valide et du bon type, sans texte autour.
+ *
+ * Limites communes aux deux fournisseurs : tous les champs sont obligatoires et
+ * les objets fermés (additionalProperties: false), pas de minimum/maximum, et
+ * minItems/maxItems ne vont pas au-delà de 0 ou 1. Le nombre d'options (4) ne
+ * peut donc pas être imposé par le schéma : keepValidQuestions le vérifie.
+ * L'enveloppe { questions } est nécessaire, la racine doit être un objet.
+ */
+const QUESTION_SCHEMA = {
+  type: 'object',
+  properties: {
+    question: { type: 'string', description: 'Énoncé de la question, avec le code entre \'\'\' \'\'\' si elle y renvoie' },
+    options: { type: 'array', items: { type: 'string' }, description: 'Exactement 4 réponses possibles' },
+    correct: { type: 'integer', enum: [0, 1, 2, 3], description: 'Indice (0 à 3) de la seule bonne réponse dans options' },
+    explanation: { type: 'string', description: 'Explication de la bonne réponse' },
+    example: { type: 'string', description: "Exemple d'application du concept, chaîne vide s'il n'y en a pas" }
+  },
+  required: ['question', 'options', 'correct', 'explanation', 'example'],
+  additionalProperties: false
+};
+
+const QUIZ_SCHEMA = {
+  type: 'object',
+  properties: {
+    questions: { type: 'array', items: QUESTION_SCHEMA }
+  },
+  required: ['questions'],
+  additionalProperties: false
+};
+
+/**
  * Générer un quiz avec Claude (Premium)
  */
 async function generateWithClaude(prompt) {
@@ -190,11 +224,19 @@ async function generateWithClaude(prompt) {
       messages: [{
         role: 'user',
         content: prompt
-      }]
+      }],
+      output_config: {
+        format: { type: 'json_schema', schema: QUIZ_SCHEMA }
+      }
     });
 
-    const content = message.content[0].text;
-    return extractJSON(content);
+    // Un refus ne respecte pas le schéma : rien à récupérer
+    if (message.stop_reason === 'refusal') {
+      throw new Error('Claude a refusé de générer ce quiz');
+    }
+
+    const content = message.content.find(block => block.type === 'text')?.text ?? '';
+    return parseQuestions(content, message.stop_reason === 'max_tokens');
   } catch (error) {
     console.error('❌ Erreur détaillée Claude:', {
       status: error.status,
@@ -227,26 +269,86 @@ async function generateWithGroq(prompt) {
       content: prompt
     }],
     temperature: 0.7,
-    max_tokens: 4096
+    max_tokens: 4096,
+    response_format: {
+      type: 'json_schema',
+      json_schema: { name: 'quiz_questions', strict: true, schema: QUIZ_SCHEMA }
+    }
   });
 
-  const content = completion.choices[0].message.content;
-  return extractJSON(content);
+  const choice = completion.choices[0];
+  return parseQuestions(choice.message.content ?? '', choice.finish_reason === 'length');
 }
 
 /**
- * Extraire le JSON de la réponse
+ * Questions complètes d'un JSON coupé en route. Le décodage contraint garantit un
+ * JSON valide, pas qu'il soit complet : quand la réponse s'arrête sur la limite de
+ * tokens, on garde les questions entières plutôt que de tout perdre.
  */
-function extractJSON(text) {
-  const jsonMatch = text.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) {
-    throw new Error('Format JSON invalide dans la réponse');
+function completeQuestionsOfTruncatedJson(text) {
+  const start = text.indexOf('[');
+  if (start === -1) return [];
+
+  const questions = [];
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let itemStart = -1;
+
+  for (let i = start + 1; i < text.length; i++) {
+    const char = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === '\\') escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') inString = true;
+    else if (char === '{') {
+      if (depth === 0) itemStart = i;
+      depth++;
+    } else if (char === '}') {
+      depth--;
+      if (depth === 0 && itemStart !== -1) {
+        try {
+          questions.push(JSON.parse(text.slice(itemStart, i + 1)));
+        } catch {
+          // Question abîmée : ignorée
+        }
+        itemStart = -1;
+      }
+    }
+  }
+  return questions;
+}
+
+/**
+ * Lire la réponse du modèle : { questions: [...] }, ou un tableau seul. Les
+ * questions invalides sont écartées une à une (keepValidQuestions), une seule ne
+ * fait plus perdre toute la série.
+ * @param {string} text - Réponse du modèle
+ * @param {boolean} truncated - La réponse s'est arrêtée sur la limite de tokens
+ * @throws {Error} Si aucune question valide n'en ressort
+ */
+function parseQuestions(text, truncated = false) {
+  let questions;
+  try {
+    const data = JSON.parse(text);
+    questions = Array.isArray(data) ? data : data?.questions;
+  } catch {
+    if (!truncated) throw new Error('Format JSON invalide dans la réponse');
+    questions = completeQuestionsOfTruncatedJson(text);
   }
 
-  const questions = JSON.parse(jsonMatch[0]);
-  validateQuestionsFormat(questions);
-  
-  return questions;
+  if (truncated) {
+    console.warn(`⚠️ Réponse coupée par la limite de tokens : ${Array.isArray(questions) ? questions.length : 0} question(s) complète(s) récupérée(s)`);
+  }
+
+  const valid = keepValidQuestions(questions);
+  if (valid.length === 0) {
+    throw new Error(truncated ? 'Réponse coupée par la limite de tokens, aucune question complète' : 'Aucune question valide dans la réponse');
+  }
+  return valid;
 }
 
 /**
@@ -268,27 +370,27 @@ function referencesMissingCode(q) {
 }
 
 /**
- * Valider le format des questions (sans vérifier le minimum)
+ * Questions bien formées parmi celles reçues (le schéma garantit les types, pas
+ * le nombre d'options ni les textes vides). Les autres sont écartées et journalisées.
  */
-function validateQuestionsFormat(questions) {
-  if (!Array.isArray(questions) || questions.length === 0) {
-    throw new Error('Le quiz doit contenir au moins une question');
-  }
+function keepValidQuestions(questions) {
+  if (!Array.isArray(questions)) return [];
 
-  questions.forEach((q, index) => {
-    if (!q.question || typeof q.question !== 'string') {
-      throw new Error(`Question ${index + 1}: champ "question" invalide`);
-    }
-    if (!Array.isArray(q.options) || q.options.length !== 4) {
-      throw new Error(`Question ${index + 1}: doit avoir exactement 4 options`);
-    }
-    if (typeof q.correct !== 'number' || q.correct < 0 || q.correct > 3) {
-      throw new Error(`Question ${index + 1}: indice de réponse correcte invalide`);
-    }
-    if (!q.explanation || typeof q.explanation !== 'string') {
-      throw new Error(`Question ${index + 1}: champ "explanation" invalide`);
-    }
+  const isText = (value) => typeof value === 'string' && value.trim() !== '';
+  const valid = questions.filter((q, index) => {
+    const problem = !q || typeof q !== 'object' ? 'question absente'
+      : !isText(q.question) ? 'champ "question" vide'
+      : !Array.isArray(q.options) || q.options.length !== 4 ? 'il faut exactement 4 options'
+      : !q.options.every(isText) ? 'option vide'
+      : !Number.isInteger(q.correct) || q.correct < 0 || q.correct > 3 ? 'indice de réponse correcte invalide'
+      : !isText(q.explanation) ? 'champ "explanation" vide'
+      : null;
+    if (problem) console.warn(`⚠️ Question ${index + 1} écartée : ${problem}`);
+    return !problem;
   });
+
+  // L'exemple est facultatif : le schéma impose le champ, vide quand il n'y en a pas
+  return valid.map(q => ({ ...q, example: typeof q.example === 'string' ? q.example : '' }));
 }
 
 /**
@@ -309,16 +411,18 @@ ${documentsText}
 GÉNÈRE MINIMUM 20 NOUVELLES QUESTIONS différentes de celles ci-dessus.
 Plus tu en génères, mieux c'est (tu peux aller jusqu'à 50-100 si le contenu le permet).
 
-Format JSON strict :
-[
-  {
-    "question": "Question claire (mets le code ici si besoin)",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "correct": 0,
-    "explanation": "Explication de la bonne réponse",
-    "example": "Exemple d'APPLICATION du concept (optionnel, JAMAIS le code de la question)"
-  }
-]
+Format JSON strict, un objet { "questions": [ ... ] } :
+{
+  "questions": [
+    {
+      "question": "Question claire (mets le code ici si besoin)",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correct": 0,
+      "explanation": "Explication de la bonne réponse",
+      "example": "Exemple d'APPLICATION du concept (chaîne vide s'il n'y en a pas, JAMAIS le code de la question)"
+    }
+  ]
+}
 
 RÈGLES STRICTES :
 - MINIMUM 20 nouvelles questions
@@ -402,9 +506,6 @@ async function generate_with_retry(devoir, isPremium, documentsText) {
         }
       }
 
-      // Valider le format
-      validateQuestionsFormat(newQuestions);
-      
       // Écarter les questions qui parlent d'un code absent
       const avantFiltre = newQuestions.length;
       newQuestions = newQuestions.filter(q => !referencesMissingCode(q));
@@ -499,5 +600,10 @@ async function generateQuizWithAI(devoir, isPremium, fichiers) {
 module.exports = {
   generateQuizWithAI,
   extractTextFromPDF,
-  referencesMissingCode
+  referencesMissingCode,
+  generateWithClaude,
+  generateWithGroq,
+  parseQuestions,
+  keepValidQuestions,
+  QUIZ_SCHEMA
 };
