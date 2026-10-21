@@ -1,4 +1,5 @@
-import { apiCall, checkAuth, logout } from '../utils/api.js';
+import { apiCall, checkAuth } from '../utils/api.js';
+import { mountHeader, setHeaderUser } from '../components/header.js';
 import { escapeHTML, localDate, formatDate, toInputDate, toggleModal, setupModalClose, showAlert, showConfirm, getContrastColor } from '../utils/dom.js';
 import { renderMarkdown, hydrateMarkdownImages } from '../utils/markdown.js';
 import { connectRealtime, getRealtimeId } from '../utils/realtime.js';
@@ -73,24 +74,13 @@ const pendingResources = new Set();
 const pendingCommentaires = new Map(); // devoirId → nombre de commentaires reçu en temps réel
 
 async function init() {
+  mountHeader({ page: 'dashboard' });
+
   authData = await checkAuth();
 
   if (!authData.authenticated) return;
 
-  // Setup user info
-  document.getElementById('eleve-info').textContent = authData.username;
-
-  // Show admin menu item if admin
-  if (authData.is_admin) {
-    document.getElementById('admin-btn').classList.remove('hidden');
-    // Load pending join requests count for the badge
-    loadJoinRequestsCount();
-  }
-
-  setupUserMenu();
-
-  // Synchroniser le libellé du bouton de thème avant les sorties anticipées ci-dessous
-  loadThemePreference();
+  setHeaderUser(authData);
 
   // Check pending request
   if (authData.pending_request) {
@@ -285,111 +275,6 @@ function resetEditDevoirBanners() {
   document.getElementById('edit-devoir-supprime-banner').classList.add('hidden');
   document.getElementById('edit-devoir-submit-btn').textContent = 'Enregistrer';
   setEditDevoirModifie(false);
-}
-
-// Le thème lui-même est déjà appliqué par /js/theme-init.js avant le premier rendu,
-// il ne reste qu'à synchroniser le bouton du menu.
-function loadThemePreference() {
-  updateThemeButton(document.documentElement.classList.contains('dark-theme'));
-}
-
-// Fonction pour basculer le thème
-function toggleTheme() {
-  const isDark = document.documentElement.classList.toggle('dark-theme');
-  localStorage.setItem('theme', isDark ? 'dark' : 'light');
-  updateThemeButton(isDark);
-}
-
-// Fonction pour mettre à jour l'icône et le texte du bouton de thème
-function updateThemeButton(isDark) {
-  const themeIcon = document.getElementById('theme-icon');
-  const themeText = document.getElementById('theme-text');
-  
-  if (isDark) {
-    // Icône de soleil pour mode sombre
-    themeIcon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
-    themeText.textContent = 'Thème clair';
-  } else {
-    // Icône de lune pour mode clair
-    themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
-    themeText.textContent = 'Thème sombre';
-  }
-}
-
-function setupUserMenu() {
-  const menuBtn = document.getElementById('user-menu-btn');
-  const dropdown = document.getElementById('user-dropdown');
-
-  menuBtn.addEventListener('click', () => {
-    dropdown.classList.toggle('hidden');
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.user-menu')) {
-      dropdown.classList.add('hidden');
-    }
-  });
-
-  // Dropdown items
-  document.getElementById('logout-btn').addEventListener('click', logout);
-  document.getElementById('settings-btn').addEventListener('click', () => {
-    window.location.href = '/settings';
-  });
-
-  const notesBtn = document.getElementById('notes-btn');
-  if (notesBtn) {
-    notesBtn.addEventListener('click', () => {
-      dropdown.classList.add('hidden');
-      window.open('https://iut-notes.unice.fr', '_blank');
-    });
-  }
-
-  const themeToggleBtn = document.getElementById('theme-toggle-btn');
-  if (themeToggleBtn) {
-    themeToggleBtn.addEventListener('click', toggleTheme);
-  }
-
-  // Admin panel toggle
-  const adminBtn = document.getElementById('admin-btn');
-  if (adminBtn) {
-    adminBtn.addEventListener('click', () => {
-      window.location.href = '/admin';
-    });
-  }
-
-  // Emploi du temps
-  checkEmploiTemps();
-}
-
-async function checkEmploiTemps() {
-  const data = await apiCall('/api/devoirs/settings/emploi-temps');
-  if (!data.ics && !data.lien) return;
-
-  const btn = document.getElementById('emploi-temps-btn');
-  if (btn) {
-    btn.classList.remove('hidden');
-    btn.addEventListener('click', () => {
-      // Lien ICS : emploi du temps affiché dans Eniv
-      if (data.ics) {
-        window.location.href = '/emploi-du-temps';
-        return;
-      }
-      window.open(data.lien, '_blank');
-      document.getElementById('user-dropdown').classList.add('hidden');
-    });
-  }
-}
-
-async function loadJoinRequestsCount() {
-  const data = await apiCall('/api/admin/join-requests');
-  if (Array.isArray(data) && data.length > 0) {
-    // Only looking for update in the dropdown badge
-    const badge = document.getElementById('admin-pending-badge');
-    if (badge) {
-        badge.textContent = data.length;
-        badge.classList.remove('hidden');
-    }
-  }
 }
 
 // ============= CALENDAR & DEVOIRS (inchangé) =============

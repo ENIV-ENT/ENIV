@@ -1,4 +1,5 @@
-import { apiCall, checkAuth, logout } from '../utils/api.js';
+import { apiCall, checkAuth } from '../utils/api.js';
+import { mountHeader, setHeaderUser } from '../components/header.js';
 import { escapeHTML, formatDate, toggleModal, setupModalClose, showAlert, showConfirm } from '../utils/dom.js';
 
 let currentUserId = null;
@@ -9,6 +10,8 @@ let logs = [];
 let joinRequests = [];
 
 async function init() {
+  mountHeader({ page: 'admin', titre: 'Admin' });
+
   const auth = await checkAuth();
 
   if (!auth.authenticated || !auth.is_admin) {
@@ -18,98 +21,10 @@ async function init() {
 
   currentUserId = auth.userId;
 
-  document.getElementById('user-info').textContent = auth.username;
-
-  loadThemePreference();
+  setHeaderUser(auth);
 
   await loadAllData();
   setupEventListeners();
-  setupUserMenu();
-}
-
-// Le thème lui-même est déjà appliqué par /js/theme-init.js avant le premier rendu,
-// il ne reste qu'à synchroniser le bouton du menu.
-function loadThemePreference() {
-  updateThemeButton(document.documentElement.classList.contains('dark-theme'));
-}
-
-function toggleTheme() {
-  const isDark = document.documentElement.classList.toggle('dark-theme');
-  localStorage.setItem('theme', isDark ? 'dark' : 'light');
-  updateThemeButton(isDark);
-}
-
-function updateThemeButton(isDark) {
-  const themeIcon = document.getElementById('theme-icon');
-  const themeText = document.getElementById('theme-text');
-
-  if (!themeIcon || !themeText) return;
-
-  if (isDark) {
-    themeIcon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
-    themeText.textContent = 'Theme clair';
-  } else {
-    themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
-    themeText.textContent = 'Theme sombre';
-  }
-}
-
-function setupUserMenu() {
-  const menuBtn = document.getElementById('user-menu-btn');
-  const dropdown = document.getElementById('user-dropdown');
-
-  menuBtn.addEventListener('click', () => {
-    dropdown.classList.toggle('hidden');
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.user-menu')) {
-      dropdown.classList.add('hidden');
-    }
-  });
-
-  document.getElementById('dashboard-btn').addEventListener('click', () => {
-    window.location.href = '/dashboard';
-  });
-
-  document.getElementById('logout-btn').addEventListener('click', logout);
-  document.getElementById('settings-btn').addEventListener('click', () => {
-    window.location.href = '/settings';
-  });
-
-  const notesBtn = document.getElementById('notes-btn');
-  if (notesBtn) {
-    notesBtn.addEventListener('click', () => {
-      window.open('https://iut-notes.unice.fr', '_blank');
-      dropdown.classList.add('hidden');
-    });
-  }
-
-  const themeToggleBtn = document.getElementById('theme-toggle-btn');
-  if (themeToggleBtn) {
-    themeToggleBtn.addEventListener('click', toggleTheme);
-  }
-
-  checkEmploiTemps();
-}
-
-async function checkEmploiTemps() {
-  const data = await apiCall('/api/devoirs/settings/emploi-temps');
-  if (!data.ics && !data.lien) return;
-
-  const btn = document.getElementById('emploi-temps-btn');
-  if (btn) {
-    btn.classList.remove('hidden');
-    btn.addEventListener('click', () => {
-      // Lien ICS : emploi du temps affiché dans Eniv
-      if (data.ics) {
-        window.location.href = '/emploi-du-temps';
-        return;
-      }
-      window.open(data.lien, '_blank');
-      document.getElementById('user-dropdown').classList.add('hidden');
-    });
-  }
 }
 
 async function loadAllData() {

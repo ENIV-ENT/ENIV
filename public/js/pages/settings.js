@@ -1,61 +1,19 @@
-import { apiCall, checkAuth, logout } from '../utils/api.js';
+import { apiCall, checkAuth } from '../utils/api.js';
+import { mountHeader, setHeaderUser } from '../components/header.js';
 import { showAlert, showConfirm, escapeHTML, toggleModal } from '../utils/dom.js';
 import { isPushSupported, needsHomeScreenInstall, getPushSubscription, enablePush, disablePush, syncPushSubscription } from '../utils/push.js';
 
 async function init() {
   // En premier : un chargement qui traîne ne doit pas rendre la page inerte
+  mountHeader({ page: 'settings' });
   setupEventListeners();
 
   const auth = await checkAuth();
 
-  document.getElementById('user-info').textContent = auth.username;
-  setupAdminButton(auth);
-
-  loadThemePreference();
+  setHeaderUser(auth);
 
   // En parallèle : une section lente ne retarde pas les autres
-  await Promise.all([loadUserInfo(), loadMcpTokens(), setupPush(), checkEmploiTempsButton(), setupCalendar()]);
-}
-
-// Le thème lui-même est déjà appliqué par /js/theme-init.js avant le premier rendu,
-// il ne reste qu'à synchroniser le bouton du menu.
-function loadThemePreference() {
-  updateThemeButton(document.documentElement.classList.contains('dark-theme'));
-}
-
-function toggleTheme() {
-  const isDark = document.documentElement.classList.toggle('dark-theme');
-  localStorage.setItem('theme', isDark ? 'dark' : 'light');
-  updateThemeButton(isDark);
-}
-
-function updateThemeButton(isDark) {
-  const themeIcon = document.getElementById('theme-icon');
-  const themeText = document.getElementById('theme-text');
-
-  if (!themeIcon || !themeText) return;
-
-  if (isDark) {
-    themeIcon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
-    themeText.textContent = 'Theme clair';
-  } else {
-    themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
-    themeText.textContent = 'Theme sombre';
-  }
-}
-
-function setupAdminButton(auth) {
-  const adminBtn = document.getElementById('admin-btn');
-  if (!adminBtn) return;
-
-  if (auth.is_admin) {
-    adminBtn.classList.remove('hidden');
-    adminBtn.addEventListener('click', () => {
-      window.location.href = '/admin';
-    });
-  } else {
-    adminBtn.classList.add('hidden');
-  }
+  await Promise.all([loadUserInfo(), loadMcpTokens(), setupPush(), setupCalendar()]);
 }
 
 async function loadUserInfo() {
@@ -68,76 +26,7 @@ async function loadUserInfo() {
   }
 }
 
-async function checkEmploiTempsButton() {
-  const data = await apiCall('/api/devoirs/settings/emploi-temps');
-  const btn = document.getElementById('emploi-temps-btn');
-
-  if (data.ics || data.lien) {
-    btn.classList.remove('hidden');
-    btn.onclick = () => {
-      // Lien ICS : emploi du temps affiché dans Eniv
-      if (data.ics) {
-        window.location.href = '/emploi-du-temps';
-        return;
-      }
-      window.open(data.lien, '_blank');
-      // Fermer le dropdown après le clic
-      document.getElementById('user-dropdown').classList.add('hidden');
-    };
-  } else {
-    btn.classList.add('hidden');
-  }
-}
-
 function setupEventListeners() {
-  // User menu dropdown
-  const userMenuBtn = document.getElementById('user-menu-btn');
-  const userDropdown = document.getElementById('user-dropdown');
-
-  if (userMenuBtn && userDropdown) {
-    userMenuBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      userDropdown.classList.toggle('hidden');
-    });
-
-    // Fermer le dropdown en cliquant ailleurs
-    document.addEventListener('click', (e) => {
-      if (!userDropdown.classList.contains('hidden') && !e.target.closest('.user-menu')) {
-        userDropdown.classList.add('hidden');
-      }
-    });
-  }
-
-  // Bouton tableau de bord
-  const dashboardBtn = document.getElementById('dashboard-btn');
-  if (dashboardBtn) {
-    dashboardBtn.addEventListener('click', () => {
-      window.location.href = '/dashboard';
-    });
-  }
-
-  const settingsBtn = document.getElementById('settings-btn');
-  if (settingsBtn) {
-    settingsBtn.addEventListener('click', () => {
-      window.location.href = '/settings';
-    });
-  }
-
-  const notesBtn = document.getElementById('notes-btn');
-  if (notesBtn) {
-    notesBtn.addEventListener('click', () => {
-      window.open('https://iut-notes.unice.fr', '_blank');
-      document.getElementById('user-dropdown').classList.add('hidden');
-    });
-  }
-
-  const themeToggleBtn = document.getElementById('theme-toggle-btn');
-  if (themeToggleBtn) {
-    themeToggleBtn.addEventListener('click', toggleTheme);
-  }
-
-  document.getElementById('logout-btn').addEventListener('click', logout);
-
   document.getElementById('info-form').addEventListener('submit', handleUpdateInfo);
   document.getElementById('password-form').addEventListener('submit', handleChangePassword);
 

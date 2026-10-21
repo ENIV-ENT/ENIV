@@ -1,0 +1,166 @@
+/* Header commun des pages de l'app (généré par /js/components/header.js).
+   Chargé avant la feuille de la page, qui définit les variables de couleur
+   et peut surcharger ces règles. */
+
+header {
+  background: var(--surface);
+  padding: 1rem 2rem;
+  box-shadow: 0 2px 4px var(--shadow, rgba(0, 0, 0, 0.1));
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+header h1 {
+  color: var(--primary);
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+header h1 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.header-sous-titre {
+  font-size: 0.6em;
+  opacity: 0.7;
+  font-weight: normal;
+}
+
+.header-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+#user-info {
+  font-weight: 500;
+}
+
+/* Menu utilisateur */
+.user-menu {
+  position: relative;
+}
+
+.user-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.user-menu-btn:hover {
+  background: var(--primary-dark);
+}
+
+.user-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--shadow, rgba(0, 0, 0, 0.15));
+  min-width: 200px;
+  overflow: hidden;
+  z-index: 1000;
+}
+
+.user-dropdown.hidden {
+  display: none;
+}
+
+.dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--text);
+  transition: background 0.2s ease;
+  text-align: left;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background: var(--light);
+}
+
+.dropdown-item.logout {
+  color: var(--danger);
+}
+
+.dropdown-item.logout:hover {
+  background: rgba(220, 53, 69, 0.1);
+}
+
+.dropdown-item.hidden {
+  display: none;
+}
+
+/* Nombre de demandes d'adhésion en attente, sur l'entrée Admin */
+.dropdown-badge {
+  background: var(--danger);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 10px;
+  margin-left: auto;
+}
+
+.dropdown-badge.hidden {
+  display: none;
+}
+
+/* L'icône Notes est dessinée en noir plein : elle suit la couleur du texte */
+html.dark-theme .dropdown-item svg path,
+html.dark-theme .user-menu-btn svg {
+  fill: currentColor;
+  stroke: currentColor;
+}
+
+@media (max-width: 768px) {
+  header {
+    padding: 1rem;
+  }
+
+  header h1 {
+    font-size: 1.25rem;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+  }
+
+  .user-menu-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .user-menu-btn span {
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
