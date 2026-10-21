@@ -1,5 +1,8 @@
 // Migration: Ajouter la préférence nouveau_commentaire à push_preferences
-// (notification push quand un commentaire est posté sur un devoir de la classe)
+// (notification push quand un commentaire est posté sur un devoir de la classe) :
+// - tous : chaque commentaire sur un devoir de la classe
+// - participe : seulement les devoirs où l'élève a déjà écrit un commentaire
+// - aucun : jamais
 
 module.exports = {
   up: async (pool) => {
@@ -9,7 +12,7 @@ module.exports = {
     try {
       await connection.query(`
         ALTER TABLE push_preferences
-        ADD COLUMN nouveau_commentaire BOOLEAN NOT NULL DEFAULT TRUE AFTER rappel_veille
+        ADD COLUMN nouveau_commentaire ENUM('tous', 'participe', 'aucun') NOT NULL DEFAULT 'participe' AFTER rappel_veille
       `);
       console.log('  ✓ Colonne nouveau_commentaire ajoutée');
     } finally {

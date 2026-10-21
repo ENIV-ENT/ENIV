@@ -80,7 +80,7 @@ router.post('/', commentLimiter, express.json(), devoirDeLaClasse, async (req, r
     await joindreNombre(req, res);
 
     const auteur = [req.user.prenom, req.user.nom].filter(Boolean).join(' ') || req.user.username;
-    push.notifyClasseInBackground(req.user.classe_id, 'nouveau_commentaire',
+    push.notifyCommentaireInBackground(req.user.classe_id, res.locals.devoir.id,
       pushMessages.nouveauCommentaire({ devoirId: res.locals.devoir.id, titre: res.locals.devoir.titre, auteur, contenu }),
       req.user.id);
 

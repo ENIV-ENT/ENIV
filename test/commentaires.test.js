@@ -38,7 +38,7 @@ require.cache[realtimeFile] = { id: realtimeFile, filename: realtimeFile, loaded
 const pushes = [];
 const pushFile = path.join(__dirname, '../backend/services/push.js');
 require.cache[pushFile] = { id: pushFile, filename: pushFile, loaded: true, exports: {
-  notifyClasseInBackground: (classeId, preference, payload, excludeUserId) => pushes.push({ classeId, preference, payload, excludeUserId }),
+  notifyCommentaireInBackground: (classeId, devoirId, payload, excludeUserId) => pushes.push({ classeId, devoirId, payload, excludeUserId }),
 } };
 
 const realtimeNotifier = require('../backend/middleware/realtimeNotifier');
@@ -121,13 +121,13 @@ describe('commentaires', () => {
     assert.equal((await call(1, 'POST', '/10/commentaires', { contenu: 'Moi aussi' })).status, 200);
   });
 
-  test('push : la classe est prévenue, sauf l\'auteur', async () => {
+  test('push : la classe est prévenue selon les préférences, sauf l\'auteur', async () => {
     pushes.length = 0;
     assert.equal((await call(1, 'POST', '/10/commentaires', { contenu: 'C\'est pour lundi ?' })).status, 200);
     assert.equal(pushes.length, 1);
     assert.deepEqual(pushes[0], {
       classeId: 4,
-      preference: 'nouveau_commentaire',
+      devoirId: 10,
       payload: {
         title: '💬 Exercice 3',
         body: 'Léa Martin : C\'est pour lundi ?',

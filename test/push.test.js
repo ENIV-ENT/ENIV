@@ -179,19 +179,32 @@ describe('abonnements', () => {
     ]);
   });
 
-  test('préférences par défaut : tout activé', async () => {
+  test('préférences par défaut : tout activé, commentaires des discussions suivies', async () => {
     fake.setHandler(() => undefined);
-    assert.deepEqual(await push.getPreferences(1), { nouveau_devoir: true, devoir_modifie: true, rappel_veille: true, nouveau_commentaire: true });
+    assert.deepEqual(await push.getPreferences(1), { nouveau_devoir: true, devoir_modifie: true, rappel_veille: true, nouveau_commentaire: 'participe' });
+  });
+
+  test('préférences lues en base : booléens et choix des commentaires', async () => {
+    const row = { user_id: 1, nouveau_devoir: 1, devoir_modifie: 0, rappel_veille: 1, nouveau_commentaire: 'tous' };
+    fake.setHandler((method, sql) => (method === 'get' && sql.includes('push_preferences') ? row : undefined));
+    assert.deepEqual(await push.getPreferences(1), { nouveau_devoir: true, devoir_modifie: false, rappel_veille: true, nouveau_commentaire: 'tous' });
   });
 
   test('préférences : nouveau_commentaire enregistré avec les autres', async () => {
     fake.calls.length = 0;
     fake.setHandler(() => undefined);
-    const prefs = await push.setPreferences(1, { nouveau_commentaire: false });
-    assert.equal(prefs.nouveau_commentaire, false);
+    const prefs = await push.setPreferences(1, { nouveau_commentaire: 'tous' });
+    assert.equal(prefs.nouveau_commentaire, 'tous');
     const insert = fake.calls.find((c) => c.method === 'run' && c.sql.includes('push_preferences'));
     assert.match(insert.sql, /nouveau_commentaire = VALUES\(nouveau_commentaire\)/);
-    assert.deepEqual(insert.params, [1, true, true, true, false]);
+    assert.deepEqual(insert.params, [1, true, true, true, 'tous']);
+  });
+
+  test('préférences : choix de commentaires inconnu ignoré', async () => {
+    fake.setHandler(() => undefined);
+    for (const value of ['x', true, false, null]) {
+      assert.equal((await push.setPreferences(1, { nouveau_commentaire: value })).nouveau_commentaire, 'participe');
+    }
   });
 });
 
@@ -246,16 +259,27 @@ describe('envoi', () => {
     assert.equal(sendMock.mock.callCount(), 1);
   });
 
-  test('notifyClasse filtre sur la préférence nouveau_commentaire', async (t) => {
-    t.mock.method(webpush, 'sendNotification', async () => ({ statusCode: 201 }));
+  test('notifyCommentaire : selon le choix de chacun, participants du devoir par défaut', async (t) => {
+    const sendMock = t.mock.method(webpush, 'sendNotification', async () => ({ statusCode: 201 }));
+    const subs = [{ id: 1, endpoint: 'https://push.example/ok', p256dh: 'p', auth: 'a' }];
     fake.calls.length = 0;
-    fake.setHandler(() => []);
-    await push.notifyClasse(5, 'nouveau_commentaire', {}, 42);
+    fake.setHandler((method) => (method === 'all' ? subs : undefined));
+
+    const payload = messages.nouveauCommentaire({ devoirId: 10, titre: 'T', auteur: 'Léa', contenu: 'Question' });
+    assert.deepEqual(await push.notifyCommentaire(5, 10, payload, 42), { sent: 1, removed: 0, failed: 0 });
+    assert.equal(sendMock.mock.callCount(), 1);
+
     const select = fake.calls.find((c) => c.method === 'all');
-    assert.match(select.sql, /COALESCE\(pp\.nouveau_commentaire, TRUE\)/);
+    assert.deepEqual(select.params, [5, 42, 'participe', 10]);
+    assert.match(select.sql, /COALESCE\(pp\.nouveau_commentaire, \?\)/);
+    assert.match(select.sql, /WHEN 'tous' THEN TRUE/);
+    assert.match(select.sql, /WHEN 'participe' THEN EXISTS \(\s*SELECT 1 FROM devoir_commentaires dc WHERE dc\.devoir_id = \? AND dc\.user_id = u\.id/);
+    assert.match(select.sql, /ELSE FALSE/);
   });
 
   test('préférence inconnue refusée (pas d\'injection dans la requête)', async () => {
     await assert.rejects(() => push.notifyClasse(1, 'x; DROP TABLE users', {}), /Préférence inconnue/);
+    // Pas un booléen : passe par notifyCommentaire
+    await assert.rejects(() => push.notifyClasse(1, 'nouveau_commentaire', {}), /Préférence inconnue/);
   });
 });

@@ -619,3 +619,15 @@ html.dark-theme .optional {
 .push-preferences:disabled .push-pref {
   cursor: not-allowed;
 }
+
+/* Préférence à plusieurs choix : libellé, puis liste déroulante en dessous */
+.push-pref-choix {
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.push-pref-choix select {
+  margin-bottom: 0;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.95rem;
+}
