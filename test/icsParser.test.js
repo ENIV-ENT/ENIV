@@ -4,8 +4,8 @@ const { parseIcs, IcsError } = require('../backend/services/icsParser');
 
 const calendar = (...lines) => ['BEGIN:VCALENDAR', 'VERSION:2.0', ...lines, 'END:VCALENDAR'].join('\r\n');
 
-test('lit un cours en UTC, déplie les lignes et déséchappe le texte', () => {
-  const [cours] = parseIcs(calendar(
+test('reads a lesson in UTC, unfolds the lines and unescapes the text', () => {
+  const [lesson] = parseIcs(calendar(
     'BEGIN:VEVENT',
     'UID:abc-1',
     'DTSTART:20261013T123000Z',
@@ -17,7 +17,7 @@ test('lit un cours en UTC, déplie les lignes et déséchappe le texte', () => {
     'END:VEVENT'
   ));
 
-  assert.deepEqual(cours, {
+  assert.deepEqual(lesson, {
     uid: 'abc-1',
     titre: 'TD - Anglais, groupe 1',
     lieu: 'Salle 202',
@@ -28,8 +28,8 @@ test('lit un cours en UTC, déplie les lignes et déséchappe le texte', () => {
   });
 });
 
-test('heure locale : Europe/Paris en été comme en hiver, TZID inconnu ramené à Paris', () => {
-  const cours = parseIcs(calendar(
+test('local time: Europe/Paris in summer and winter, unknown TZID read as Paris, one hour without DTEND', () => {
+  const lessons = parseIcs(calendar(
     'BEGIN:VEVENT',
     'DTSTART;TZID=Europe/Paris:20260715T083000',
     'DTEND;TZID=Europe/Paris:20260715T100000',
@@ -49,18 +49,17 @@ test('heure locale : Europe/Paris en été comme en hiver, TZID inconnu ramené 
     'END:VEVENT'
   ));
 
-  const parTitre = Object.fromEntries(cours.map(c => [c.titre, c]));
-  assert.equal(parTitre['été'].debut, '2026-07-15T06:30:00.000Z');
-  assert.equal(parTitre['été'].fin, '2026-07-15T08:00:00.000Z');
-  assert.equal(parTitre['hiver flottant'].debut, '2026-12-15T07:30:00.000Z');
-  // DTEND absent : une heure par défaut
-  assert.equal(parTitre['hiver flottant'].fin, '2026-12-15T08:30:00.000Z');
-  assert.equal(parTitre['nom Windows'].debut, '2026-12-15T13:00:00.000Z');
-  assert.equal(parTitre['autre fuseau'].debut, '2026-12-15T14:00:00.000Z');
+  const byTitle = Object.fromEntries(lessons.map(c => [c.titre, c]));
+  assert.equal(byTitle['été'].debut, '2026-07-15T06:30:00.000Z');
+  assert.equal(byTitle['été'].fin, '2026-07-15T08:00:00.000Z');
+  assert.equal(byTitle['hiver flottant'].debut, '2026-12-15T07:30:00.000Z');
+  assert.equal(byTitle['hiver flottant'].fin, '2026-12-15T08:30:00.000Z');
+  assert.equal(byTitle['nom Windows'].debut, '2026-12-15T13:00:00.000Z');
+  assert.equal(byTitle['autre fuseau'].debut, '2026-12-15T14:00:00.000Z');
 });
 
-test('journée entière : dates sans heure, fin exclusive', () => {
-  const cours = parseIcs(calendar(
+test('all day: dates without time, exclusive end', () => {
+  const lessons = parseIcs(calendar(
     'BEGIN:VEVENT',
     'DTSTART;VALUE=DATE:20261102',
     'DTEND;VALUE=DATE:20261104',
@@ -72,14 +71,14 @@ test('journée entière : dates sans heure, fin exclusive', () => {
     'END:VEVENT'
   ));
 
-  assert.deepEqual(cours.map(c => [c.titre, c.journee, c.debut, c.fin]), [
+  assert.deepEqual(lessons.map(c => [c.titre, c.journee, c.debut, c.fin]), [
     ['Stage', true, '2026-11-02', '2026-11-04'],
     ['Férié', true, '2026-12-31', '2027-01-01']
   ]);
 });
 
-test('ignore les cours annulés et les alarmes, trie par début', () => {
-  const cours = parseIcs(calendar(
+test('ignores cancelled lessons and alarms, sorts by start', () => {
+  const lessons = parseIcs(calendar(
     'BEGIN:VEVENT',
     'DTSTART:20261014T100000Z',
     'SUMMARY:second',
@@ -99,10 +98,10 @@ test('ignore les cours annulés et les alarmes, trie par début', () => {
     'END:VEVENT'
   ));
 
-  assert.deepEqual(cours.map(c => c.titre), ['premier', 'second']);
+  assert.deepEqual(lessons.map(c => c.titre), ['premier', 'second']);
 });
 
-test("refuse un contenu qui n'est pas un calendrier", () => {
+test('refuses a content that is not a calendar', () => {
   assert.throws(() => parseIcs('<html><body>Erreur</body></html>'), IcsError);
   assert.throws(() => parseIcs(''), IcsError);
   assert.deepEqual(parseIcs('﻿BEGIN:VCALENDAR\nEND:VCALENDAR'), []);

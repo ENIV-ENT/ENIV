@@ -26,25 +26,25 @@ before(() => {
 });
 after(() => server.close());
 
-// Sans corps JSON, Express 5 laisse req.body à undefined
-const sansCorps = (route) => fetch(`${url}${route}`, { method: 'POST' });
+/** Without a JSON body, Express 5 leaves req.body undefined. */
+const withoutBody = (route) => fetch(`${url}${route}`, { method: 'POST' });
 
-test('inscription sans corps : 400 sans toucher à la base', async () => {
+test('signup without a body: 400 without touching the database', async () => {
   fake.calls.length = 0;
-  const res = await sansCorps('/register');
+  const res = await withoutBody('/register');
   assert.equal(res.status, 400);
   assert.equal(fake.calls.length, 0);
 });
 
-test('vérification de username sans corps : indisponible, pas d\'erreur', async () => {
-  const res = await sansCorps('/check-username');
+test('username check without a body: unavailable, no error', async () => {
+  const res = await withoutBody('/check-username');
   assert.equal(res.status, 200);
   assert.equal((await res.json()).available, false);
 });
 
-test('demande d\'établissement sans corps : 400', async () => {
+test('school request without a body: 400', async () => {
   fake.calls.length = 0;
-  const res = await sansCorps('/etablissement-request');
+  const res = await withoutBody('/etablissement-request');
   assert.equal(res.status, 400);
   assert.equal(fake.calls.length, 0);
 });

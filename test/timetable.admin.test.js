@@ -39,35 +39,35 @@ beforeEach(() => {
   mock.restoreAll();
 });
 
-const save = (userId, lien) => fetch(url, {
+const save = (userId, link) => fetch(url, {
   method: 'POST',
   headers: { 'content-type': 'application/json', authorization: `Bearer ${jwt.sign({ userId }, JWT_SECRET)}` },
-  body: JSON.stringify({ lien }),
+  body: JSON.stringify({ lien: link }),
 });
 
 const writes = () => fake.calls.filter((c) => c.method === 'run' && c.sql.includes('emploi_temps_ics'));
 
-test('un élève ne peut pas configurer le lien ICS', async () => {
+test('a student cannot set the ICS link', async () => {
   const res = await save(1, 'https://edt.example.fr/cal.ics');
   assert.equal(res.status, 403);
   assert.equal(writes().length, 0);
 });
 
-test('liens refusés : autre schéma, adresse interne, trop long', async () => {
-  for (const lien of [
+test('links refused: other scheme, internal address, too long', async () => {
+  for (const link of [
     'ftp://edt.example.fr/cal.ics',
     'http://127.0.0.1:8080/cal.ics',
     'http://[::1]/cal.ics',
     'pas une url',
     `https://edt.example.fr/${'a'.repeat(2100)}`,
   ]) {
-    const res = await save(2, lien);
-    assert.equal(res.status, 400, lien);
+    const res = await save(2, link);
+    assert.equal(res.status, 400, link);
   }
   assert.equal(writes().length, 0);
 });
 
-test('sans corps JSON : pas d\'erreur 500, traité comme un lien absent', async () => {
+test('without a JSON body: no 500 error, handled as a missing link', async () => {
   const res = await fetch(url, {
     method: 'POST',
     headers: { authorization: `Bearer ${jwt.sign({ userId: 2 }, JWT_SECRET)}` },
@@ -76,7 +76,7 @@ test('sans corps JSON : pas d\'erreur 500, traité comme un lien absent', async 
   assert.match(writes()[0].sql, /^DELETE FROM emploi_temps_ics/);
 });
 
-test('un lien vide supprime la configuration', async () => {
+test('an empty link removes the configuration', async () => {
   const res = await save(2, '  ');
   assert.equal(res.status, 200);
   const [del] = writes();
@@ -84,7 +84,7 @@ test('un lien vide supprime la configuration', async () => {
   assert.deepEqual(del.params, [4]);
 });
 
-test('source injoignable : le lien est enregistré avec un avertissement', async () => {
+test('unreachable source: the link is saved with a warning', async () => {
   mock.method(safeRequest, 'openRemote', async () => {
     throw new safeRequest.ProxyError("La source de l'emploi du temps ne répond pas", 504);
   });

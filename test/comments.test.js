@@ -13,11 +13,11 @@ const USERS = {
   3: { id: 3, username: 'prof', role: 'admin', classe_id: 4 },
   9: { id: 9, username: 'autre', role: 'eleve', classe_id: 7 },
 };
+
+/** Assignment 10 belongs to class 4; comment 5 was written by Léa. */
 const fake = installFakeDb((method, sql, params) => {
   if (method === 'get' && sql.startsWith('SELECT * FROM users WHERE id')) return USERS[params[0]];
-  // Le devoir 10 appartient à la classe 4
   if (method === 'get' && sql.includes('FROM devoirs WHERE id')) return params[0] === '10' && params[1] === 4 ? { id: 10, titre: 'Exercice 3' } : undefined;
-  // Le commentaire 5 a été écrit par Léa
   if (method === 'get' && sql.includes('WHERE c.id = ?')) {
     return params[0] === '5' ? { id: 5, user_id: 1, contenu: 'Question', username: 'lea', prenom: 'Léa', nom: 'Martin', devoir_titre: 'Exercice 3' } : undefined;
   }
@@ -29,27 +29,25 @@ const fake = installFakeDb((method, sql, params) => {
   return undefined;
 });
 
-// Le notificateur temps réel est testé avec un double du service de diffusion
 const sent = [];
 const realtimeFile = path.join(__dirname, '../backend/services/realtime.js');
-require.cache[realtimeFile] = { id: realtimeFile, filename: realtimeFile, loaded: true, exports: { notifyClass: (classeId, message) => sent.push({ classeId, message }) } };
+require.cache[realtimeFile] = { id: realtimeFile, filename: realtimeFile, loaded: true, exports: { notifyClass: (classId, message) => sent.push({ classId, message }) } };
 
-// Notifications push : double qui enregistre les envois au lieu de les faire
 const pushes = [];
 const pushFile = path.join(__dirname, '../backend/services/push.js');
 require.cache[pushFile] = { id: pushFile, filename: pushFile, loaded: true, exports: {
-  notifyCommentInBackground: (classeId, devoirId, payload, excludeUserId) => pushes.push({ classeId, devoirId, payload, excludeUserId }),
+  notifyCommentInBackground: (classId, assignmentId, payload, excludeUserId) => pushes.push({ classId, assignmentId, payload, excludeUserId }),
 } };
 
 const realtimeNotifier = require('../backend/middleware/realtimeNotifier');
-const commentaires = require('../backend/routes/comments');
+const comments = require('../backend/routes/comments');
 
 let server;
 let base;
 before(() => {
   const app = express();
   app.use(realtimeNotifier);
-  app.use('/api/devoirs/:assignmentId/commentaires', commentaires);
+  app.use('/api/devoirs/:assignmentId/commentaires', comments);
   server = app.listen(0);
   base = `http://127.0.0.1:${server.address().port}/api/devoirs`;
 });
@@ -61,27 +59,27 @@ const call = (userId, method, url, body) => fetch(`${base}${url}`, {
   body: body ? JSON.stringify(body) : undefined,
 });
 
-describe('commentaires', () => {
-  test('liste : chacun peut supprimer les siens, l\'admin tous', async () => {
+describe('comments', () => {
+  test('list: everyone can delete their own, the admin all of them', async () => {
     const lea = await (await call(1, 'GET', '/10/commentaires')).json();
     assert.deepEqual(lea.map((c) => c.supprimable), [true, false]);
     const prof = await (await call(3, 'GET', '/10/commentaires')).json();
     assert.deepEqual(prof.map((c) => c.supprimable), [true, true]);
   });
 
-  test('devoir d\'une autre classe : 404', async () => {
+  test('assignment of another class: 404', async () => {
     assert.equal((await call(9, 'GET', '/10/commentaires')).status, 404);
     assert.equal((await call(9, 'POST', '/10/commentaires', { contenu: 'intrus' })).status, 404);
   });
 
-  test('identifiants non entiers : 404, sans requête sur le devoir', async () => {
+  test('non-integer ids: 404, without an assignment query', async () => {
     fake.calls.length = 0;
     assert.equal((await call(1, 'POST', '/10abc/commentaires', { contenu: 'Bonjour' })).status, 404);
     assert.equal((await call(3, 'DELETE', '/10/commentaires/5abc')).status, 404);
     assert.equal(fake.calls.some((c) => c.sql.includes('FROM devoirs')), false);
   });
 
-  test('ajout : texte nettoyé, vide ou trop long refusé', async () => {
+  test('add: text trimmed, empty or too long refused', async () => {
     fake.calls.length = 0;
     const res = await call(1, 'POST', '/10/commentaires', { contenu: '  C\'est pour lundi ?  ' });
     assert.equal(res.status, 200);
@@ -92,14 +90,14 @@ describe('commentaires', () => {
     assert.equal((await call(1, 'POST', '/10/commentaires', { contenu: 'a'.repeat(2001) })).status, 400);
   });
 
-  test('suppression : l\'auteur oui, un camarade non, l\'admin oui', async () => {
+  test('delete: the author yes, a classmate no, the admin yes', async () => {
     assert.equal((await call(2, 'DELETE', '/10/commentaires/5')).status, 403);
     assert.equal((await call(1, 'DELETE', '/10/commentaires/5')).status, 200);
     assert.equal((await call(3, 'DELETE', '/10/commentaires/5')).status, 200);
     assert.equal((await call(1, 'DELETE', '/10/commentaires/999')).status, 404);
   });
 
-  test('suppression : enregistrée dans l\'Historique avec le message et son auteur', async () => {
+  test('delete: recorded in the history with the message and its author', async () => {
     fake.calls.length = 0;
     await call(3, 'DELETE', '/10/commentaires/5');
     const log = fake.calls.find((c) => c.sql.startsWith('INSERT INTO devoir_logs'));
@@ -110,24 +108,23 @@ describe('commentaires', () => {
     assert.deepEqual(details.commentaire.auteur, { username: 'lea', prenom: 'Léa', nom: 'Martin' });
   });
 
-  test('ajout : 10 commentaires par minute et par compte, puis 429', async () => {
+  test('add: 10 comments per minute and per account, then 429; a classmate is not blocked', async () => {
     for (let i = 0; i < 10; i++) {
       assert.equal((await call(2, 'POST', '/10/commentaires', { contenu: `Message ${i}` })).status, 200);
     }
     const res = await call(2, 'POST', '/10/commentaires', { contenu: 'Un de trop' });
     assert.equal(res.status, 429);
     assert.match((await res.json()).error, /Trop de commentaires/);
-    // Le compte d'un camarade n'est pas bloqué
     assert.equal((await call(1, 'POST', '/10/commentaires', { contenu: 'Moi aussi' })).status, 200);
   });
 
-  test('push : la classe est prévenue selon les préférences, sauf l\'auteur', async () => {
+  test('push: the class is told according to the preferences, except the author; without a name, the username is used', async () => {
     pushes.length = 0;
     assert.equal((await call(1, 'POST', '/10/commentaires', { contenu: 'C\'est pour lundi ?' })).status, 200);
     assert.equal(pushes.length, 1);
     assert.deepEqual(pushes[0], {
-      classeId: 4,
-      devoirId: 10,
+      classId: 4,
+      assignmentId: 10,
       payload: {
         title: '💬 Exercice 3',
         body: 'Léa Martin : C\'est pour lundi ?',
@@ -137,13 +134,12 @@ describe('commentaires', () => {
       excludeUserId: 1,
     });
 
-    // Sans prénom ni nom, l'identifiant sert de nom d'auteur
     pushes.length = 0;
     await call(3, 'POST', '/10/commentaires', { contenu: 'Oui' });
     assert.equal(pushes[0].payload.body, 'prof : Oui');
   });
 
-  test('push : rien n\'est envoyé pour un commentaire refusé', async () => {
+  test('push: nothing is sent for a refused comment', async () => {
     pushes.length = 0;
     await call(1, 'POST', '/10/commentaires', { contenu: '   ' });
     await call(1, 'POST', '/10/commentaires', { contenu: 'a'.repeat(2001) });
@@ -151,14 +147,13 @@ describe('commentaires', () => {
     assert.equal(pushes.length, 0);
   });
 
-  test('temps réel : la classe reçoit « commentaires » pour ce devoir', async () => {
+  test('realtime: the class gets "commentaires" for this assignment, with the comment count', async () => {
     sent.length = 0;
     await call(1, 'POST', '/10/commentaires', { contenu: 'Merci !' });
     assert.equal(sent.length, 1);
-    assert.equal(sent[0].classeId, 4);
+    assert.equal(sent[0].classId, 4);
     assert.equal(sent[0].message.resource, 'commentaires');
     assert.equal(sent[0].message.devoirId, 10);
-    // Le nombre voyage avec la notification : les clients ne rechargent pas les devoirs
     assert.equal(sent[0].message.nbCommentaires, 3);
   });
 });

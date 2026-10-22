@@ -5,7 +5,7 @@ const { Readable } = require('stream');
 const { openRemote, readLimited, ProxyError } = require('../backend/services/safeRequest');
 const { fetchImage } = require('../backend/services/imageProxy');
 
-test('proxy d\'images : schémas et adresses internes refusés avant toute connexion', async () => {
+test('image proxy: internal schemes and addresses refused before any connection', async () => {
   await assert.rejects(fetchImage('file:///etc/passwd'), { name: 'ProxyError', status: 400 });
   await assert.rejects(fetchImage('pas une url'), { name: 'ProxyError', status: 400 });
   for (const target of ['http://127.0.0.1/a.png', 'http://169.254.169.254/', 'http://[::ffff:10.0.0.1]/', 'http://[::1]:3000/']) {
@@ -13,7 +13,7 @@ test('proxy d\'images : schémas et adresses internes refusés avant toute conne
   }
 });
 
-test('readLimited : coupe un flux qui dépasse la taille maximale', async () => {
+test('readLimited: cuts a stream that goes past the maximum size', async () => {
   const ok = await readLimited(Readable.from([Buffer.from('abc'), Buffer.from('def')]), 6);
   assert.equal(ok.toString(), 'abcdef');
 
@@ -23,11 +23,13 @@ test('readLimited : coupe un flux qui dépasse la taille maximale', async () => 
   );
 });
 
-// Source qui envoie un octet toutes les 50 ms sans jamais terminer : le délai
-// d'inactivité ne la coupe pas, seule la durée maximale le fait
-const lente = http.createServer((req, res) => {
-  if (req.url === '/redirection') {
-    res.writeHead(302, { location: '/lente' });
+/**
+ * Source that sends a byte every 50 ms without ever ending: the idle timeout does
+ * not stop it, only the deadline does.
+ */
+const slowSource = http.createServer((req, res) => {
+  if (req.url === '/redirect') {
+    res.writeHead(302, { location: '/slow' });
     return res.end();
   }
   res.writeHead(200, { 'content-type': 'text/calendar' });
@@ -35,16 +37,16 @@ const lente = http.createServer((req, res) => {
   const timer = setInterval(() => res.write('.'), 50);
   res.on('close', () => clearInterval(timer));
 });
-after(() => lente.close());
+after(() => slowSource.close());
 
-// Le serveur de test est sur 127.0.0.1, que la résolution filtrée refuse
+/** The test server is on 127.0.0.1, which the filtered resolution refuses. */
 const localhost = (hostname, options, callback) => (options.all
   ? callback(null, [{ address: '127.0.0.1', family: 4 }])
   : callback(null, '127.0.0.1', 4));
 
-async function telecharger(chemin, deadlineMs) {
-  await new Promise((resolve) => (lente.listening ? resolve() : lente.listen(0, '127.0.0.1', resolve)));
-  const remote = await openRemote(`http://localhost:${lente.address().port}${chemin}`, {
+async function download(route, deadlineMs) {
+  await new Promise((resolve) => (slowSource.listening ? resolve() : slowSource.listen(0, '127.0.0.1', resolve)));
+  const remote = await openRemote(`http://localhost:${slowSource.address().port}${route}`, {
     accept: 'text/calendar',
     userAgent: 'test',
     allowedTypes: new Set(['text/calendar']),
@@ -57,12 +59,12 @@ async function telecharger(chemin, deadlineMs) {
   return readLimited(remote.stream, 1024 * 1024);
 }
 
-test('durée maximale : une source qui envoie au compte-gouttes est abandonnée', async () => {
-  const debut = Date.now();
-  await assert.rejects(telecharger('/lente', 300), { name: 'ProxyError', status: 504, message: /trop de temps/ });
-  assert.ok(Date.now() - debut < 1000);
+test('deadline: a source that sends drop by drop is aborted', async () => {
+  const start = Date.now();
+  await assert.rejects(download('/slow', 300), { name: 'ProxyError', status: 504, message: /trop de temps/ });
+  assert.ok(Date.now() - start < 1000);
 });
 
-test('durée maximale : comptée depuis le début, redirections comprises', async () => {
-  await assert.rejects(telecharger('/redirection', 300), { name: 'ProxyError', status: 504 });
+test('deadline: counted from the start, redirects included', async () => {
+  await assert.rejects(download('/redirect', 300), { name: 'ProxyError', status: 504 });
 });

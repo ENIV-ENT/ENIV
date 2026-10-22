@@ -6,27 +6,27 @@ process.env.NODE_ENV = 'test';
 const { resolveJwtSecret } = require('../backend/config/jwt');
 const { loginLimiter } = require('../backend/middleware/rateLimit');
 
-test('JWT_SECRET manquant : refus en production', () => {
+test('missing JWT_SECRET: refused in production', () => {
   assert.throws(() => resolveJwtSecret({ NODE_ENV: 'production' }), /JWT_SECRET is missing/);
 });
 
-test('JWT_SECRET manquant : valeur de développement hors production', () => {
+test('missing JWT_SECRET: development value outside production', () => {
   assert.equal(typeof resolveJwtSecret({ NODE_ENV: 'development' }), 'string');
   assert.equal(typeof resolveJwtSecret({ NODE_ENV: 'test' }), 'string');
 });
 
-test('JWT_SECRET d\'exemple : refus en production', () => {
+test('sample JWT_SECRET: refused in production', () => {
   const secret = 'your-jwt-secret-key-change-in-production';
   assert.throws(() => resolveJwtSecret({ NODE_ENV: 'production', JWT_SECRET: secret }), /public sample value/);
   assert.equal(resolveJwtSecret({ NODE_ENV: 'development', JWT_SECRET: secret }), secret);
 });
 
-test('JWT_SECRET fourni : utilisé tel quel', () => {
+test('JWT_SECRET given: used as is', () => {
   const secret = 'x'.repeat(48);
   assert.equal(resolveJwtSecret({ NODE_ENV: 'production', JWT_SECRET: secret }), secret);
 });
 
-test('connexion : 10 échecs par identifiant puis 429, plafond large par IP, seuls les 401 comptent', async (t) => {
+test('login: 10 failures per username then 429, generous limit per IP, only 401s count', async (t) => {
   const app = express();
   app.use(express.json());
   app.post('/login', loginLimiter, (req, res) => {
@@ -43,14 +43,15 @@ test('connexion : 10 échecs par identifiant puis 429, plafond large par IP, seu
     body: JSON.stringify({ username, password }),
   }).then((r) => r.status);
 
+  const incompleteRequestsBlockNobody = () => login('alice', '');
+  const sameIpOtherStudent = () => login('bob', 'mauvais');
+  const manyUsernamesFromOneIp = (i) => login(`eleve${i}`, 'mauvais');
+
   for (let i = 0; i < 5; i++) assert.equal(await login('alice', 'ok'), 200);
-  // Seuls les 401 comptent : les requêtes incomplètes ne bloquent personne
-  for (let i = 0; i < 20; i++) assert.equal(await login('alice', ''), 400);
+  for (let i = 0; i < 20; i++) assert.equal(await incompleteRequestsBlockNobody(), 400);
   for (let i = 0; i < 10; i++) assert.equal(await login('alice', 'mauvais'), 401);
   assert.equal(await login('Alice', 'mauvais'), 429);
-  // Même IP, autre élève : pas bloqué par les erreurs d'alice
-  assert.equal(await login('bob', 'mauvais'), 401);
-  // Plafond par IP : beaucoup d'identifiants différents finissent bloqués
-  for (let i = 0; i < 100; i++) await login(`eleve${i}`, 'mauvais');
+  assert.equal(await sameIpOtherStudent(), 401);
+  for (let i = 0; i < 100; i++) await manyUsernamesFromOneIp(i);
   assert.equal(await login('carol', 'mauvais'), 429);
 });

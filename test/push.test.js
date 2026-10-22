@@ -13,7 +13,7 @@ const messages = require('../backend/services/pushMessages');
 const { tomorrowInParis, groupByUser } = require('../backend/services/pushReminders');
 
 describe('messages', () => {
-  test('nouveau devoir : matière, titre, date en toutes lettres et lien direct', () => {
+  test('new assignment: subject, title, spelled-out date and direct link', () => {
     const msg = messages.newAssignment({ id: 7, titre: 'Exercices p.84', matiere_nom: 'Maths', date: '2026-10-20' });
     assert.equal(msg.title, '📚 Nouveau devoir · Maths');
     assert.equal(msg.body, 'Exercices p.84 — pour mardi 20 octobre');
@@ -21,7 +21,7 @@ describe('messages', () => {
     assert.equal(msg.tag, 'devoir-7');
   });
 
-  test('devoir modifié : la nouvelle date est mise en avant', () => {
+  test('assignment updated: the new date comes first', () => {
     const msg = messages.assignmentUpdated(
       { id: 7, titre: 'Exercices', matiere_nom: 'Maths', date: '2026-10-22' },
       [{ field: 'date' }, { field: 'description' }]
@@ -29,19 +29,19 @@ describe('messages', () => {
     assert.equal(msg.body, 'Exercices — désormais pour jeudi 22 octobre');
   });
 
-  test('devoir modifié : liste des champs sinon', () => {
+  test('assignment updated: list of the fields otherwise', () => {
     const msg = messages.assignmentUpdated({ id: 1, titre: 'TP' }, [{ field: 'titre' }, { field: 'description' }]);
     assert.equal(msg.body, 'TP — titre, description modifiés');
   });
 
-  test('devoir modifié : « modifié » accordé au genre des champs', () => {
+  test('assignment updated: "modifié" agrees with the gender of the fields', () => {
     const body = (...fields) => messages.assignmentUpdated({ id: 1, titre: 'TP' }, fields.map((field) => ({ field }))).body;
     assert.equal(body('titre'), 'TP — titre modifié');
     assert.equal(body('description'), 'TP — description modifiée');
     assert.equal(body('description', 'matiere_id'), 'TP — description, matière modifiées');
   });
 
-  test('rappel : un devoir -> lien vers le devoir ; plusieurs -> liste', () => {
+  test('reminder: one assignment -> link to it; several -> list', () => {
     const one = messages.dayBeforeReminder([{ id: 3, titre: 'Dissertation', matiere_nom: 'Philo' }]);
     assert.equal(one.title, '⏰ Pour demain');
     assert.equal(one.url, '/dashboard/?devoir=3');
@@ -55,56 +55,54 @@ describe('messages', () => {
     assert.equal(many.url, '/dashboard/');
   });
 
-  test('nouveau commentaire : auteur et texte sur une ligne, lien qui déplie la discussion', () => {
+  test('new comment: author and text on one line, link that opens the thread, tag distinct from devoir-7', () => {
     const msg = messages.newComment({ assignmentId: 7, title: 'Exercices p.84', author: 'Léa Martin', content: 'C\'est pour lundi ?\n\nOu mardi ?' });
     assert.equal(msg.title, '💬 Exercices p.84');
     assert.equal(msg.body, 'Léa Martin : C\'est pour lundi ? Ou mardi ?');
     assert.equal(msg.url, '/dashboard/?devoir=7&commentaires=1');
-    // Distinct de « devoir-7 » : ne remplace pas une notification de devoir encore affichée
     assert.equal(msg.tag, 'commentaire-7');
 
     const long = messages.newComment({ assignmentId: 7, title: 'T', author: 'lea', content: 'a'.repeat(2000) });
     assert.equal(long.body.length, 140);
   });
 
-  test('textes longs tronqués', () => {
+  test('long texts truncated', () => {
     assert.equal(messages.truncate('a'.repeat(200)).length, 140);
     assert.ok(messages.truncate('a'.repeat(200)).endsWith('…'));
   });
 });
 
-describe('rappels de la veille', () => {
-  test('demain est calculé dans le fuseau de Paris', () => {
-    // 17 oct. 2026 à 23h30 UTC = 18 oct. 1h30 à Paris : demain = 19
+describe('day-before reminders', () => {
+  test('tomorrow is computed in the Paris time zone (Oct 17, 23:30 UTC is Oct 18, 01:30 in Paris)', () => {
     assert.equal(tomorrowInParis(new Date('2026-10-17T23:30:00Z')), '2026-10-19');
     assert.equal(tomorrowInParis(new Date('2026-10-18T16:00:00Z')), '2026-10-19');
   });
 
-  test('regroupement par élève', () => {
-    const groupes = groupByUser([
+  test('grouping by student', () => {
+    const groups = groupByUser([
       { user_id: 1, id: 10, titre: 'A', matiere_nom: 'M' },
       { user_id: 2, id: 10, titre: 'A', matiere_nom: 'M' },
       { user_id: 1, id: 11, titre: 'B', matiere_nom: 'N' },
     ]);
-    assert.equal(groupes.get(1).length, 2);
-    assert.equal(groupes.get(2).length, 1);
+    assert.equal(groups.get(1).length, 2);
+    assert.equal(groups.get(2).length, 1);
   });
 });
 
-describe('abonnements', () => {
+describe('subscriptions', () => {
   const valid = { subscription: { endpoint: 'https://fcm.googleapis.com/fcm/send/abc', keys: { p256dh: 'p', auth: 'a' } } };
 
-  test('abonnement valide accepté', () => {
+  test('valid subscription accepted', () => {
     assert.deepEqual(push.parseSubscription(valid), { endpoint: valid.subscription.endpoint, p256dh: 'p', auth: 'a' });
   });
 
-  test('abonnements invalides refusés', () => {
+  test('invalid subscriptions refused', () => {
     assert.equal(push.parseSubscription({}), null);
     assert.equal(push.parseSubscription({ subscription: { endpoint: 'http://insecure', keys: { p256dh: 'p', auth: 'a' } } }), null);
     assert.equal(push.parseSubscription({ subscription: { endpoint: 'https://x', keys: {} } }), null);
   });
 
-  test('seuls les services push des navigateurs sont acceptés', () => {
+  test('only the browsers\' push services are accepted', () => {
     const withEndpoint = (endpoint) => push.parseSubscription({ subscription: { endpoint, keys: { p256dh: 'p', auth: 'a' } } });
     for (const endpoint of [
       'https://updates.push.services.mozilla.com/wpush/v2/abc',
@@ -125,7 +123,7 @@ describe('abonnements', () => {
     }
   });
 
-  test('nombre d\'appareils limité par compte, sauf pour un abonnement déjà enregistré', async () => {
+  test('number of devices limited per account, except for a subscription already saved', async () => {
     const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/abc', p256dh: 'p', auth: 'a' };
     fake.calls.length = 0;
     fake.setHandler((method, sql) => (method === 'get' && sql.includes('COUNT') ? { n: 10 } : undefined));
@@ -138,7 +136,7 @@ describe('abonnements', () => {
     assert.match(count.sql, /endpoint_hash <> \?/);
   });
 
-  test('user-agent enregistré, tronqué à 255 caractères', async () => {
+  test('user agent saved, truncated to 255 characters', async () => {
     const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/abc', p256dh: 'p', auth: 'a' };
     fake.calls.length = 0;
     fake.setHandler((method) => (method === 'get' ? { n: 0 } : undefined));
@@ -147,30 +145,30 @@ describe('abonnements', () => {
     assert.equal(insert.params.at(-1), 'x'.repeat(255));
   });
 
-  test('nom d\'appareil lisible à partir du user-agent', () => {
-    const cas = {
+  test('readable device name from the user agent', () => {
+    const cases = {
       'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36': 'Chrome sur Android',
       'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1': 'Safari sur iPhone',
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36 Edg/130.0': 'Edge sur Windows',
       'Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0': 'Firefox sur Linux',
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15': 'Safari sur Mac',
     };
-    for (const [userAgent, attendu] of Object.entries(cas)) {
-      assert.equal(push.describeUserAgent(userAgent), attendu);
+    for (const [userAgent, expected] of Object.entries(cases)) {
+      assert.equal(push.describeUserAgent(userAgent), expected);
     }
     assert.equal(push.describeUserAgent(null), 'Appareil inconnu');
   });
 
-  test('retirer un appareil : limité aux abonnements du compte', async () => {
+  test('removing a device: limited to the subscriptions of the account', async () => {
     fake.calls.length = 0;
-    fake.setHandler(() => undefined); // aucune ligne supprimée
+    fake.setHandler(() => undefined);
     assert.equal(await push.deleteSubscriptionById(1, 7), false);
     const del = fake.calls.find((c) => c.method === 'run');
     assert.match(del.sql, /WHERE id = \? AND user_id = \?/);
     assert.deepEqual(del.params, [7, 1]);
   });
 
-  test('liste des appareils : nom lisible, user-agent brut non renvoyé', async () => {
+  test('device list: readable name, raw user agent not sent back', async () => {
     fake.setHandler((method) => (method === 'all'
       ? [{ id: 3, endpoint_hash: 'h', user_agent: 'Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0', created_at: 'c', last_success_at: null }]
       : undefined));
@@ -179,18 +177,18 @@ describe('abonnements', () => {
     ]);
   });
 
-  test('préférences par défaut : tout activé, commentaires des discussions suivies', async () => {
+  test('default preferences: everything enabled, comments of the followed threads', async () => {
     fake.setHandler(() => undefined);
     assert.deepEqual(await push.getPreferences(1), { nouveau_devoir: true, devoir_modifie: true, rappel_veille: true, nouveau_commentaire: 'participe' });
   });
 
-  test('préférences lues en base : booléens et choix des commentaires', async () => {
+  test('preferences read from the database: booleans and comment choice', async () => {
     const row = { user_id: 1, nouveau_devoir: 1, devoir_modifie: 0, rappel_veille: 1, nouveau_commentaire: 'tous' };
     fake.setHandler((method, sql) => (method === 'get' && sql.includes('push_preferences') ? row : undefined));
     assert.deepEqual(await push.getPreferences(1), { nouveau_devoir: true, devoir_modifie: false, rappel_veille: true, nouveau_commentaire: 'tous' });
   });
 
-  test('préférences : nouveau_commentaire enregistré avec les autres', async () => {
+  test('preferences: nouveau_commentaire saved with the others', async () => {
     fake.calls.length = 0;
     fake.setHandler(() => undefined);
     const prefs = await push.setPreferences(1, { nouveau_commentaire: 'tous' });
@@ -200,7 +198,7 @@ describe('abonnements', () => {
     assert.deepEqual(insert.params, [1, true, true, true, 'tous']);
   });
 
-  test('préférences : choix de commentaires inconnu ignoré', async () => {
+  test('preferences: unknown comment choice ignored', async () => {
     fake.setHandler(() => undefined);
     for (const value of ['x', true, false, null]) {
       assert.equal((await push.setPreferences(1, { nouveau_commentaire: value })).nouveau_commentaire, 'participe');
@@ -208,8 +206,8 @@ describe('abonnements', () => {
   });
 });
 
-describe('envoi', () => {
-  test('notifyClasse exclut l\'auteur, envoie à chacun et supprime les abonnements expirés', async (t) => {
+describe('sending', () => {
+  test('notifyClass excludes the author, sends to everyone and deletes expired subscriptions', async (t) => {
     const subs = [
       { id: 1, endpoint: 'https://push.example/ok', p256dh: 'p', auth: 'a' },
       { id: 2, endpoint: 'https://push.example/gone', p256dh: 'p', auth: 'a' },
@@ -239,27 +237,27 @@ describe('envoi', () => {
     assert.ok(fake.calls.some((c) => c.method === 'run' && /DELETE FROM push_subscriptions/.test(c.sql) && c.params[0] === 2));
   });
 
-  test('pas de « devoir modifié » juste après la création', async (t) => {
+  test('no "devoir modifié" right after the creation', async (t) => {
     const sendMock = t.mock.method(webpush, 'sendNotification', async () => ({ statusCode: 201 }));
     const subs = [{ id: 1, endpoint: 'https://push.example/ok', p256dh: 'p', auth: 'a' }];
-    const devoir = { id: 9, titre: 'T', date: null };
+    const assignment = { id: 9, titre: 'T', date: null };
 
     fake.setHandler((method, sql) => {
       if (method === 'get' && sql.includes('created_at')) return { recent: 1 };
       return method === 'all' ? subs : undefined;
     });
-    assert.equal(await push.notifyAssignmentUpdated(5, devoir, [{ field: 'titre' }], 42), null);
+    assert.equal(await push.notifyAssignmentUpdated(5, assignment, [{ field: 'titre' }], 42), null);
     assert.equal(sendMock.mock.callCount(), 0);
 
     fake.setHandler((method, sql) => {
       if (method === 'get' && sql.includes('created_at')) return { recent: 0 };
       return method === 'all' ? subs : undefined;
     });
-    assert.deepEqual(await push.notifyAssignmentUpdated(5, devoir, [{ field: 'titre' }], 42), { sent: 1, removed: 0, failed: 0 });
+    assert.deepEqual(await push.notifyAssignmentUpdated(5, assignment, [{ field: 'titre' }], 42), { sent: 1, removed: 0, failed: 0 });
     assert.equal(sendMock.mock.callCount(), 1);
   });
 
-  test('notifyComment : selon le choix de chacun, participants du devoir par défaut', async (t) => {
+  test('notifyComment: according to everyone\'s choice, participants of the assignment by default', async (t) => {
     const sendMock = t.mock.method(webpush, 'sendNotification', async () => ({ statusCode: 201 }));
     const subs = [{ id: 1, endpoint: 'https://push.example/ok', p256dh: 'p', auth: 'a' }];
     fake.calls.length = 0;
@@ -277,9 +275,8 @@ describe('envoi', () => {
     assert.match(select.sql, /ELSE FALSE/);
   });
 
-  test('préférence inconnue refusée (pas d\'injection dans la requête)', async () => {
+  test('unknown preference refused (no injection in the query); nouveau_commentaire goes through notifyComment', async () => {
     await assert.rejects(() => push.notifyClass(1, 'x; DROP TABLE users', {}), /Unknown preference/);
-    // Pas un booléen : passe par notifyComment
     await assert.rejects(() => push.notifyClass(1, 'nouveau_commentaire', {}), /Unknown preference/);
   });
 });
