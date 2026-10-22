@@ -459,7 +459,7 @@ async function generate_with_retry(devoir, isPremium, documentsText) {
       
       // Si c'est la dernière tentative et qu'on n'a pas assez de questions
       if (attempts >= MAX_RETRIES && allQuestions.length < MIN_QUESTIONS) {
-        throw new Error(`Impossible de générer 20 questions après ${MAX_RETRIES} tentatives. Seulement ${allQuestions.length} questions générées.`);
+        throw new Error(`Impossible de générer 20 questions après ${MAX_RETRIES} tentatives. Seulement ${allQuestions.length} questions générées.`, { cause: error });
       }
     }
   }

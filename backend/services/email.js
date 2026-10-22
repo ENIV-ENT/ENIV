@@ -137,7 +137,7 @@ async function sendEmail(recipientEmail, subject, htmlContent, textContent, logL
     return { success: true, messageId: result.messageId };
   } catch (error) {
     console.error(`Erreur lors de l'envoi (${logLabel}):`, error);
-    throw new Error(`Impossible d'envoyer l'email (${logLabel})`);
+    throw new Error(`Impossible d'envoyer l'email (${logLabel})`, { cause: error });
   }
 }
 

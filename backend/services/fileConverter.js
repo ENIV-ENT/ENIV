@@ -70,7 +70,7 @@ async function convertToPDF(inputPath) {
     return outputPath;
   } catch (error) {
     console.error(`❌ Erreur lors de la conversion de "${path.basename(inputPath)}":`, error.message);
-    throw new Error(`Impossible de convertir le fichier en PDF: ${error.message}`);
+    throw new Error(`Impossible de convertir le fichier en PDF: ${error.message}`, { cause: error });
   }
 }
 
@@ -86,7 +86,7 @@ async function convertMultipleToPDF(filePaths) {
     try {
       const pdfPath = await convertToPDF(filePath);
       convertedPaths.push(pdfPath);
-    } catch (error) {
+    } catch {
       console.error(`⚠️ Impossible de convertir "${path.basename(filePath)}", ignoré`);
       // On continue avec les autres fichiers
     }
