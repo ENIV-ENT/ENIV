@@ -4,6 +4,8 @@
  * @module assignmentFiles
  */
 
+import { escapeHtml } from '../utils/dom.js';
+
 const ALLOWED_TYPES = [
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -113,7 +115,7 @@ function displayFiles(files) {
   filesList.innerHTML = files.map(file => {
     const date = new Date(file.uploaded_at);
     const uploadedBy = file.uploaded_by_username
-      ? `par ${file.uploaded_by_username}`
+      ? `par ${escapeHtml(file.uploaded_by_username)}`
       : '';
 
     return `
@@ -121,7 +123,7 @@ function displayFiles(files) {
         <div class="file-info">
           <div class="file-icon">${fileIcon(file.original_name)}</div>
           <div class="file-details">
-            <div class="file-name">${file.original_name}</div>
+            <div class="file-name">${escapeHtml(file.original_name)}</div>
             <div class="file-meta">Ajouté le ${date.toLocaleDateString('fr-FR')} à ${date.toLocaleTimeString('fr-FR')} ${uploadedBy}</div>
           </div>
         </div>
