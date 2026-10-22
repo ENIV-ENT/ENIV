@@ -1,7 +1,7 @@
-name: Déploiement
+name: Deployment
 
-# Déploie main sur le VPS, uniquement quand la CI est verte sur ce commit.
-# Lancement manuel possible depuis l'onglet Actions (workflow_dispatch).
+# Deploys main to the VPS, only when the CI is green on that commit.
+# Can also be started by hand from the Actions tab (workflow_dispatch).
 
 on:
   workflow_run:
@@ -16,18 +16,18 @@ concurrency:
 
 jobs:
   deploy:
-    # workflow_run se déclenche aussi quand la CI échoue : on ne déploie que sur un
-    # push de main dont la CI a réussi
+    # workflow_run also fires when the CI fails: only deploy a push to main
+    # whose CI succeeded
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     environment: production
     steps:
-      # deploy.sh met en ligne la tête de main, pas forcément le commit validé ici.
-      # Si main a avancé, on s'abstient : la CI du commit suivant déploiera.
-      - name: Vérifier que main pointe toujours sur le commit validé
-        id: verif
+      # deploy.sh ships the head of main, not necessarily the commit checked here.
+      # If main has moved on, skip: the CI of the next commit will deploy.
+      - name: Check that main still points to the checked commit
+        id: check
         if: github.event_name == 'workflow_run'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -35,12 +35,12 @@ jobs:
         run: |
           main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
           if [ "$main" != "$SHA" ]; then
-            echo "::notice::main est passé à $main : déploiement laissé à la CI de ce commit"
-            echo "perime=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::main moved to $main: deployment left to the CI of that commit"
+            echo "stale=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Lancer deploy.sh sur le VPS
-        if: steps.verif.outputs.perime != 'true'
+      - name: Run deploy.sh on the VPS
+        if: steps.check.outputs.stale != 'true'
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
@@ -50,18 +50,18 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
-          # La clé est restreinte côté serveur : la seule commande acceptée est le nom du projet.
+          # The key is restricted on the server: the only accepted command is the project name.
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes deploy@"$HOST" eniv
 
       - uses: actions/checkout@v7
-        if: steps.verif.outputs.perime != 'true' && vars.APP_URL != ''
+        if: steps.check.outputs.stale != 'true' && vars.APP_URL != ''
         with:
           sparse-checkout: scripts
 
-      - name: Test de fumée sur la production
-        if: steps.verif.outputs.perime != 'true' && vars.APP_URL != ''
+      - name: Smoke test on production
+        if: steps.check.outputs.stale != 'true' && vars.APP_URL != ''
         env:
           APP_URL: ${{ vars.APP_URL }}
-          # Laisse le temps au conteneur de reconstruire et redémarrer
+          # Leaves time for the container to rebuild and restart
           SMOKE_TIMEOUT_S: 180
         run: node scripts/smoke-test.js "$APP_URL"

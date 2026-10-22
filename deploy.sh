@@ -1,13 +1,13 @@
 #!/bin/bash
-# Déploiement d'ENIV sur le VPS : récupère la branche suivie puis reconstruit et relance le conteneur.
-# Les pages statiques (public/, public-site/) sont servies directement par Caddy depuis ce dossier.
+# Deploys ENIV on the VPS: pulls the tracked branch, then rebuilds and restarts the container.
+# Static pages (public/, public-site/) are served by Caddy straight from this folder.
 set -euo pipefail
 cd "$(dirname "$0")"
-# Annule les ?v=<hash> insérés au déploiement précédent, sinon le pull échoue sur ces fichiers modifiés.
+# Reverts the ?v=<hash> added by the previous deployment, otherwise the pull fails on these modified files.
 git checkout -- public public-site
 git pull --ff-only
-# Construit l'image de l'app d'abord : son Node sert ensuite à versionner les liens vers le CSS/JS.
-# L'image de base du Dockerfile n'est pas gardée en local après un build, l'utiliser imposerait un téléchargement de plus (qui peut échouer) entre le pull et la relance du conteneur.
+# Builds the app image first: its Node is then used to version the links to the CSS/JS.
+# The Dockerfile base image is not kept locally after a build; using it would add one more download (which can fail) between the pull and the container restart.
 docker compose -f compose.yml build
 image="$(docker compose -f compose.yml config --images)"
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/app" -w /app "$image" node scripts/version-assets.js
