@@ -10,13 +10,11 @@
   <link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
   <meta name="theme-color" content="#4a90e2">
   <script src="/js/pwa.js" defer></script>
-  <!-- Doit rester synchrone et avant les styles : applique le thème avant le premier rendu -->
   <script src="/js/theme-init.js"></script>
   <link rel="stylesheet" href="/css/header.css">
   <link rel="stylesheet" href="/css/dashboard.css">
   <link rel="stylesheet" href="/css/loading.css">
   <style>
-    /* Admin specific overrides */
     body {
       background-color: var(--light);
       min-height: 100vh;
@@ -39,7 +37,6 @@
       margin-bottom: 2rem;
     }
 
-    /* Tabs styling adjustment for full page */
     .tabs {
       display: flex;
       gap: 0.5rem;
@@ -92,7 +89,6 @@
     <div class="loading-spinner-bar"></div>
   </div>
 
-  <!-- Rempli par /js/components/header.js -->
   <header id="app-header"></header>
 
   <div class="admin-container">
@@ -101,41 +97,37 @@
     </div>
 
     <div class="tabs">
-      <button class="tab-btn active" data-tab="eleves">Élèves</button>
-      <button class="tab-btn" data-tab="matieres">Matières</button>
-      <button class="tab-btn" data-tab="demandes">Demandes <span id="pending-badge" class="badge hidden">0</span></button>
+      <button class="tab-btn active" data-tab="students">Élèves</button>
+      <button class="tab-btn" data-tab="subjects">Matières</button>
+      <button class="tab-btn" data-tab="join-requests">Demandes <span id="pending-badge" class="badge hidden">0</span></button>
       <button class="tab-btn" data-tab="invitations">Invitations</button>
       <button class="tab-btn" data-tab="logs">Historique</button>
       <button class="tab-btn" data-tab="settings">Paramètres</button>
     </div>
 
-    <!-- Élèves -->
-    <div id="tab-eleves" class="tab-content active">
+    <div id="tab-students" class="tab-content active">
       <div class="section-header">
         <h3>Gestion des élèves</h3>
-        <button id="add-eleve-btn" class="btn-primary">Inviter un élève</button>
+        <button id="add-student-btn" class="btn-primary">Inviter un élève</button>
       </div>
-      <div id="eleves-list" class="list"></div>
+      <div id="students-list" class="list"></div>
     </div>
 
-    <!-- Matières -->
-    <div id="tab-matieres" class="tab-content">
+    <div id="tab-subjects" class="tab-content">
       <div class="section-header">
         <h3>Gestion des matières</h3>
-        <button id="add-matiere-btn" class="btn-primary">Ajouter une matière</button>
+        <button id="add-subject-btn" class="btn-primary">Ajouter une matière</button>
       </div>
-      <div id="matieres-list" class="list"></div>
+      <div id="subjects-list" class="list"></div>
     </div>
 
-    <!-- Demandes -->
-    <div id="tab-demandes" class="tab-content">
+    <div id="tab-join-requests" class="tab-content">
       <div class="section-header">
         <h3>Demandes d'adhésion</h3>
       </div>
       <div id="join-requests-list" class="list"></div>
     </div>
 
-    <!-- Invitations -->
     <div id="tab-invitations" class="tab-content">
       <div class="section-header">
         <h3>Invitations en attente</h3>
@@ -151,7 +143,6 @@
       <div id="invitations-list" class="list"></div>
     </div>
 
-    <!-- Logs -->
     <div id="tab-logs" class="tab-content">
       <div class="section-header">
         <h3>Historique des activités</h3>
@@ -159,36 +150,35 @@
       <div id="logs-list" class="list"></div>
     </div>
 
-    <!-- Paramètres -->
     <div id="tab-settings" class="tab-content">
       <div style="max-width: 600px;">
         <div class="section-header">
           <h3>Paramètres de la classe</h3>
         </div>
 
-        <form id="rename-classe-form" class="form-container" style="margin-bottom: 2rem;">
+        <form id="rename-class-form" class="form-container" style="margin-bottom: 2rem;">
           <h4>Nom de la classe</h4>
           <div class="form-group">
-            <input type="text" id="classe-nom" placeholder="Nom de la classe" required>
+            <input type="text" id="class-name" placeholder="Nom de la classe" required>
           </div>
           <button type="submit" class="btn-primary">Renommer</button>
         </form>
 
-        <form id="emploi-temps-form" class="form-container" style="margin-bottom: 2rem;">
+        <form id="timetable-form" class="form-container" style="margin-bottom: 2rem;">
           <h4>Lien emploi du temps</h4>
           <div class="form-group">
-            <input type="url" id="emploi-temps-lien" placeholder="URL de l'emploi du temps">
+            <input type="url" id="timetable-link" placeholder="URL de l'emploi du temps">
           </div>
           <button type="submit" class="btn-primary">Enregistrer</button>
         </form>
 
-        <form id="emploi-temps-ics-form" class="form-container" style="margin-bottom: 2rem;">
+        <form id="timetable-ics-form" class="form-container" style="margin-bottom: 2rem;">
           <h4>Lien ICS de l'emploi du temps</h4>
           <p style="color: var(--secondary); font-size: 0.9rem; margin-bottom: 1rem;">
             Lien d'export iCal/ICS de votre logiciel d'emploi du temps (ADE, Hyperplanning…). Les cours s'affichent directement dans Eniv.
           </p>
           <div class="form-group">
-            <input type="url" id="emploi-temps-ics-lien" placeholder="https://.../anonymous_cal.jsp?data=...">
+            <input type="url" id="timetable-ics-link" placeholder="https://.../anonymous_cal.jsp?data=...">
           </div>
           <button type="submit" class="btn-primary">Enregistrer le lien ICS</button>
         </form>
@@ -207,115 +197,114 @@
     </div>
   </div>
 
-  <!-- Modals -->
-  <div id="add-eleve-modal" class="modal">
+  <div id="add-student-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
         <h2>Inviter un élève</h2>
-        <button class="modal-close" id="close-add-eleve-modal">&times;</button>
+        <button class="modal-close" id="close-add-student-modal">&times;</button>
       </div>
       <p style="color: var(--secondary); font-size: 0.9rem; margin-bottom: 1rem;">
         L'élève recevra un email avec un lien pour finaliser son inscription.
       </p>
-      <form id="add-eleve-form">
+      <form id="add-student-form">
         <div class="form-group">
-          <label for="eleve-email" class="form-label">Email de l'élève</label>
-          <input type="email" id="eleve-email" placeholder="exemple@email.com" required>
+          <label for="student-email" class="form-label">Email de l'élève</label>
+          <input type="email" id="student-email" placeholder="exemple@email.com" required>
         </div>
         <div class="form-actions">
           <button type="submit" class="btn-primary">Envoyer l'invitation</button>
-          <button type="button" id="cancel-add-eleve" class="btn-secondary">Annuler</button>
+          <button type="button" id="cancel-add-student" class="btn-secondary">Annuler</button>
         </div>
       </form>
     </div>
   </div>
 
-  <div id="edit-eleve-modal" class="modal">
+  <div id="edit-student-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
         <h2>Modifier l'élève</h2>
-        <button class="modal-close" id="close-edit-eleve-modal">&times;</button>
+        <button class="modal-close" id="close-edit-student-modal">&times;</button>
       </div>
-      <form id="edit-eleve-form">
-        <input type="hidden" id="edit-eleve-id">
+      <form id="edit-student-form">
+        <input type="hidden" id="edit-student-id">
         <div class="form-group">
-          <label for="edit-eleve-username" class="form-label">Nom d'utilisateur</label>
-          <input type="text" id="edit-eleve-username" required>
+          <label for="edit-student-username" class="form-label">Nom d'utilisateur</label>
+          <input type="text" id="edit-student-username" required>
         </div>
         <div class="form-group">
-          <label for="edit-eleve-email" class="form-label">Email</label>
-          <input type="text" id="edit-eleve-email">
+          <label for="edit-student-email" class="form-label">Email</label>
+          <input type="text" id="edit-student-email">
         </div>
         <div class="form-group">
-          <label for="edit-eleve-nom" class="form-label">Nom</label>
-          <input type="text" id="edit-eleve-nom">
+          <label for="edit-student-last-name" class="form-label">Nom</label>
+          <input type="text" id="edit-student-last-name">
         </div>
         <div class="form-group">
-          <label for="edit-eleve-prenom" class="form-label">Prénom</label>
-          <input type="text" id="edit-eleve-prenom">
+          <label for="edit-student-first-name" class="form-label">Prénom</label>
+          <input type="text" id="edit-student-first-name">
         </div>
         <div class="form-group">
-          <label for="edit-eleve-password" class="form-label">Nouveau mot de passe</label>
-          <input type="password" id="edit-eleve-password" placeholder="Laisser vide pour ne pas changer">
+          <label for="edit-student-password" class="form-label">Nouveau mot de passe</label>
+          <input type="password" id="edit-student-password" placeholder="Laisser vide pour ne pas changer">
         </div>
         <div class="form-actions">
           <button type="submit" class="btn-primary">Enregistrer</button>
-          <button type="button" id="cancel-edit-eleve" class="btn-secondary">Annuler</button>
+          <button type="button" id="cancel-edit-student" class="btn-secondary">Annuler</button>
         </div>
       </form>
     </div>
   </div>
 
-  <div id="add-matiere-modal" class="modal">
+  <div id="add-subject-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
         <h2>Nouvelle matière</h2>
-        <button class="modal-close" id="close-add-matiere-modal">&times;</button>
+        <button class="modal-close" id="close-add-subject-modal">&times;</button>
       </div>
-      <form id="add-matiere-form">
+      <form id="add-subject-form">
         <div class="form-group">
-          <label for="add-matiere-nom" class="form-label">Nom</label>
-          <input type="text" id="add-matiere-nom" required>
+          <label for="add-subject-name" class="form-label">Nom</label>
+          <input type="text" id="add-subject-name" required>
         </div>
         <div class="form-group">
-          <label for="add-matiere-lien" class="form-label">Lien (optionnel)</label>
-          <input type="url" id="add-matiere-lien" placeholder="https://...">
+          <label for="add-subject-link" class="form-label">Lien (optionnel)</label>
+          <input type="url" id="add-subject-link" placeholder="https://...">
         </div>
         <div class="form-group">
-          <label for="add-matiere-couleur" class="form-label">Couleur</label>
-          <input type="color" id="add-matiere-couleur" value="#4a90e2" style="width: 80px; height: 50px; border: 2px solid var(--border); border-radius: 8px; cursor: pointer;">
+          <label for="add-subject-color" class="form-label">Couleur</label>
+          <input type="color" id="add-subject-color" value="#4a90e2" style="width: 80px; height: 50px; border: 2px solid var(--border); border-radius: 8px; cursor: pointer;">
         </div>
         <div class="form-actions">
           <button type="submit" class="btn-primary">Créer</button>
-          <button type="button" id="cancel-add-matiere" class="btn-secondary">Annuler</button>
+          <button type="button" id="cancel-add-subject" class="btn-secondary">Annuler</button>
         </div>
       </form>
     </div>
   </div>
 
-  <div id="edit-matiere-modal" class="modal">
+  <div id="edit-subject-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
         <h2>Modifier la matière</h2>
-        <button class="modal-close" id="close-edit-matiere-modal">&times;</button>
+        <button class="modal-close" id="close-edit-subject-modal">&times;</button>
       </div>
-      <form id="edit-matiere-form">
-        <input type="hidden" id="edit-matiere-id">
+      <form id="edit-subject-form">
+        <input type="hidden" id="edit-subject-id">
         <div class="form-group">
-          <label for="edit-matiere-nom" class="form-label">Nom</label>
-          <input type="text" id="edit-matiere-nom" required>
+          <label for="edit-subject-name" class="form-label">Nom</label>
+          <input type="text" id="edit-subject-name" required>
         </div>
         <div class="form-group">
-          <label for="edit-matiere-lien" class="form-label">Lien (optionnel)</label>
-          <input type="url" id="edit-matiere-lien" placeholder="https://...">
+          <label for="edit-subject-link" class="form-label">Lien (optionnel)</label>
+          <input type="url" id="edit-subject-link" placeholder="https://...">
         </div>
         <div class="form-group">
-          <label for="edit-matiere-couleur" class="form-label">Couleur</label>
-          <input type="color" id="edit-matiere-couleur" style="width: 80px; height: 50px; border: 2px solid var(--border); border-radius: 8px; cursor: pointer;">
+          <label for="edit-subject-color" class="form-label">Couleur</label>
+          <input type="color" id="edit-subject-color" style="width: 80px; height: 50px; border: 2px solid var(--border); border-radius: 8px; cursor: pointer;">
         </div>
         <div class="form-actions">
           <button type="submit" class="btn-primary">Enregistrer</button>
-          <button type="button" id="cancel-edit-matiere" class="btn-secondary">Annuler</button>
+          <button type="button" id="cancel-edit-subject" class="btn-secondary">Annuler</button>
         </div>
       </form>
     </div>

@@ -3,8 +3,8 @@ import { mountHeader, setHeaderUser } from '../components/header.js';
 import { escapeHtml, formatDate, toggleModal, setupModalClose, showAlert, showConfirm } from '../utils/dom.js';
 
 let currentUserId = null;
-let eleves = [];
-let matieres = [];
+let students = [];
+let subjects = [];
 let invitations = [];
 let logs = [];
 let joinRequests = [];
@@ -29,19 +29,18 @@ async function init() {
 
 async function loadAllData() {
   await Promise.all([
-    loadEleves(),
-    loadMatieres(),
+    loadStudents(),
+    loadSubjects(),
     loadJoinRequests(),
     loadInvitations(),
     loadLogs(),
     loadSettings(),
     loadInviteLink(),
-    loadClasse()
+    loadClass()
   ]);
 }
 
 function setupEventListeners() {
-  // Tabs
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -51,29 +50,24 @@ function setupEventListeners() {
     });
   });
 
-  // Add eleve
-  document.getElementById('add-eleve-btn').addEventListener('click', () => toggleModal('add-eleve-modal', true));
-  document.getElementById('cancel-add-eleve').addEventListener('click', () => toggleModal('add-eleve-modal', false));
-  setupModalClose('add-eleve-modal', 'close-add-eleve-modal');
-  document.getElementById('add-eleve-form').addEventListener('submit', handleAddEleve);
+  document.getElementById('add-student-btn').addEventListener('click', () => toggleModal('add-student-modal', true));
+  document.getElementById('cancel-add-student').addEventListener('click', () => toggleModal('add-student-modal', false));
+  setupModalClose('add-student-modal', 'close-add-student-modal');
+  document.getElementById('add-student-form').addEventListener('submit', handleAddStudent);
 
-  // Edit eleve
-  document.getElementById('cancel-edit-eleve').addEventListener('click', () => toggleModal('edit-eleve-modal', false));
-  setupModalClose('edit-eleve-modal', 'close-edit-eleve-modal');
-  document.getElementById('edit-eleve-form').addEventListener('submit', handleEditEleve);
+  document.getElementById('cancel-edit-student').addEventListener('click', () => toggleModal('edit-student-modal', false));
+  setupModalClose('edit-student-modal', 'close-edit-student-modal');
+  document.getElementById('edit-student-form').addEventListener('submit', handleEditStudent);
 
-  // Add matiere
-  document.getElementById('add-matiere-btn').addEventListener('click', () => toggleModal('add-matiere-modal', true));
-  document.getElementById('cancel-add-matiere').addEventListener('click', () => toggleModal('add-matiere-modal', false));
-  setupModalClose('add-matiere-modal', 'close-add-matiere-modal');
-  document.getElementById('add-matiere-form').addEventListener('submit', handleAddMatiere);
+  document.getElementById('add-subject-btn').addEventListener('click', () => toggleModal('add-subject-modal', true));
+  document.getElementById('cancel-add-subject').addEventListener('click', () => toggleModal('add-subject-modal', false));
+  setupModalClose('add-subject-modal', 'close-add-subject-modal');
+  document.getElementById('add-subject-form').addEventListener('submit', handleAddSubject);
 
-  // Edit matiere
-  document.getElementById('cancel-edit-matiere').addEventListener('click', () => toggleModal('edit-matiere-modal', false));
-  setupModalClose('edit-matiere-modal', 'close-edit-matiere-modal');
-  document.getElementById('edit-matiere-form').addEventListener('submit', handleEditMatiere);
+  document.getElementById('cancel-edit-subject').addEventListener('click', () => toggleModal('edit-subject-modal', false));
+  setupModalClose('edit-subject-modal', 'close-edit-subject-modal');
+  document.getElementById('edit-subject-form').addEventListener('submit', handleEditSubject);
 
-  // Copy invite link
   document.getElementById('copy-invite-link').addEventListener('click', async () => {
     const input = document.getElementById('invite-link-input');
     try {
@@ -86,20 +80,18 @@ function setupEventListeners() {
     }
   });
 
-  // Settings forms
-  document.getElementById('rename-classe-form').addEventListener('submit', handleRenameClasse);
-  document.getElementById('emploi-temps-form').addEventListener('submit', handleSaveEmploiTemps);
-  document.getElementById('emploi-temps-ics-form').addEventListener('submit', handleSaveEmploiTempsIcs);
+  document.getElementById('rename-class-form').addEventListener('submit', handleRenameClass);
+  document.getElementById('timetable-form').addEventListener('submit', handleSaveTimetableLink);
+  document.getElementById('timetable-ics-form').addEventListener('submit', handleSaveTimetableIcs);
   document.getElementById('discord-webhook-form').addEventListener('submit', handleSaveDiscordWebhook);
 }
 
-// ==== ELEVES ====
 
-async function loadEleves() {
+async function loadStudents() {
   const data = await apiCall('/api/admin/eleves');
   if (!data.error) {
-    eleves = data;
-    renderEleves();
+    students = data;
+    renderStudents();
   }
 }
 
@@ -109,28 +101,28 @@ function formatLastLogin(dateString) {
   return `Dernière connexion : ${date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })} à ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
-function renderEleves() {
-  const list = document.getElementById('eleves-list');
-  if (eleves.length === 0) {
+function renderStudents() {
+  const list = document.getElementById('students-list');
+  if (students.length === 0) {
     list.innerHTML = '<p class="empty-state">Aucun élève pour le moment.</p>';
     return;
   }
 
-  list.innerHTML = eleves.map(eleve => {
-    const isAdmin = eleve.role === 'admin';
+  list.innerHTML = students.map(student => {
+    const isAdmin = student.role === 'admin';
     return `
     <div class="list-item">
       <div class="list-item-info">
         <div>
-          <h3>${escapeHtml(eleve.prenom || '')} ${escapeHtml(eleve.nom || '')}${isAdmin ? ' <span class="role-badge role-admin">Admin</span>' : ''}</h3>
-          <p>${escapeHtml(eleve.username)}</p>
-          <p class="list-item-meta">${formatLastLogin(eleve.last_login_at)}</p>
+          <h3>${escapeHtml(student.prenom || '')} ${escapeHtml(student.nom || '')}${isAdmin ? ' <span class="role-badge role-admin">Admin</span>' : ''}</h3>
+          <p>${escapeHtml(student.username)}</p>
+          <p class="list-item-meta">${formatLastLogin(student.last_login_at)}</p>
         </div>
       </div>
       <div class="list-item-actions">
-        <button class="btn-secondary toggle-admin-btn" data-id="${eleve.id}" data-admin="${isAdmin ? '1' : '0'}">${isAdmin ? 'Retirer admin' : 'Promouvoir admin'}</button>
-        <button class="btn-secondary edit-eleve-btn" data-id="${eleve.id}">Modifier</button>
-        <button class="btn-danger delete-eleve-btn" data-id="${eleve.id}">Supprimer</button>
+        <button class="btn-secondary toggle-admin-btn" data-id="${student.id}" data-admin="${isAdmin ? '1' : '0'}">${isAdmin ? 'Retirer admin' : 'Promouvoir admin'}</button>
+        <button class="btn-secondary edit-student-btn" data-id="${student.id}">Modifier</button>
+        <button class="btn-danger delete-student-btn" data-id="${student.id}">Supprimer</button>
       </div>
     </div>
   `;
@@ -140,18 +132,18 @@ function renderEleves() {
     btn.addEventListener('click', () => handleToggleAdmin(parseInt(btn.dataset.id), btn.dataset.admin !== '1'));
   });
 
-  list.querySelectorAll('.edit-eleve-btn').forEach(btn => {
-    btn.addEventListener('click', () => prepareEditEleve(parseInt(btn.dataset.id)));
+  list.querySelectorAll('.edit-student-btn').forEach(btn => {
+    btn.addEventListener('click', () => prepareEditStudent(parseInt(btn.dataset.id)));
   });
 
-  list.querySelectorAll('.delete-eleve-btn').forEach(btn => {
-    btn.addEventListener('click', () => handleDeleteEleve(parseInt(btn.dataset.id)));
+  list.querySelectorAll('.delete-student-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleDeleteStudent(parseInt(btn.dataset.id)));
   });
 }
 
-async function handleAddEleve(e) {
+async function handleAddStudent(e) {
   e.preventDefault();
-  const email = document.getElementById('eleve-email').value;
+  const email = document.getElementById('student-email').value;
 
   const data = await apiCall('/api/invitations/create', {
     method: 'POST',
@@ -161,64 +153,64 @@ async function handleAddEleve(e) {
   if (data.error) {
     await showAlert(data.error, 'Erreur');
   } else {
-    toggleModal('add-eleve-modal', false);
+    toggleModal('add-student-modal', false);
     await showAlert('Invitation envoyée à ' + email, 'Succès');
-    document.getElementById('add-eleve-form').reset();
-    await loadEleves();
+    document.getElementById('add-student-form').reset();
+    await loadStudents();
     await loadInvitations();
   }
 }
 
-function prepareEditEleve(id) {
-  const eleve = eleves.find(e => e.id === id);
-  if (!eleve) return;
+function prepareEditStudent(id) {
+  const student = students.find(e => e.id === id);
+  if (!student) return;
 
-  document.getElementById('edit-eleve-id').value = eleve.id;
-  document.getElementById('edit-eleve-username').value = eleve.username;
-  document.getElementById('edit-eleve-email').value = eleve.email || '';
-  document.getElementById('edit-eleve-nom').value = eleve.nom || '';
-  document.getElementById('edit-eleve-prenom').value = eleve.prenom || '';
-  document.getElementById('edit-eleve-password').value = '';
+  document.getElementById('edit-student-id').value = student.id;
+  document.getElementById('edit-student-username').value = student.username;
+  document.getElementById('edit-student-email').value = student.email || '';
+  document.getElementById('edit-student-last-name').value = student.nom || '';
+  document.getElementById('edit-student-first-name').value = student.prenom || '';
+  document.getElementById('edit-student-password').value = '';
 
-  toggleModal('edit-eleve-modal', true);
+  toggleModal('edit-student-modal', true);
 }
 
-async function handleEditEleve(e) {
+async function handleEditStudent(e) {
   e.preventDefault();
-  const id = document.getElementById('edit-eleve-id').value;
+  const id = document.getElementById('edit-student-id').value;
 
   const data = await apiCall(`/api/admin/eleves/${id}`, {
     method: 'PUT',
     body: JSON.stringify({
-      username: document.getElementById('edit-eleve-username').value,
-      email: document.getElementById('edit-eleve-email').value,
-      nom: document.getElementById('edit-eleve-nom').value,
-      prenom: document.getElementById('edit-eleve-prenom').value,
-      password: document.getElementById('edit-eleve-password').value || undefined
+      username: document.getElementById('edit-student-username').value,
+      email: document.getElementById('edit-student-email').value,
+      nom: document.getElementById('edit-student-last-name').value,
+      prenom: document.getElementById('edit-student-first-name').value,
+      password: document.getElementById('edit-student-password').value || undefined
     })
   });
 
   if (data.error) {
     await showAlert(data.error, 'Erreur');
   } else {
-    toggleModal('edit-eleve-modal', false);
+    toggleModal('edit-student-modal', false);
     await showAlert('Modifications enregistrées', 'Succès');
-    await loadEleves();
+    await loadStudents();
   }
 }
 
 async function handleToggleAdmin(id, makeAdmin) {
-  const eleve = eleves.find(e => e.id === id);
-  if (!eleve) return;
+  const student = students.find(e => e.id === id);
+  if (!student) return;
 
-  const nom = `${eleve.prenom || ''} ${eleve.nom || ''}`.trim() || eleve.username;
+  const displayName = `${student.prenom || ''} ${student.nom || ''}`.trim() || student.username;
   let message;
   if (makeAdmin) {
-    message = `Accorder le statut administrateur à ${nom} ?`;
+    message = `Accorder le statut administrateur à ${displayName} ?`;
   } else if (id === currentUserId) {
     message = 'Retirer votre propre statut administrateur ? Vous perdrez immédiatement l\'accès à cette page.';
   } else {
-    message = `Retirer le statut administrateur de ${nom} ?`;
+    message = `Retirer le statut administrateur de ${displayName} ?`;
   }
 
   const confirmed = await showConfirm(message, 'Confirmation');
@@ -239,34 +231,33 @@ async function handleToggleAdmin(id, makeAdmin) {
     return;
   }
 
-  await loadEleves();
+  await loadStudents();
 }
 
-async function handleDeleteEleve(id) {
+async function handleDeleteStudent(id) {
   const confirmed = await showConfirm('Êtes-vous sûr de vouloir supprimer cet élève ?', 'Confirmation');
   if (!confirmed) return;
   await apiCall(`/api/admin/eleves/${id}`, { method: 'DELETE' });
-  await loadEleves();
+  await loadStudents();
 }
 
-// ==== MATIERES ====
 
-async function loadMatieres() {
+async function loadSubjects() {
   const data = await apiCall('/api/admin/matieres');
   if (!data.error) {
-    matieres = data;
-    renderMatieres();
+    subjects = data;
+    renderSubjects();
   }
 }
 
-function renderMatieres() {
-  const list = document.getElementById('matieres-list');
-  if (matieres.length === 0) {
+function renderSubjects() {
+  const list = document.getElementById('subjects-list');
+  if (subjects.length === 0) {
     list.innerHTML = '<p class="empty-state">Aucune matière pour le moment.</p>';
     return;
   }
 
-  list.innerHTML = matieres.map(m => `
+  list.innerHTML = subjects.map(m => `
     <div class="list-item">
       <div class="list-item-info">
         <div style="width:40px;height:40px;border-radius:8px;background:${m.couleur || '#999'};flex-shrink:0;"></div>
@@ -276,79 +267,78 @@ function renderMatieres() {
         </div>
       </div>
       <div class="list-item-actions">
-        <button class="btn-secondary edit-matiere-btn" data-id="${m.id}">Modifier</button>
-        <button class="btn-danger delete-matiere-btn" data-id="${m.id}">Supprimer</button>
+        <button class="btn-secondary edit-subject-btn" data-id="${m.id}">Modifier</button>
+        <button class="btn-danger delete-subject-btn" data-id="${m.id}">Supprimer</button>
       </div>
     </div>
   `).join('');
 
-  list.querySelectorAll('.edit-matiere-btn').forEach(btn => {
-    btn.addEventListener('click', () => prepareEditMatiere(parseInt(btn.dataset.id)));
+  list.querySelectorAll('.edit-subject-btn').forEach(btn => {
+    btn.addEventListener('click', () => prepareEditSubject(parseInt(btn.dataset.id)));
   });
 
-  list.querySelectorAll('.delete-matiere-btn').forEach(btn => {
+  list.querySelectorAll('.delete-subject-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const confirmed = await showConfirm('Supprimer cette matière ?', 'Confirmation');
       if (!confirmed) return;
       await apiCall(`/api/admin/matieres/${btn.dataset.id}`, { method: 'DELETE' });
-      await loadMatieres();
+      await loadSubjects();
     });
   });
 }
 
-async function handleAddMatiere(e) {
+async function handleAddSubject(e) {
   e.preventDefault();
   const data = await apiCall('/api/admin/matieres', {
     method: 'POST',
     body: JSON.stringify({
-      nom: document.getElementById('add-matiere-nom').value,
-      lien: document.getElementById('add-matiere-lien').value,
-      couleur: document.getElementById('add-matiere-couleur').value
+      nom: document.getElementById('add-subject-name').value,
+      lien: document.getElementById('add-subject-link').value,
+      couleur: document.getElementById('add-subject-color').value
     })
   });
 
   if (data.error) {
     await showAlert(data.error, 'Erreur');
   } else {
-    toggleModal('add-matiere-modal', false);
-    document.getElementById('add-matiere-form').reset();
-    await loadMatieres();
+    toggleModal('add-subject-modal', false);
+    document.getElementById('add-subject-form').reset();
+    await loadSubjects();
   }
 }
 
-function prepareEditMatiere(id) {
-  const matiere = matieres.find(m => m.id === id);
-  if (!matiere) return;
+function prepareEditSubject(id) {
+  const subject = subjects.find(m => m.id === id);
+  if (!subject) return;
 
-  document.getElementById('edit-matiere-id').value = matiere.id;
-  document.getElementById('edit-matiere-nom').value = matiere.nom;
-  document.getElementById('edit-matiere-lien').value = matiere.lien || '';
-  document.getElementById('edit-matiere-couleur').value = matiere.couleur || '#4a90e2';
-  toggleModal('edit-matiere-modal', true);
+  document.getElementById('edit-subject-id').value = subject.id;
+  document.getElementById('edit-subject-name').value = subject.nom;
+  document.getElementById('edit-subject-link').value = subject.lien || '';
+  document.getElementById('edit-subject-color').value = subject.couleur || '#4a90e2';
+  toggleModal('edit-subject-modal', true);
 }
 
-async function handleEditMatiere(e) {
+async function handleEditSubject(e) {
   e.preventDefault();
-  const id = document.getElementById('edit-matiere-id').value;
+  const id = document.getElementById('edit-subject-id').value;
 
   const data = await apiCall(`/api/admin/matieres/${id}`, {
     method: 'PUT',
     body: JSON.stringify({
-      nom: document.getElementById('edit-matiere-nom').value,
-      lien: document.getElementById('edit-matiere-lien').value,
-      couleur: document.getElementById('edit-matiere-couleur').value
+      nom: document.getElementById('edit-subject-name').value,
+      lien: document.getElementById('edit-subject-link').value,
+      couleur: document.getElementById('edit-subject-color').value
     })
   });
 
   if (data.error) {
     await showAlert(data.error, 'Erreur');
   } else {
-    toggleModal('edit-matiere-modal', false);
-    await loadMatieres();
+    toggleModal('edit-subject-modal', false);
+    await loadSubjects();
   }
 }
 
-// ==== DEMANDES D'ADHESION ====
 
 async function loadJoinRequests() {
   const data = await apiCall('/api/admin/join-requests');
@@ -356,7 +346,6 @@ async function loadJoinRequests() {
     joinRequests = data;
     renderJoinRequests();
     
-    // Update badge
     const badge = document.getElementById('pending-badge');
     if (joinRequests.length > 0) {
       badge.textContent = joinRequests.length;
@@ -399,7 +388,7 @@ function renderJoinRequests() {
       } else {
         await showAlert('Demande acceptée', 'Succès');
         await loadJoinRequests();
-        await loadEleves();
+        await loadStudents();
       }
     });
   });
@@ -418,7 +407,6 @@ function renderJoinRequests() {
   });
 }
 
-// ==== INVITATIONS ====
 
 async function loadInvitations() {
   const data = await apiCall('/api/invitations/list');
@@ -474,19 +462,21 @@ function renderInvitations() {
   });
 }
 
-// ==== LOGS ====
 
-// Actions journalisées : libellé du badge, style et formulation de la phrase
+/**
+ * Logged actions, keyed by the server's action code: badge label and style,
+ * and wording of the summary sentence.
+ */
 const LOG_ACTIONS = {
-  create: { badge: 'création', badgeClass: 'log-create', verbe: 'a créé', cible: 'devoir' },
-  update: { badge: 'modification', badgeClass: 'log-update', verbe: 'a modifié', cible: 'devoir' },
-  delete: { badge: 'suppression', badgeClass: 'log-delete', verbe: 'a supprimé', cible: 'devoir' },
-  upload_pdf: { badge: 'document ajouté', badgeClass: 'log-create', verbe: 'a ajouté', cible: 'fichier', preposition: 'au devoir' },
-  delete_pdf: { badge: 'document supprimé', badgeClass: 'log-delete', verbe: 'a supprimé', cible: 'fichier', preposition: 'du devoir' },
-  delete_commentaire: { badge: 'commentaire supprimé', badgeClass: 'log-delete', verbe: 'a supprimé', cible: 'commentaire', preposition: 'sous le devoir' }
+  create: { badge: 'création', badgeClass: 'log-create', verb: 'a créé', target: 'assignment' },
+  update: { badge: 'modification', badgeClass: 'log-update', verb: 'a modifié', target: 'assignment' },
+  delete: { badge: 'suppression', badgeClass: 'log-delete', verb: 'a supprimé', target: 'assignment' },
+  upload_pdf: { badge: 'document ajouté', badgeClass: 'log-create', verb: 'a ajouté', target: 'file', preposition: 'au devoir' },
+  delete_pdf: { badge: 'document supprimé', badgeClass: 'log-delete', verb: 'a supprimé', target: 'file', preposition: 'du devoir' },
+  delete_commentaire: { badge: 'commentaire supprimé', badgeClass: 'log-delete', verb: 'a supprimé', target: 'comment', preposition: 'sous le devoir' }
 };
 
-// Champs du devoir suivis dans l'historique, dans l'ordre d'affichage
+/** Assignment fields tracked in the history, in display order. */
 const LOG_FIELDS = [
   { field: 'titre', label: 'Titre' },
   { field: 'description', label: 'Description' },
@@ -514,9 +504,9 @@ function formatLogDateTime(value) {
 }
 
 /**
- * Taille de fichier lisible (o, Ko, Mo, Go)
- * @param {number} size - Taille en octets
- * @returns {string|null} Null si la taille n'a pas été enregistrée
+ * Readable file size (o, Ko, Mo, Go).
+ * @param {number} size - Size in bytes
+ * @returns {string|null} Null when the size was not recorded
  */
 function formatFileSize(size) {
   if (typeof size !== 'number' || !Number.isFinite(size) || size < 0) return null;
@@ -533,28 +523,26 @@ function formatFileSize(size) {
   return `${rounded.toLocaleString('fr-FR')} ${units[unit]}`;
 }
 
-/**
- * Nom affichable de l'auteur d'une action : nom complet si connu, sinon username
- */
+/** Display name of the author of an action: full name when known, otherwise username. */
 function formatLogAuthor(log, details) {
   const author = details.author || {};
-  const nomComplet = [author.prenom || log.user_prenom, author.nom || log.user_nom].filter(Boolean).join(' ');
+  const fullName = [author.prenom || log.user_prenom, author.nom || log.user_nom].filter(Boolean).join(' ');
 
-  if (!log.username) return nomComplet || 'Utilisateur supprimé';
-  return nomComplet ? `${nomComplet} (${log.username})` : log.username;
+  if (!log.username) return fullName || 'Utilisateur supprimé';
+  return fullName ? `${fullName} (${log.username})` : log.username;
 }
 
 /**
- * Met en forme la valeur d'un champ de devoir, prête à être insérée dans le HTML
- * @param {string} field - Nom du champ
- * @param {*} value - Valeur brute enregistrée
- * @param {string} [matiereNom] - Nom de la matière, utilisé pour le champ matiere_id
- * @returns {string} HTML échappé
+ * Formats the value of an assignment field, ready to be inserted in the HTML.
+ * @param {string} field - Field name
+ * @param {*} value - Raw recorded value
+ * @param {string} [subjectName] - Subject name, used for the matiere_id field
+ * @returns {string} Escaped HTML
  */
-function formatLogFieldValue(field, value, matiereNom) {
+function formatLogFieldValue(field, value, subjectName) {
   if (field === 'matiere_id') {
-    const nom = matiereNom || (value ? `Matière n° ${value}` : null);
-    return nom ? escapeHtml(nom) : LOG_EMPTY_VALUE;
+    const name = subjectName || (value ? `Matière n° ${value}` : null);
+    return name ? escapeHtml(name) : LOG_EMPTY_VALUE;
   }
 
   if (field === 'date') {
@@ -566,13 +554,16 @@ function formatLogFieldValue(field, value, matiereNom) {
 }
 
 /**
- * Lit les détails d'un log et les ramène au format courant.
+ * Reads the details of a log and brings them to the current format.
  *
- * Les logs écrits avant la version 2 stockaient moins d'informations : on en
- * reconstruit le maximum, mais le nom des matières n'y figurait pas.
+ * Logs written before version 2 stored less information: as much as possible
+ * is rebuilt, but subject names were not recorded. Old formats:
+ * - update: `{ old: {...}, new: {...} }`
+ * - file added or deleted: `{ filename, size }`
+ * - assignment created or deleted: fields stored flat
  *
- * @param {Object} log - Ligne de devoir_logs
- * @returns {Object} Détails normalisés
+ * @param {Object} log - Row of devoir_logs
+ * @returns {Object} Normalized details
  */
 function normalizeLogDetails(log) {
   let details;
@@ -584,7 +575,6 @@ function normalizeLogDetails(log) {
 
   if (details.version >= 2) return details;
 
-  // Modification, ancien format : { old: {...}, new: {...} }
   if (details.old && details.new) {
     return {
       titre: details.new.titre,
@@ -594,7 +584,6 @@ function normalizeLogDetails(log) {
     };
   }
 
-  // Ajout ou suppression de document, ancien format : { filename, size }
   if (details.filename) {
     return {
       titre: log.devoir_titre,
@@ -602,7 +591,6 @@ function normalizeLogDetails(log) {
     };
   }
 
-  // Création ou suppression de devoir, ancien format : champs stockés à plat
   if (details.titre) {
     return { titre: details.titre, devoir: details };
   }
@@ -610,22 +598,25 @@ function normalizeLogDetails(log) {
   return {};
 }
 
-function renderLogDetailRow(label, valueHTML) {
+function renderLogDetailRow(label, valueHtml) {
   return `
     <div class="log-detail">
       <span class="log-detail-label">${escapeHtml(label)}</span>
-      <span class="log-detail-value">${valueHTML}</span>
+      <span class="log-detail-value">${valueHtml}</span>
     </div>`;
 }
 
 /**
- * Construit le bloc de détails d'un log : champs modifiés, état du devoir,
- * caractéristiques du document concerné.
+ * Builds the details block of a log:
+ * - update: one row per changed field, before → after;
+ * - creation or deletion: the full state of the assignment;
+ * - file added or deleted: its size, type and uploader;
+ * - deleted comment: its text and date;
+ * - deleted assignment: the attached files lost with it.
  */
 function renderLogDetails(details) {
   const rows = [];
 
-  // Modification : une ligne par champ modifié, avant → après
   if (details.changes) {
     details.changes.forEach(change => {
       const before = formatLogFieldValue(change.field, change.before, change.before_label);
@@ -639,7 +630,6 @@ function renderLogDetails(details) {
     });
   }
 
-  // Création ou suppression : état complet du devoir
   if (details.devoir) {
     LOG_FIELDS.forEach(({ field, label }) => {
       const value = formatLogFieldValue(field, details.devoir[field], details.devoir.matiere_nom);
@@ -647,42 +637,39 @@ function renderLogDetails(details) {
     });
   }
 
-  // Document ajouté ou supprimé
-  const fichier = details.fichier;
-  if (fichier) {
-    const taille = formatFileSize(fichier.size);
-    if (taille) {
-      rows.push(renderLogDetailRow('Taille', `<span class="log-value">${escapeHtml(taille)}</span>`));
+  const file = details.fichier;
+  if (file) {
+    const formattedSize = formatFileSize(file.size);
+    if (formattedSize) {
+      rows.push(renderLogDetailRow('Taille', `<span class="log-value">${escapeHtml(formattedSize)}</span>`));
     }
-    if (fichier.mimetype) {
-      rows.push(renderLogDetailRow('Type', `<span class="log-value">${escapeHtml(fichier.mimetype)}</span>`));
+    if (file.mimetype) {
+      rows.push(renderLogDetailRow('Type', `<span class="log-value">${escapeHtml(file.mimetype)}</span>`));
     }
-    if (fichier.uploaded_by_username) {
-      rows.push(renderLogDetailRow('Ajouté par', `<span class="log-value">${escapeHtml(fichier.uploaded_by_username)}</span>`));
+    if (file.uploaded_by_username) {
+      rows.push(renderLogDetailRow('Ajouté par', `<span class="log-value">${escapeHtml(file.uploaded_by_username)}</span>`));
     }
-    if (fichier.uploaded_at) {
-      rows.push(renderLogDetailRow('Ajouté le', `<span class="log-value">${escapeHtml(formatLogDateTime(fichier.uploaded_at))}</span>`));
-    }
-  }
-
-  // Commentaire supprimé : son texte et sa date
-  const commentaire = details.commentaire;
-  if (commentaire) {
-    rows.push(renderLogDetailRow('Message', `<span class="log-value">${formatLogFieldValue('contenu', commentaire.contenu)}</span>`));
-    if (commentaire.created_at) {
-      rows.push(renderLogDetailRow('Écrit le', `<span class="log-value">${escapeHtml(formatLogDateTime(commentaire.created_at))}</span>`));
+    if (file.uploaded_at) {
+      rows.push(renderLogDetailRow('Ajouté le', `<span class="log-value">${escapeHtml(formatLogDateTime(file.uploaded_at))}</span>`));
     }
   }
 
-  // Suppression d'un devoir : documents joints perdus au passage
+  const comment = details.commentaire;
+  if (comment) {
+    rows.push(renderLogDetailRow('Message', `<span class="log-value">${formatLogFieldValue('contenu', comment.contenu)}</span>`));
+    if (comment.created_at) {
+      rows.push(renderLogDetailRow('Écrit le', `<span class="log-value">${escapeHtml(formatLogDateTime(comment.created_at))}</span>`));
+    }
+  }
+
   if (details.fichiers && details.fichiers.length > 0) {
     const items = details.fichiers.map(f => {
-      const auteur = f.uploaded_by_username ? `ajouté par ${f.uploaded_by_username}` : null;
-      const ajoutLe = f.uploaded_at ? `le ${formatLogDateTime(f.uploaded_at)}` : null;
-      const origine = [auteur, ajoutLe].filter(Boolean).join(' ');
-      const taille = formatFileSize(f.size);
-      const complement = [origine || null, taille].filter(Boolean).join(', ');
-      return `<li>${escapeHtml(f.original_name || 'Document sans nom')}${complement ? ` <span class="log-empty">(${escapeHtml(complement)})</span>` : ''}</li>`;
+      const uploader = f.uploaded_by_username ? `ajouté par ${f.uploaded_by_username}` : null;
+      const addedOn = f.uploaded_at ? `le ${formatLogDateTime(f.uploaded_at)}` : null;
+      const origin = [uploader, addedOn].filter(Boolean).join(' ');
+      const formattedSize = formatFileSize(f.size);
+      const extra = [origin || null, formattedSize].filter(Boolean).join(', ');
+      return `<li>${escapeHtml(f.original_name || 'Document sans nom')}${extra ? ` <span class="log-empty">(${escapeHtml(extra)})</span>` : ''}</li>`;
     }).join('');
 
     rows.push(renderLogDetailRow(
@@ -695,59 +682,56 @@ function renderLogDetails(details) {
   return `<div class="log-details">${rows.join('')}</div>`;
 }
 
-/**
- * Phrase résumant l'action, avec l'auteur, le devoir et le document concernés
- */
+/** Sentence summing up the action, with the author, the assignment and the file involved. */
 function renderLogSummary(log, config, details) {
-  const auteur = `<strong>${escapeHtml(formatLogAuthor(log, details))}</strong>`;
-  const titre = details.titre || log.devoir_titre;
-  const devoir = titre ? `<strong>« ${escapeHtml(titre)} »</strong>` : null;
+  const author = `<strong>${escapeHtml(formatLogAuthor(log, details))}</strong>`;
+  const title = details.titre || log.devoir_titre;
+  const assignment = title ? `<strong>« ${escapeHtml(title)} »</strong>` : null;
 
-  if (config.cible === 'fichier') {
-    const nom = details.fichier?.original_name;
-    const document = nom ? `<strong>« ${escapeHtml(nom)} »</strong>` : 'un document';
-    const rattachement = devoir ? ` ${config.preposition} ${devoir}` : '';
-    return `${auteur} ${config.verbe} le document ${document}${rattachement}`;
+  if (config.target === 'file') {
+    const fileName = details.fichier?.original_name;
+    const fileLabel = fileName ? `<strong>« ${escapeHtml(fileName)} »</strong>` : 'un document';
+    const context = assignment ? ` ${config.preposition} ${assignment}` : '';
+    return `${author} ${config.verb} le document ${fileLabel}${context}`;
   }
 
-  if (config.cible === 'commentaire') {
-    const a = details.commentaire?.auteur || {};
-    const nomComplet = [a.prenom, a.nom].filter(Boolean).join(' ');
-    const ecritPar = a.username ? ` de <strong>${escapeHtml(nomComplet ? `${nomComplet} (${a.username})` : a.username)}</strong>` : '';
-    const rattachement = devoir ? ` ${config.preposition} ${devoir}` : '';
-    return `${auteur} ${config.verbe} un commentaire${ecritPar}${rattachement}`;
+  if (config.target === 'comment') {
+    const commentAuthor = details.commentaire?.auteur || {};
+    const fullName = [commentAuthor.prenom, commentAuthor.nom].filter(Boolean).join(' ');
+    const writtenBy = commentAuthor.username ? ` de <strong>${escapeHtml(fullName ? `${fullName} (${commentAuthor.username})` : commentAuthor.username)}</strong>` : '';
+    const context = assignment ? ` ${config.preposition} ${assignment}` : '';
+    return `${author} ${config.verb} un commentaire${writtenBy}${context}`;
   }
 
-  return devoir
-    ? `${auteur} ${config.verbe} le devoir ${devoir}`
-    : `${auteur} ${config.verbe} un devoir`;
+  return assignment
+    ? `${author} ${config.verb} le devoir ${assignment}`
+    : `${author} ${config.verb} un devoir`;
 }
 
 /**
- * Référence du devoir concerné : lien ouvrant le devoir dans le dashboard tant
- * qu'il existe, sinon mention signalant qu'il a été supprimé depuis.
+ * Reference to the assignment involved: a link opening it in the dashboard (the
+ * same link as the "Exporter / Partager" button) while it exists, otherwise a
+ * note saying it was deleted since. A deleted assignment's own log already says
+ * so in its badge, so the note is not repeated there.
  */
-function renderLogDevoirReference(log) {
+function renderLogAssignmentReference(log) {
   if (!log.devoir_id) return '';
 
-  const numero = `devoir n° ${escapeHtml(String(log.devoir_id))}`;
+  const reference = `devoir n° ${escapeHtml(String(log.devoir_id))}`;
 
   if (log.devoir_existe) {
-    return `<a class="log-link" href="/dashboard?devoir=${encodeURIComponent(log.devoir_id)}">${numero}</a>`;
+    return `<a class="log-link" href="/dashboard?devoir=${encodeURIComponent(log.devoir_id)}">${reference}</a>`;
   }
 
-  // Le badge indique déjà la suppression du devoir : ne pas la répéter
-  const supprimeDepuis = log.action === 'delete' ? '' : ' (supprimé depuis)';
-  return `<span class="log-note">${numero}${supprimeDepuis}</span>`;
+  const deletedNote = log.action === 'delete' ? '' : ' (supprimé depuis)';
+  return `<span class="log-note">${reference}${deletedNote}</span>`;
 }
 
 function renderLogItem(log) {
-  const config = LOG_ACTIONS[log.action] || { badge: log.action, badgeClass: '', verbe: log.action, cible: 'devoir' };
+  const config = LOG_ACTIONS[log.action] || { badge: log.action, badgeClass: '', verb: log.action, target: 'assignment' };
   const details = normalizeLogDetails(log);
 
-  // Référence du devoir : lien vers le dashboard tant qu'il existe (même lien que
-  // le bouton « Exporter / Partager »), simple mention sinon
-  const reference = renderLogDevoirReference(log);
+  const reference = renderLogAssignmentReference(log);
 
   return `
     <div class="list-item log-item">
@@ -772,20 +756,19 @@ function renderLogs() {
   list.innerHTML = logs.map(renderLogItem).join('');
 }
 
-// ==== SETTINGS ====
 
 async function loadSettings() {
-  const [emploi, ics, webhook] = await Promise.all([
+  const [timetableLink, ics, webhook] = await Promise.all([
     apiCall('/api/admin/settings/emploi-temps'),
     apiCall('/api/admin/settings/emploi-temps-ics'),
     apiCall('/api/admin/settings/discord-webhook')
   ]);
 
-  if (!emploi.error) {
-    document.getElementById('emploi-temps-lien').value = emploi.lien || '';
+  if (!timetableLink.error) {
+    document.getElementById('timetable-link').value = timetableLink.lien || '';
   }
   if (!ics.error) {
-    document.getElementById('emploi-temps-ics-lien').value = ics.lien || '';
+    document.getElementById('timetable-ics-link').value = ics.lien || '';
   }
   if (!webhook.error) {
     document.getElementById('discord-webhook-url').value = webhook.webhook || '';
@@ -802,20 +785,20 @@ async function loadInviteLink() {
   }
 }
 
-async function loadClasse() {
+async function loadClass() {
   const data = await apiCall('/api/admin/classe');
   if (!data.error) {
-    document.getElementById('classe-nom').value = data.nom || '';
+    document.getElementById('class-name').value = data.nom || '';
   }
 }
 
-async function handleRenameClasse(e) {
+async function handleRenameClass(e) {
   e.preventDefault();
-  const nom = document.getElementById('classe-nom').value;
+  const name = document.getElementById('class-name').value;
 
   const data = await apiCall('/api/admin/classe', {
     method: 'PUT',
-    body: JSON.stringify({ nom })
+    body: JSON.stringify({ nom: name })
   });
 
   if (data.error) {
@@ -825,11 +808,11 @@ async function handleRenameClasse(e) {
   }
 }
 
-async function handleSaveEmploiTemps(e) {
+async function handleSaveTimetableLink(e) {
   e.preventDefault();
   const data = await apiCall('/api/admin/settings/emploi-temps', {
     method: 'POST',
-    body: JSON.stringify({ lien: document.getElementById('emploi-temps-lien').value })
+    body: JSON.stringify({ lien: document.getElementById('timetable-link').value })
   });
 
   if (data.error) {
@@ -839,15 +822,15 @@ async function handleSaveEmploiTemps(e) {
   }
 }
 
-async function handleSaveEmploiTempsIcs(e) {
+/** Saves the ICS link. The server fetches the calendar before answering, which can take a few seconds. */
+async function handleSaveTimetableIcs(e) {
   e.preventDefault();
   const button = e.submitter;
   if (button) button.disabled = true;
 
-  // Le serveur récupère le calendrier avant de répondre : quelques secondes possibles
   const data = await apiCall('/api/admin/settings/emploi-temps-ics', {
     method: 'POST',
-    body: JSON.stringify({ lien: document.getElementById('emploi-temps-ics-lien').value })
+    body: JSON.stringify({ lien: document.getElementById('timetable-ics-link').value })
   });
 
   if (button) button.disabled = false;
@@ -857,8 +840,8 @@ async function handleSaveEmploiTempsIcs(e) {
   } else if (data.avertissement) {
     await showAlert(data.avertissement, 'Attention');
   } else if (data.nombreCours !== undefined) {
-    const cours = data.nombreCours > 1 ? `${data.nombreCours} cours importés` : `${data.nombreCours} cours importé`;
-    await showAlert(`Lien ICS enregistré : ${cours}.`, 'Succès');
+    const lessonCount = data.nombreCours > 1 ? `${data.nombreCours} cours importés` : `${data.nombreCours} cours importé`;
+    await showAlert(`Lien ICS enregistré : ${lessonCount}.`, 'Succès');
   } else {
     await showAlert(data.message || 'Lien ICS enregistré', 'Succès');
   }
