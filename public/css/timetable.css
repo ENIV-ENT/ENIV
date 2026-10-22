@@ -2,27 +2,27 @@
 
 :root {
   /* Teinte de fond par type de séance ; le type est aussi écrit dans le bloc */
-  --edt-cm: #dce9f9;
-  --edt-td: #d9f0e6;
-  --edt-tp: #f8e7cc;
-  --edt-autre: var(--bg-secondary);
+  --timetable-cm: #dce9f9;
+  --timetable-td: #d9f0e6;
+  --timetable-tp: #f8e7cc;
+  --timetable-other: var(--bg-secondary);
   /* Assez haut pour qu'une séance d'une heure montre titre, salle et horaire */
-  --edt-heure: 64px;
-  --edt-gouttiere: 3.25rem;
+  --timetable-hour: 64px;
+  --timetable-gutter: 3.25rem;
 }
 
 html.dark-theme {
-  --edt-cm: #1f3550;
-  --edt-td: #1d3d31;
-  --edt-tp: #45361d;
+  --timetable-cm: #1f3550;
+  --timetable-td: #1d3d31;
+  --timetable-tp: #45361d;
 }
 
-.edt {
+.timetable {
   max-width: 1280px;
 }
 
 /* Barre de titre et navigation */
-.edt-barre {
+.timetable-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
@@ -31,32 +31,32 @@ html.dark-theme {
   margin-bottom: 1rem;
 }
 
-.edt-titre h2 {
+.timetable-title h2 {
   font-size: 1.5rem;
   line-height: 1.2;
 }
 
-.edt-maj {
+.timetable-updated {
   min-height: 1.4em;
   color: var(--text-secondary);
   font-size: 0.875rem;
 }
 
-.edt-nav {
+.timetable-nav {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.edt-semaine {
+.timetable-week {
   min-width: 15rem;
   text-align: center;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
-.edt-fleche,
-.edt-aujourdhui {
+.timetable-arrow,
+.timetable-today {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -70,35 +70,35 @@ html.dark-theme {
   cursor: pointer;
 }
 
-.edt-fleche {
+.timetable-arrow {
   width: 2.25rem;
 }
 
-.edt-aujourdhui {
+.timetable-today {
   padding: 0 0.875rem;
   margin-left: 0.25rem;
 }
 
-.edt-fleche:hover:not(:disabled),
-.edt-aujourdhui:hover:not(:disabled) {
+.timetable-arrow:hover:not(:disabled),
+.timetable-today:hover:not(:disabled) {
   border-color: var(--primary);
   color: var(--primary);
 }
 
-.edt-fleche:disabled,
-.edt-aujourdhui:disabled {
+.timetable-arrow:disabled,
+.timetable-today:disabled {
   opacity: 0.4;
   cursor: default;
 }
 
-.edt button:focus-visible,
-.edt a:focus-visible {
+.timetable button:focus-visible,
+.timetable a:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
 /* Source injoignable : version gardée affichée */
-.edt-bandeau {
+.timetable-banner {
   margin-bottom: 1rem;
   padding: 0.625rem 0.875rem;
   border: 1px solid var(--border);
@@ -110,7 +110,7 @@ html.dark-theme {
 }
 
 /* États : non configuré, erreur, semaine vide */
-.edt-etat {
+.timetable-state {
   padding: 3rem 1.5rem;
   border: 1px dashed var(--border);
   border-radius: 8px;
@@ -118,18 +118,18 @@ html.dark-theme {
   text-align: center;
 }
 
-.edt-etat p {
+.timetable-state p {
   max-width: 36rem;
   margin: 0 auto 0.75rem;
 }
 
-.edt-etat .edt-etat-detail {
+.timetable-state .timetable-state-detail {
   color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
 /* Chargeur, tant que l'emploi du temps n'est pas affiché */
-.edt-chargement {
+.timetable-spinner {
   display: inline-block;
   width: 28px;
   height: 28px;
@@ -137,26 +137,26 @@ html.dark-theme {
   border: 3px solid var(--border);
   border-top-color: var(--primary);
   border-radius: 50%;
-  animation: edt-rotation 0.8s linear infinite;
+  animation: timetable-spin 0.8s linear infinite;
 }
 
-@keyframes edt-rotation {
+@keyframes timetable-spin {
   to { transform: rotate(360deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .edt-chargement {
+  .timetable-spinner {
     animation-duration: 2.4s;
   }
 }
 
-.edt-lien-bouton {
+.timetable-link-button {
   display: inline-block;
   text-decoration: none;
 }
 
 /* Séance (grille semaine et liste du jour) */
-.edt-cours {
+.timetable-lesson {
   display: flex;
   flex-direction: column;
   gap: 0.0625rem;
@@ -164,7 +164,7 @@ html.dark-theme {
   padding: 0.25rem 0.4rem;
   border: none;
   border-radius: 6px;
-  background: var(--edt-autre);
+  background: var(--timetable-other);
   color: var(--text);
   font: inherit;
   font-size: 0.75rem;
@@ -173,78 +173,78 @@ html.dark-theme {
   cursor: pointer;
 }
 
-.edt-cours--cm { background: var(--edt-cm); }
-.edt-cours--td { background: var(--edt-td); }
-.edt-cours--tp { background: var(--edt-tp); }
-.edt-cours--autre { box-shadow: inset 0 0 0 1px var(--border); }
+.timetable-lesson--cm { background: var(--timetable-cm); }
+.timetable-lesson--td { background: var(--timetable-td); }
+.timetable-lesson--tp { background: var(--timetable-tp); }
+.timetable-lesson--other { box-shadow: inset 0 0 0 1px var(--border); }
 
 /* Couleur de la matière (souvent très saturée) : en filet à gauche et en
    teinte légère derrière le texte, qui reste lisible dans les deux thèmes */
-.edt-cours--matiere {
+.timetable-lesson--subject {
   padding-left: calc(0.4rem + 4px);
-  background: color-mix(in srgb, var(--edt-matiere) 30%, var(--bg-primary));
-  box-shadow: inset 4px 0 0 var(--edt-matiere);
+  background: color-mix(in srgb, var(--timetable-subject) 30%, var(--bg-primary));
+  box-shadow: inset 4px 0 0 var(--timetable-subject);
 }
 
-.edt-cours:hover {
+.timetable-lesson:hover {
   filter: brightness(0.97);
 }
 
-html.dark-theme .edt-cours:hover {
+html.dark-theme .timetable-lesson:hover {
   filter: brightness(1.12);
 }
 
-.edt-cours-titre {
+.timetable-lesson-title {
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
-.edt-cours-type {
+.timetable-lesson-type {
   font-weight: 700;
 }
 
-.edt-cours-lieu,
-.edt-cours-heure {
+.timetable-lesson-room,
+.timetable-lesson-time {
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
 
-html.dark-theme .edt-cours-lieu,
-html.dark-theme .edt-cours-heure {
+html.dark-theme .timetable-lesson-room,
+html.dark-theme .timetable-lesson-time {
   color: #c4c4c4;
 }
 
 /* Le cours en cours, ou le prochain */
-.edt-cours--relief {
+.timetable-lesson--highlight {
   box-shadow: inset 0 0 0 2px var(--primary);
 }
 
 /* Le contour fait tout le tour ; le filet de la matière passe juste à
    l'intérieur (la première ombre est dessinée au-dessus des suivantes) */
-.edt-cours--matiere.edt-cours--relief {
+.timetable-lesson--subject.timetable-lesson--highlight {
   padding-left: calc(0.4rem + 6px);
-  box-shadow: inset 0 0 0 2px var(--primary), inset 6px 0 0 var(--edt-matiere);
+  box-shadow: inset 0 0 0 2px var(--primary), inset 6px 0 0 var(--timetable-subject);
 }
 
-.edt-relief {
+.timetable-highlight {
   color: var(--primary-dark);
   font-size: 0.6875rem;
   font-weight: 700;
 }
 
-html.dark-theme .edt-relief {
+html.dark-theme .timetable-highlight {
   color: #8cbcf0;
 }
 
 /* Journée entière (stage, férié...) */
-.edt-journee {
+.timetable-all-day {
   display: block;
   width: 100%;
   overflow: hidden;
   padding: 0.125rem 0.4rem;
   border: none;
   border-radius: 4px;
-  background: var(--edt-autre);
+  background: var(--timetable-other);
   color: var(--text);
   font: inherit;
   font-size: 0.75rem;
@@ -254,31 +254,31 @@ html.dark-theme .edt-relief {
   cursor: pointer;
 }
 
-.edt-journee.edt-cours--autre {
+.timetable-all-day.timetable-lesson--other {
   box-shadow: inset 0 0 0 1px var(--border);
 }
 
-.edt-journee.edt-cours--matiere {
+.timetable-all-day.timetable-lesson--subject {
   padding-left: calc(0.4rem + 4px);
-  background: color-mix(in srgb, var(--edt-matiere) 30%, var(--bg-primary));
+  background: color-mix(in srgb, var(--timetable-subject) 30%, var(--bg-primary));
 }
 
 /* --- Grille de la semaine ------------------------------------------------- */
 
-.edt-grille {
+.timetable-grid {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg-primary);
 }
 
-.edt-entete,
-.edt-corps {
+.timetable-header,
+.timetable-body {
   display: grid;
-  grid-template-columns: var(--edt-gouttiere) repeat(var(--edt-jours), minmax(0, 1fr));
+  grid-template-columns: var(--timetable-gutter) repeat(var(--timetable-days), minmax(0, 1fr));
 }
 
-.edt-entete {
+.timetable-header {
   position: sticky;
   top: 0;
   z-index: 2;
@@ -286,7 +286,7 @@ html.dark-theme .edt-relief {
   background: var(--bg-primary);
 }
 
-.edt-entete-jour {
+.timetable-header-day {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -295,31 +295,31 @@ html.dark-theme .edt-relief {
   min-width: 0;
 }
 
-.edt-jour-nom {
+.timetable-day-name {
   font-weight: 600;
   font-size: 0.9rem;
 }
 
-.edt-entete-jour.edt-aujourdhui-jour .edt-jour-nom {
+.timetable-header-day.timetable-is-today .timetable-day-name {
   color: var(--primary);
 }
 
-.edt-journees {
+.timetable-all-days {
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
 }
 
-.edt-corps {
+.timetable-body {
   position: relative;
-  height: calc(var(--edt-heures) * var(--edt-heure));
+  height: calc(var(--timetable-hours) * var(--timetable-hour));
 }
 
-.edt-graduations {
+.timetable-ticks {
   position: relative;
 }
 
-.edt-graduation {
+.timetable-tick {
   position: absolute;
   right: 0.5rem;
   transform: translateY(-50%);
@@ -328,31 +328,31 @@ html.dark-theme .edt-relief {
   font-variant-numeric: tabular-nums;
 }
 
-.edt-graduation:first-child {
+.timetable-tick:first-child {
   transform: none;
   margin-top: 0.125rem;
 }
 
-.edt-colonne {
+.timetable-column {
   position: relative;
   border-left: 1px solid var(--border);
   /* Un trait par heure */
   background-image: linear-gradient(to bottom, var(--border) 1px, transparent 1px);
-  background-size: 100% var(--edt-heure);
+  background-size: 100% var(--timetable-hour);
 }
 
-.edt-colonne.edt-aujourdhui-jour {
+.timetable-column.timetable-is-today {
   background-color: rgba(74, 144, 226, 0.05);
 }
 
-.edt-colonne .edt-cours {
+.timetable-column .timetable-lesson {
   position: absolute;
   /* Marge visuelle entre deux séances accolées ou côte à côte */
   border: 2px solid var(--bg-primary);
   border-radius: 8px;
 }
 
-.edt-colonne .edt-cours--court .edt-cours-titre {
+.timetable-column .timetable-lesson--short .timetable-lesson-title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -360,7 +360,7 @@ html.dark-theme .edt-relief {
 
 /* Dans la grille, le contour suffit : « En cours » reste lu par les lecteurs
    d'écran sans prendre la ligne de la salle ou de l'horaire */
-.edt-colonne .edt-relief {
+.timetable-column .timetable-highlight {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -369,12 +369,12 @@ html.dark-theme .edt-relief {
   white-space: nowrap;
 }
 
-.edt-colonne .edt-cours:focus-visible {
+.timetable-column .timetable-lesson:focus-visible {
   z-index: 1;
 }
 
 /* Heure actuelle */
-.edt-maintenant {
+.timetable-now {
   position: absolute;
   left: 0;
   right: 0;
@@ -385,7 +385,7 @@ html.dark-theme .edt-relief {
   pointer-events: none;
 }
 
-.edt-maintenant::before {
+.timetable-now::before {
   content: '';
   position: absolute;
   left: -5px;
@@ -398,18 +398,18 @@ html.dark-theme .edt-relief {
 
 /* --- Vue jour (mobile) ---------------------------------------------------- */
 
-.edt-vue-jour {
+.timetable-day-view {
   display: none;
 }
 
-.edt-bande {
+.timetable-strip {
   display: flex;
   gap: 0.375rem;
   margin-bottom: 1rem;
   overflow-x: auto;
 }
 
-.edt-bande-jour {
+.timetable-strip-day {
   display: flex;
   flex: 1 0 3.25rem;
   flex-direction: column;
@@ -425,139 +425,139 @@ html.dark-theme .edt-relief {
   cursor: pointer;
 }
 
-.edt-bande-num {
+.timetable-strip-number {
   font-size: 1.05rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
-.edt-bande-jour--vide {
+.timetable-strip-day--empty {
   color: var(--text-secondary);
 }
 
-.edt-bande-jour.edt-aujourdhui-jour {
+.timetable-strip-day.timetable-is-today {
   border-color: var(--primary);
 }
 
-.edt-bande-jour[aria-pressed="true"] {
+.timetable-strip-day[aria-pressed="true"] {
   border-color: var(--primary);
   background: var(--primary);
   color: white;
 }
 
-.edt-liste {
+.timetable-list {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   list-style: none;
 }
 
-.edt-liste-item {
+.timetable-list-item {
   display: grid;
   grid-template-columns: 3.5rem minmax(0, 1fr);
   align-items: start;
   gap: 0.75rem;
 }
 
-.edt-liste-heure {
+.timetable-list-time {
   padding-top: 0.5rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
-.edt-liste .edt-cours {
+.timetable-list .timetable-lesson {
   gap: 0.125rem;
   padding: 0.5rem 0.75rem;
   border-radius: 8px;
   font-size: 0.9rem;
 }
 
-.edt-liste .edt-relief {
+.timetable-list .timetable-highlight {
   font-size: 0.75rem;
 }
 
-.edt-liste-journees {
+.timetable-list-all-days {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
   margin-left: 4.25rem;
 }
 
-.edt-liste-journees .edt-journee {
+.timetable-list-all-days .timetable-all-day {
   padding: 0.375rem 0.75rem;
   font-size: 0.85rem;
 }
 
-.edt-pause {
+.timetable-break {
   margin-left: 4.25rem;
   color: var(--text-secondary);
   font-size: 0.8rem;
 }
 
-.edt-vide-jour {
+.timetable-empty-day {
   padding: 2rem 0;
   color: var(--text-secondary);
   text-align: center;
 }
 
 /* Détail d'une séance */
-.edt-modal {
+.timetable-modal {
   max-width: 520px;
 }
 
-.edt-modal .modal-header {
+.timetable-modal .modal-header {
   gap: 1rem;
 }
 
-.edt-modal .modal-header h2 {
+.timetable-modal .modal-header h2 {
   font-size: 1.2rem;
   line-height: 1.35;
 }
 
-.edt-modal .modal-close {
+.timetable-modal .modal-close {
   flex-shrink: 0;
 }
 
-.edt-details {
+.timetable-details {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   gap: 0.5rem 1rem;
 }
 
-.edt-details dt {
+.timetable-details dt {
   color: var(--text-secondary);
 }
 
-.edt-details dd {
+.timetable-details dd {
   overflow-wrap: anywhere;
 }
 
 @media (max-width: 768px) {
-  .edt-vue-semaine {
+  .timetable-week-view {
     display: none;
   }
 
-  .edt-vue-jour {
+  .timetable-day-view {
     display: block;
   }
 
-  .edt-barre {
+  .timetable-bar {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .edt-nav {
+  .timetable-nav {
     justify-content: space-between;
   }
 
-  .edt-semaine {
+  .timetable-week {
     flex: 1;
     min-width: 0;
     font-size: 0.9rem;
   }
 
-  .edt-semaine-prefixe {
+  .timetable-week-prefix {
     display: none;
   }
 }
