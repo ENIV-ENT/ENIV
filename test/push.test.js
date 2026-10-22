@@ -16,7 +16,7 @@ describe('messages', () => {
   test('new assignment: subject, title, spelled-out date and direct link', () => {
     const msg = messages.newAssignment({ id: 7, titre: 'Exercices p.84', matiere_nom: 'Maths', date: '2026-10-20' });
     assert.equal(msg.title, '📚 Nouveau devoir · Maths');
-    assert.equal(msg.body, 'Exercices p.84 — pour mardi 20 octobre');
+    assert.equal(msg.body, 'Exercices p.84 · pour mardi 20 octobre');
     assert.equal(msg.url, '/dashboard/?devoir=7');
     assert.equal(msg.tag, 'devoir-7');
   });
@@ -26,19 +26,19 @@ describe('messages', () => {
       { id: 7, titre: 'Exercices', matiere_nom: 'Maths', date: '2026-10-22' },
       [{ field: 'date' }, { field: 'description' }]
     );
-    assert.equal(msg.body, 'Exercices — désormais pour jeudi 22 octobre');
+    assert.equal(msg.body, 'Exercices · désormais pour jeudi 22 octobre');
   });
 
   test('assignment updated: list of the fields otherwise', () => {
     const msg = messages.assignmentUpdated({ id: 1, titre: 'TP' }, [{ field: 'titre' }, { field: 'description' }]);
-    assert.equal(msg.body, 'TP — titre, description modifiés');
+    assert.equal(msg.body, 'TP · titre, description modifiés');
   });
 
   test('assignment updated: "modifié" agrees with the gender of the fields', () => {
     const body = (...fields) => messages.assignmentUpdated({ id: 1, titre: 'TP' }, fields.map((field) => ({ field }))).body;
-    assert.equal(body('titre'), 'TP — titre modifié');
-    assert.equal(body('description'), 'TP — description modifiée');
-    assert.equal(body('description', 'matiere_id'), 'TP — description, matière modifiées');
+    assert.equal(body('titre'), 'TP · titre modifié');
+    assert.equal(body('description'), 'TP · description modifiée');
+    assert.equal(body('description', 'matiere_id'), 'TP · description, matière modifiées');
   });
 
   test('reminder: one assignment -> link to it; several -> list', () => {
