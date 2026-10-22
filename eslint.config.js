@@ -11,11 +11,9 @@ const FRENCH_WORDS = [
 
 const NO_FRENCH_WORD = `^(?!.*(?:${FRENCH_WORDS.map((word) => `[${word[0].toUpperCase()}${word[0]}]${word.slice(1)}`).join('|')})).*$`;
 
-const NAMING_LEVEL = 'warn';
-
 module.exports = [
   {
-    ignores: ['node_modules/**', 'backend/uploads/**', 'public/vendor/**'],
+    ignores: ['node_modules/**', '.claude/**', 'backend/uploads/**', 'public/vendor/**'],
   },
   js.configs.recommended,
   {
@@ -24,9 +22,9 @@ module.exports = [
     },
     rules: {
       'no-unused-vars': ['error', { ignoreRestSiblings: true }],
-      camelcase: [NAMING_LEVEL, { properties: 'never', ignoreDestructuring: false, ignoreImports: false, ignoreGlobals: false }],
-      'new-cap': [NAMING_LEVEL, { newIsCap: true, capIsNew: false }],
-      'id-match': [NAMING_LEVEL, NO_FRENCH_WORD, { properties: false, classFields: true, onlyDeclarations: true, ignoreDestructuring: false }],
+      camelcase: ['error', { properties: 'never', ignoreDestructuring: false, ignoreImports: false, ignoreGlobals: false }],
+      'new-cap': ['error', { newIsCap: true, capIsNew: false }],
+      'id-match': ['error', NO_FRENCH_WORD, { properties: false, classFields: true, onlyDeclarations: true, ignoreDestructuring: false }],
     },
   },
   {
