@@ -195,7 +195,7 @@ function toEvent(props) {
  * @throws {IcsError} Si le texte n'est pas un calendrier
  */
 function parseIcs(text) {
-  const content = unfold(String(text).replace(/^﻿/, '')).trim();
+  const content = unfold(String(text).replace(/^\uFEFF/, '')).trim();
 
   if (!/^BEGIN:VCALENDAR\b/i.test(content)) {
     throw new IcsError("Le lien ne renvoie pas un calendrier ICS");
