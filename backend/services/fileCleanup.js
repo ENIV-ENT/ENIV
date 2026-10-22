@@ -92,10 +92,10 @@ async function check_before_upload(fileSize) {
     
     // Récupérer tous les fichiers triés par ancienneté
     const fichiers = await db.all(
-      `SELECT df.id, df.filename, df.uploaded_at, d.date_limite, d.titre
+      `SELECT df.id, df.filename, df.uploaded_at, d.date, d.titre
        FROM devoir_fichiers df
        JOIN devoirs d ON df.devoir_id = d.id
-       ORDER BY d.date_limite ASC, df.uploaded_at ASC`
+       ORDER BY d.date ASC, df.uploaded_at ASC`
     );
     
     if (fichiers.length === 0) {
@@ -107,7 +107,7 @@ async function check_before_upload(fileSize) {
     
     // Vérifier si le plus vieux fichier a moins d'1 mois
     const oldestFichier = fichiers[0];
-    const oldestDate = new Date(oldestFichier.date_limite);
+    const oldestDate = new Date(oldestFichier.date);
     const now = new Date();
     const daysDiff = Math.floor((now - oldestDate) / (1000 * 60 * 60 * 24));
     
