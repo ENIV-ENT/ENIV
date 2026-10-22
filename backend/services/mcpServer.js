@@ -85,7 +85,7 @@ function todayString() {
  */
 function createMcpServer(user) {
   const server = new McpServer(
-    { name: 'eniv', title: 'ENIV — devoirs', version: '1.0.0' },
+    { name: 'eniv', title: 'ENIV · devoirs', version: '1.0.0' },
     { instructions: INSTRUCTIONS }
   );
 
