@@ -1,7 +1,3 @@
-/* Header commun des pages de l'app (généré par /js/components/header.js).
-   Chargé avant la feuille de la page, qui définit les variables de couleur
-   et peut surcharger ces règles. */
-
 header {
   background: var(--surface);
   padding: 1rem 2rem;
@@ -40,7 +36,6 @@ header h1 a {
   font-weight: 500;
 }
 
-/* Menu utilisateur */
 .user-menu {
   position: relative;
 }
@@ -117,7 +112,6 @@ header h1 a {
   display: none;
 }
 
-/* Nombre de demandes d'adhésion en attente, sur l'entrée Admin */
 .dropdown-badge {
   background: var(--danger);
   color: white;
@@ -132,7 +126,6 @@ header h1 a {
   display: none;
 }
 
-/* L'icône Notes est dessinée en noir plein : elle suit la couleur du texte */
 html.dark-theme .dropdown-item svg path,
 html.dark-theme .user-menu-btn svg {
   fill: currentColor;

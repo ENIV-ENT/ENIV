@@ -1,12 +1,8 @@
-/* Emploi du temps (page /emploi-du-temps), chargé après dashboard.css */
-
 :root {
-  /* Teinte de fond par type de séance ; le type est aussi écrit dans le bloc */
   --timetable-cm: #dce9f9;
   --timetable-td: #d9f0e6;
   --timetable-tp: #f8e7cc;
   --timetable-other: var(--bg-secondary);
-  /* Assez haut pour qu'une séance d'une heure montre titre, salle et horaire */
   --timetable-hour: 64px;
   --timetable-gutter: 3.25rem;
 }
@@ -21,7 +17,6 @@ html.dark-theme {
   max-width: 1280px;
 }
 
-/* Barre de titre et navigation */
 .timetable-bar {
   display: flex;
   flex-wrap: wrap;
@@ -97,7 +92,6 @@ html.dark-theme {
   outline-offset: 2px;
 }
 
-/* Source injoignable : version gardée affichée */
 .timetable-banner {
   margin-bottom: 1rem;
   padding: 0.625rem 0.875rem;
@@ -109,7 +103,6 @@ html.dark-theme {
   font-size: 0.875rem;
 }
 
-/* États : non configuré, erreur, semaine vide */
 .timetable-state {
   padding: 3rem 1.5rem;
   border: 1px dashed var(--border);
@@ -128,7 +121,6 @@ html.dark-theme {
   font-size: 0.9rem;
 }
 
-/* Chargeur, tant que l'emploi du temps n'est pas affiché */
 .timetable-spinner {
   display: inline-block;
   width: 28px;
@@ -155,7 +147,6 @@ html.dark-theme {
   text-decoration: none;
 }
 
-/* Séance (grille semaine et liste du jour) */
 .timetable-lesson {
   display: flex;
   flex-direction: column;
@@ -178,8 +169,6 @@ html.dark-theme {
 .timetable-lesson--tp { background: var(--timetable-tp); }
 .timetable-lesson--other { box-shadow: inset 0 0 0 1px var(--border); }
 
-/* Couleur de la matière (souvent très saturée) : en filet à gauche et en
-   teinte légère derrière le texte, qui reste lisible dans les deux thèmes */
 .timetable-lesson--subject {
   padding-left: calc(0.4rem + 4px);
   background: color-mix(in srgb, var(--timetable-subject) 30%, var(--bg-primary));
@@ -214,13 +203,10 @@ html.dark-theme .timetable-lesson-time {
   color: #c4c4c4;
 }
 
-/* Le cours en cours, ou le prochain */
 .timetable-lesson--highlight {
   box-shadow: inset 0 0 0 2px var(--primary);
 }
 
-/* Le contour fait tout le tour ; le filet de la matière passe juste à
-   l'intérieur (la première ombre est dessinée au-dessus des suivantes) */
 .timetable-lesson--subject.timetable-lesson--highlight {
   padding-left: calc(0.4rem + 6px);
   box-shadow: inset 0 0 0 2px var(--primary), inset 6px 0 0 var(--timetable-subject);
@@ -236,7 +222,6 @@ html.dark-theme .timetable-highlight {
   color: #8cbcf0;
 }
 
-/* Journée entière (stage, férié...) */
 .timetable-all-day {
   display: block;
   width: 100%;
@@ -262,8 +247,6 @@ html.dark-theme .timetable-highlight {
   padding-left: calc(0.4rem + 4px);
   background: color-mix(in srgb, var(--timetable-subject) 30%, var(--bg-primary));
 }
-
-/* --- Grille de la semaine ------------------------------------------------- */
 
 .timetable-grid {
   overflow: hidden;
@@ -336,7 +319,6 @@ html.dark-theme .timetable-highlight {
 .timetable-column {
   position: relative;
   border-left: 1px solid var(--border);
-  /* Un trait par heure */
   background-image: linear-gradient(to bottom, var(--border) 1px, transparent 1px);
   background-size: 100% var(--timetable-hour);
 }
@@ -347,7 +329,6 @@ html.dark-theme .timetable-highlight {
 
 .timetable-column .timetable-lesson {
   position: absolute;
-  /* Marge visuelle entre deux séances accolées ou côte à côte */
   border: 2px solid var(--bg-primary);
   border-radius: 8px;
 }
@@ -358,8 +339,6 @@ html.dark-theme .timetable-highlight {
   white-space: nowrap;
 }
 
-/* Dans la grille, le contour suffit : « En cours » reste lu par les lecteurs
-   d'écran sans prendre la ligne de la salle ou de l'horaire */
 .timetable-column .timetable-highlight {
   position: absolute;
   width: 1px;
@@ -373,7 +352,6 @@ html.dark-theme .timetable-highlight {
   z-index: 1;
 }
 
-/* Heure actuelle */
 .timetable-now {
   position: absolute;
   left: 0;
@@ -395,8 +373,6 @@ html.dark-theme .timetable-highlight {
   border-radius: 50%;
   background: var(--primary);
 }
-
-/* --- Vue jour (mobile) ---------------------------------------------------- */
 
 .timetable-day-view {
   display: none;
@@ -501,7 +477,6 @@ html.dark-theme .timetable-highlight {
   text-align: center;
 }
 
-/* Détail d'une séance */
 .timetable-modal {
   max-width: 520px;
 }

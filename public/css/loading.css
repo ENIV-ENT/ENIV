@@ -1,9 +1,6 @@
-/* Loading Screen */
 #loading-screen {
   position: fixed;
   inset: 0;
-  /* Suit le theme courant : l'ecran de chargement recouvre toute la page, une couleur
-     fixe claire produirait un flash blanc en theme sombre. */
   background: var(--light, #f8f9fa);
   display: flex;
   flex-direction: column;
@@ -23,7 +20,7 @@
   font-size: 2.5rem;
   font-weight: 700;
   color: #4a90e2;
-  animation: loadingPulse 1.5s ease-in-out infinite;
+  animation: loading-pulse 1.5s ease-in-out infinite;
   margin-bottom: 1.5rem;
 }
 
@@ -42,10 +39,10 @@
   height: 100%;
   background: #4a90e2;
   border-radius: 2px;
-  animation: loadingSlide 1.2s ease-in-out infinite;
+  animation: loading-slide 1.2s ease-in-out infinite;
 }
 
-@keyframes loadingPulse {
+@keyframes loading-pulse {
   0%, 100% {
     transform: scale(1);
     opacity: 1;
@@ -56,7 +53,7 @@
   }
 }
 
-@keyframes loadingSlide {
+@keyframes loading-slide {
   0% {
     transform: translateX(-60px);
   }

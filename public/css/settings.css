@@ -1,6 +1,3 @@
-/* CSS complet pour la page settings */
-
-/* Reset et base */
 * {
   margin: 0;
   padding: 0;
@@ -40,14 +37,12 @@ body {
   line-height: 1.6;
 }
 
-/* Container */
 .container {
   max-width: 1200px;
   margin: 2rem auto;
   padding: 0 1rem;
 }
 
-/* Boutons */
 .btn-primary,
 .btn-secondary {
   padding: 0.5rem 1rem;
@@ -76,7 +71,6 @@ body {
   opacity: 0.9;
 }
 
-/* Formulaires */
 .form-container {
   background: var(--surface);
   padding: 1.5rem;
@@ -160,7 +154,6 @@ html.dark-theme .form-container {
   display: none;
 }
 
-/* Fenêtres modales (showAlert, showConfirm et liens MCP) */
 .modal {
   display: none;
   position: fixed;
@@ -257,7 +250,6 @@ html.dark-theme .form-container {
   font-size: 0.8rem;
 }
 
-/* Section Assistant IA */
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -363,7 +355,6 @@ html.dark-theme .optional {
   font-size: 0.9rem;
 }
 
-/* Section Agenda */
 .calendar-actions {
   display: flex;
   flex-wrap: wrap;
@@ -434,13 +425,11 @@ html.dark-theme .optional {
   }
 }
 
-/* Espacement entre les formulaires */
 #info-form,
 #password-form {
   margin-bottom: 2rem;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .container {
     padding: 0 0.5rem;
@@ -453,7 +442,6 @@ html.dark-theme .optional {
   }
 }
 
-/* Section Notifications */
 .push-preferences {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -488,7 +476,6 @@ html.dark-theme .optional {
   cursor: not-allowed;
 }
 
-/* Préférence à plusieurs choix : libellé, puis liste déroulante en dessous */
 .push-pref-choice {
   flex-direction: column;
   gap: 0.4rem;

@@ -1,6 +1,3 @@
-/* CSS complet pour la page superadmin */
-
-/* Reset et base */
 * {
   margin: 0;
   padding: 0;
@@ -40,7 +37,6 @@ body {
   display: none !important;
 }
 
-/* Header */
 header {
   background: white;
   padding: 1rem 2rem;
@@ -66,14 +62,12 @@ header h1 {
   font-weight: 500;
 }
 
-/* Container */
 .container {
   max-width: 1200px;
   margin: 2rem auto;
   padding: 0 1rem;
 }
 
-/* Tabs */
 .tabs {
   display: flex;
   gap: 0.5rem;
@@ -92,7 +86,7 @@ header h1 {
 
 .tab-btn:hover {
   background: var(--light);
-  animation: btnHover 320ms ease forwards;
+  animation: btn-hover 320ms ease forwards;
 }
 
 .tab-btn.active {
@@ -109,7 +103,6 @@ header h1 {
   display: block;
 }
 
-/* Section Header */
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -124,7 +117,6 @@ header h1 {
   color: var(--dark);
 }
 
-/* Boutons */
 .btn-primary,
 .btn-secondary {
   padding: 0.5rem 1rem;
@@ -142,7 +134,7 @@ header h1 {
 
 .btn-primary:hover {
   background: var(--primary-dark);
-  animation: btnHover 320ms ease forwards;
+  animation: btn-hover 320ms ease forwards;
 }
 
 .btn-secondary {
@@ -152,7 +144,7 @@ header h1 {
 
 .btn-secondary:hover {
   opacity: 0.9;
-  animation: btnHover 320ms ease forwards;
+  animation: btn-hover 320ms ease forwards;
 }
 
 .btn-danger {
@@ -169,7 +161,7 @@ header h1 {
   opacity: 0.9;
 }
 
-@keyframes btnHover {
+@keyframes btn-hover {
   0% {
     transform: translateY(0) scale(1);
     box-shadow: 0 0 0 rgba(0, 0, 0, 0);
@@ -184,7 +176,6 @@ header h1 {
   }
 }
 
-/* Lists */
 .list {
   display: grid;
   gap: 1rem;
@@ -223,7 +214,6 @@ header h1 {
   gap: 0.5rem;
 }
 
-/* Modal */
 .modal {
   display: none;
   position: fixed;
@@ -252,10 +242,10 @@ header h1 {
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: modalSlideIn 0.3s ease-out;
+  animation: modal-slide-in 0.3s ease-out;
 }
 
-@keyframes modalSlideIn {
+@keyframes modal-slide-in {
   from {
     opacity: 0;
     transform: translateY(-20px);
@@ -305,7 +295,6 @@ header h1 {
   transform: rotate(90deg);
 }
 
-/* Formulaires */
 .form-container {
   background: white;
   padding: 1.5rem;
@@ -375,7 +364,6 @@ select:focus {
   font-size: 0.875rem;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   header {
     padding: 1rem;

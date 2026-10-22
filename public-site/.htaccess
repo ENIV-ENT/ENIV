@@ -1,13 +1,13 @@
-# Visiteur déjà connecté à l'app (cookie indicateur posé par app.eniv.fr, voir
-# public/js/utils/api.js) : l'accueil le renvoie directement vers l'application.
-# Les robots n'ont pas ce cookie et voient toujours la vitrine.
-# « ?vitrine » permet de consulter la vitrine malgré tout.
+# A visitor already logged in to the app (hint cookie set by app.eniv.fr, see
+# public/js/utils/api.js) is sent from the home page straight to the app.
+# Robots do not have this cookie and always see the showcase site.
+# "?vitrine" shows the showcase site anyway.
 RewriteEngine On
 RewriteCond %{QUERY_STRING} !(^|&)vitrine(=|&|$)
 RewriteCond %{HTTP_COOKIE} (^|;\s*)eniv_session=1(;|$)
 RewriteRule ^(index\.html)?$ https://app.eniv.fr/ [R=302,L]
 
-# La réponse de l'accueil dépend du cookie : pas de cache partagé.
+# The home page response depends on the cookie: no shared cache.
 <IfModule mod_headers.c>
     <Files "index.html">
         Header set Cache-Control "no-cache"

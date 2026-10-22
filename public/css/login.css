@@ -1,13 +1,9 @@
-/* CSS complet pour la page de login */
-
-/* Reset et base */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-/* Masque visuellement un label tout en le gardant accessible aux lecteurs d'écran */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -52,7 +48,6 @@ body {
   padding-bottom: 3.5rem;
 }
 
-/* Login container */
 .login-container {
   max-width: 400px;
   margin: 0 !important;
@@ -60,14 +55,14 @@ body {
   background: whitesmoke;
   border-radius: 15%;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  animation: ApparitionBouton 1s ease-in-out;
+  animation: appear 1s ease-in-out;
 }
 
 .login-container h1 {
   text-align: center;
   margin-bottom: 2rem;
   color: var(--primary);
-  animation: ApparitionBouton 1s ease-in-out;
+  animation: appear 1s ease-in-out;
 }
 
 .login-container h3 {
@@ -75,7 +70,7 @@ body {
   margin-bottom: 1.5rem;
   color: var(--secondary);
   font-weight: 400;
-  animation: ApparitionBouton 1s ease-in-out;
+  animation: appear 1s ease-in-out;
 }
 
 #login-form input {
@@ -86,26 +81,9 @@ body {
   border-radius: 18px;
   font-size: 1rem;
   font-family: inherit;
-  animation: ApparitionBouton 1s ease-in-out;
+  animation: appear 1s ease-in-out;
 }
 
-#Copyright {
-  text-align: center;
-  color: var(--secondary);
-  font-size: 0.875rem;
-  font-weight: 400;
-  animation: ApparitionBouton 1s ease-in-out;
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: white;
-  padding: 0.5rem 0;
-  z-index: 999;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
-}
-
-/* Style du bouton de login */
 #login-form button {
   width: 100%;
   padding: 0.75rem;
@@ -120,7 +98,7 @@ body {
     box-shadow ease-in-out 0.3s, scale 1.7s ease-in-out;
   text-transform: uppercase;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  animation: ApparitionBouton 2.7s ease-in-out;
+  animation: appear 2.7s ease-in-out;
 }
 
 #login-form button:hover {
@@ -156,11 +134,10 @@ body {
   color: var(--danger);
 }
 
-/* Forgot password link */
 .forgot-password-container {
   text-align: center;
   margin-top: 1rem;
-  animation: ApparitionBouton 1.5s ease-in-out;
+  animation: appear 1.5s ease-in-out;
 }
 
 .forgot-password-container a {
@@ -175,7 +152,6 @@ body {
   text-decoration: underline;
 }
 
-/* Modal styles */
 .modal {
   display: none;
   position: fixed;
@@ -186,7 +162,7 @@ body {
   height: 100%;
   overflow: auto;
   background-color: rgba(0, 0, 0, 0.5);
-  animation: fadeIn 0.3s ease-in-out;
+  animation: fade-in 0.3s ease-in-out;
 }
 
 .modal-content {
@@ -198,7 +174,7 @@ body {
   width: 90%;
   max-width: 400px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  animation: slideDown 0.3s ease-in-out;
+  animation: slide-down 0.3s ease-in-out;
 }
 
 .modal-content h2 {
@@ -241,8 +217,7 @@ body {
   color: var(--dark);
 }
 
-
-@keyframes fadeIn {
+@keyframes fade-in {
   from {
     opacity: 0;
   }
@@ -251,7 +226,7 @@ body {
   }
 }
 
-@keyframes slideDown {
+@keyframes slide-down {
   from {
     transform: translateY(-50px);
     opacity: 0;
@@ -262,8 +237,7 @@ body {
   }
 }
 
-/* Animation d'apparition */
-@keyframes ApparitionBouton {
+@keyframes appear {
   0% {
     opacity: 0;
     transform: translateY(20px);
@@ -274,7 +248,6 @@ body {
   }
 }
 
-/* Responsive mobile */
 @media (max-width: 480px) {
   .login-container {
     max-width: 340px !important;
