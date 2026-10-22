@@ -56,7 +56,7 @@ async function handleLegacyToken(token) {
         </div>
       `;
     }
-  } catch (e) {
+  } catch {
     document.querySelector('.register-container').innerHTML = `
       <div class="form-container" style="text-align: center;">
         <h2>Erreur</h2>
@@ -94,7 +94,7 @@ async function handlePrefilledLink() {
       <p><strong>Classe :</strong> ${escapeHTML(data.classe.nom)}</p>
     `;
     step3Container.insertBefore(prefilledDiv, step3Container.querySelector('.form-group'));
-  } catch (e) {
+  } catch {
     // Continuer avec le flow normal
   }
 }

@@ -8,7 +8,7 @@
 
   try {
     savedTheme = localStorage.getItem('theme');
-  } catch (e) {
+  } catch {
     // localStorage indisponible (mode prive, cookies bloques) : on reste sur le theme clair.
   }
 

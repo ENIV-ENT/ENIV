@@ -609,7 +609,7 @@ async function showResults() {
     const percentage = Math.round((correctCount / currentQuestions.length) * 100);
     document.getElementById('finalScore').textContent = percentage + '%';
 
-    let message = '';
+    let message;
     if (percentage >= 90) {
         message = '🌟 Excellent ! Vous maîtrisez parfaitement le sujet !';
     } else if (percentage >= 70) {

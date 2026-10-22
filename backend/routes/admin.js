@@ -9,37 +9,6 @@ const router = express.Router();
 
 const ICS_URL_MAX_LENGTH = 2048;
 
-// Palette de couleurs prédéfinies
-const availableColors = [
-  '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
-  '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B739', '#52BE80',
-  '#EC7063', '#5DADE2', '#F39C12', '#AF7AC5', '#48C9B0',
-  '#E74C3C', '#3498DB', '#2ECC71', '#E67E22', '#9B59B6',
-  '#1ABC9C', '#34495E', '#16A085', '#27AE60', '#2980B9',
-  '#8E44AD', '#2C3E50', '#F1C40F', '#E08E79', '#73C6B6'
-];
-
-// Fonction pour obtenir une couleur unique
-async function getUniqueColor() {
-  try {
-    const usedColors = await db.all('SELECT couleur FROM matieres WHERE couleur IS NOT NULL', []);
-    const usedSet = new Set(usedColors.map(m => m.couleur));
-
-    const available = availableColors.filter(color => !usedSet.has(color));
-
-    if (available.length === 0) {
-      // Si toutes les couleurs sont utilisées, générer une couleur aléatoire
-      return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
-    }
-
-    // Retourner une couleur aléatoire parmi celles disponibles
-    return available[Math.floor(Math.random() * available.length)];
-  } catch (error) {
-    console.error('Error getting unique color:', error);
-    return availableColors[0];
-  }
-}
-
 // Créer un élève
 router.post('/eleves', requireAdmin, express.json(), async (req, res) => {
   const { username, password } = req.body || {};
@@ -87,7 +56,7 @@ router.get('/eleves', requireAdmin, async (req, res) => {
       [classeId]
     );
     res.json(eleves);
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Erreur lors de la récupération des élèves' });
   }
 });
@@ -206,7 +175,7 @@ router.delete('/eleves/:id', requireAdmin, async (req, res) => {
       [req.params.id, 'eleve', classeId]
     );
     res.json({ success: true, message: 'Élève supprimé' });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Erreur lors de la suppression de l\'élève' });
   }
 });
@@ -301,7 +270,7 @@ router.get('/matieres', requireAuth, async (req, res) => {
       [classeId]
     );
     res.json(matieres);
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Erreur lors de la récupération des matières' });
   }
 });
@@ -321,7 +290,7 @@ router.put('/matieres/:id', requireAdmin, express.json(), async (req, res) => {
       [nom, lien || null, couleur || null, req.params.id, classeId]
     );
     res.json({ success: true, message: 'Matière mise à jour' });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Erreur lors de la mise à jour de la matière' });
   }
 });
@@ -339,7 +308,7 @@ router.delete('/matieres/:id', requireAdmin, async (req, res) => {
       [req.params.id, classeId]
     );
     res.json({ success: true, message: 'Matière supprimée' });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Erreur lors de la suppression de la matière' });
   }
 });
@@ -360,7 +329,7 @@ router.post('/settings/emploi-temps', requireAdmin, express.json(), async (req, 
       [key, lien || null, classeId]
     );
     res.json({ success: true, message: 'Lien emploi du temps configuré' });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Erreur lors de la configuration' });
   }
 });
@@ -379,7 +348,7 @@ router.get('/settings/emploi-temps', requireAuth, async (req, res) => {
       [key, classeId]
     );
     res.json({ lien: setting ? setting.value : null });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Erreur lors de la récupération' });
   }
 });
@@ -438,7 +407,7 @@ router.get('/settings/emploi-temps-ics', requireAdmin, async (req, res) => {
   try {
     const classeId = req.user.classe_id;
     res.json({ lien: classeId ? await getSource(classeId) : null });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Erreur lors de la récupération' });
   }
 });

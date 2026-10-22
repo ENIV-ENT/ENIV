@@ -121,7 +121,7 @@ function handleConnection(ws) {
     let message;
     try {
       message = JSON.parse(raw.toString());
-    } catch (error) {
+    } catch {
       return; // trame invalide : ignorée, le timer d'auth finira par fermer
     }
     if (!message) return;
@@ -224,7 +224,7 @@ function notifyClasse(classeId, message, excludeClientId = null) {
     if (excludeClientId && ws.clientId === excludeClientId) return;
     try {
       ws.send(payload);
-    } catch (error) {
+    } catch {
       removeClient(ws);
     }
   });

@@ -218,7 +218,7 @@ async function handleImage(event, request) {
 // Le serveur (backend/services/push.js) envoie { title, body, url, tag }.
 
 self.addEventListener('push', (event) => {
-  let data = {};
+  let data;
   try {
     data = event.data ? event.data.json() : {};
   } catch {

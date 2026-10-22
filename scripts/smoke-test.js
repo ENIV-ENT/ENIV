@@ -57,7 +57,7 @@ async function run() {
   let failed = 0;
   for (const [label, path, expected, verify] of checks) {
     let ok = false;
-    let detail = '';
+    let detail;
     try {
       const res = await fetch(`${BASE_URL}${path}`, { redirect: 'manual' });
       const body = await res.text();

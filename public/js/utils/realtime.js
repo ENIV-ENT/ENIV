@@ -68,7 +68,7 @@ export function connectRealtime({ onUpdate, onResync }) {
     if (ws.readyState !== WebSocket.OPEN) return;
     try {
       ws.send(JSON.stringify(message));
-    } catch (error) {
+    } catch {
       // Rien à faire : la fermeture déclenchera la reconnexion.
     }
   }
@@ -125,7 +125,7 @@ export function connectRealtime({ onUpdate, onResync }) {
       let message;
       try {
         message = JSON.parse(event.data);
-      } catch (error) {
+      } catch {
         return;
       }
       if (!message) return;

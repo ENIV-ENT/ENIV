@@ -240,7 +240,7 @@ router.post('/check-username', lookupLimiter, async (req, res) => {
       return res.json({ available: false, message: 'Ce nom d\'utilisateur est deja pris' });
     }
     return res.json({ available: true, message: 'Nom d\'utilisateur disponible' });
-  } catch (error) {
+  } catch {
     return res.json({ available: false, message: 'Erreur de verification' });
   }
 });
@@ -262,7 +262,7 @@ router.get('/invite-info', async (req, res) => {
     }
 
     res.json({ classe, etablissement: etab });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });

@@ -172,7 +172,7 @@ router.get('/:id', async (req, res) => {
     }
 
     res.json(devoir);
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Erreur lors de la récupération du devoir' });
   }
 });
@@ -263,7 +263,7 @@ router.delete('/:id', async (req, res) => {
     });
 
     res.json({ success: true, message: 'Devoir supprimé' });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Erreur lors de la suppression du devoir' });
   }
 });
@@ -307,7 +307,7 @@ router.get('/settings/emploi-temps', async (req, res) => {
     // ics : l'emploi du temps s'affiche dans Eniv (/emploi-du-temps) plutôt
     // que d'ouvrir le lien dans un nouvel onglet
     res.json({ lien: setting ? setting.value : null, ics: Boolean(ics) });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Erreur lors de la récupération' });
   }
 });
@@ -691,8 +691,7 @@ router.post('/:id/generate-quiz', express.json(), async (req, res) => {
     generateQuizInBackground(
       req.params.id,
       devoir,
-      req.user,
-      fichiers
+      req.user
     );
 
     res.json({
@@ -705,7 +704,7 @@ router.post('/:id/generate-quiz', express.json(), async (req, res) => {
   }
 });
 
-async function generateQuizInBackground(devoirId, devoir, user, fichiersIds) {
+async function generateQuizInBackground(devoirId, devoir, user) {
   try {
     // S'assurer que dotenv est chargé
     require('dotenv').config();

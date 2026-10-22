@@ -1,6 +1,6 @@
 import { apiCall, checkAuth } from '../utils/api.js';
 import { mountHeader, setHeaderUser } from '../components/header.js';
-import { escapeHTML, localDate, formatDate, toInputDate, toggleModal, setupModalClose, showAlert, showConfirm, getContrastColor } from '../utils/dom.js';
+import { escapeHTML, localDate, toInputDate, toggleModal, setupModalClose, showAlert, showConfirm, getContrastColor } from '../utils/dom.js';
 import { renderMarkdown, hydrateMarkdownImages } from '../utils/markdown.js';
 import { connectRealtime, getRealtimeId } from '../utils/realtime.js';
 import { syncPushSubscription } from '../utils/push.js';
@@ -1095,7 +1095,7 @@ async function loadDevoirModalFichiers(devoirId, ouvertParDefaut = false) {
       toggle.setAttribute('aria-expanded', String(ouvrir));
       toggle.querySelector('.documents-signe').textContent = ouvrir ? '▾' : '▸';
     });
-  } catch (error) { container.innerHTML = ''; }
+  } catch { container.innerHTML = ''; }
 }
 
 async function uploadFiles(devoirId, files, statusBtn) {
@@ -1215,7 +1215,7 @@ async function loadExistingFiles(devoirId) {
         <button type="button" class="btn-danger" style="padding:0.25rem 0.5rem;font-size:0.8rem;" onclick="deleteFichier(${f.id}, ${devoirId})">Supprimer</button>
       </div>
     `).join('');
-  } catch (error) { container.innerHTML = ''; }
+  } catch { container.innerHTML = ''; }
 }
 
 // Les documents ne sont plus accessibles par une adresse fixe : on demande un
@@ -1331,7 +1331,7 @@ async function loadQuizStatus(devoirId) {
 
     html += '</div>';
     container.innerHTML = html;
-  } catch (error) { container.innerHTML = ''; }
+  } catch { container.innerHTML = ''; }
 }
 
 window.startQuiz = function(devoirId) { window.location.href = `/quiz?id=${devoirId}`; };
@@ -1345,7 +1345,7 @@ window.generateQuiz = async function(devoirId) {
     if (result.error) { await showAlert(result.error, 'Erreur'); return; }
     await showAlert('Génération démarrée ! Email envoyé quand prêt.', 'Quiz');
     await loadQuizStatus(devoirId);
-  } catch (error) { await showAlert('Erreur lors de la génération', 'Erreur'); }
+  } catch { await showAlert('Erreur lors de la génération', 'Erreur'); }
 };
 
 async function toggleDevoirStatut(devoirId, fait) {

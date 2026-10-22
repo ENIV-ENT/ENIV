@@ -79,7 +79,7 @@ function setupEventListeners() {
     try {
       await navigator.clipboard.writeText(input.value);
       await showAlert('Lien copié dans le presse-papiers !', 'Succès');
-    } catch (e) {
+    } catch {
       input.select();
       document.execCommand('copy');
       await showAlert('Lien copié !', 'Succès');
@@ -578,7 +578,7 @@ function normalizeLogDetails(log) {
   let details;
   try {
     details = JSON.parse(log.details) || {};
-  } catch (e) {
+  } catch {
     details = {};
   }
 
