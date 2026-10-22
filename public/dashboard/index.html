@@ -10,7 +10,6 @@
   <link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
   <meta name="theme-color" content="#4a90e2">
   <script src="/js/pwa.js" defer></script>
-  <!-- Doit rester synchrone et avant les styles : applique le thème avant le premier rendu -->
   <script src="/js/theme-init.js"></script>
   <link rel="stylesheet" href="/css/header.css">
   <link rel="stylesheet" href="/css/dashboard.css">
@@ -22,19 +21,16 @@
     <div class="loading-spinner-bar"></div>
   </div>
 
-  <!-- Rempli par /js/components/header.js -->
   <header id="app-header"></header>
 
-  <!-- Message d'attente pour les utilisateurs en pending -->
   <div id="pending-banner" class="pending-banner" style="display: none;">
-    <p>Votre demande d'adhésion est en attente d'approbation par l'administrateur de la classe <strong id="pending-classe-name"></strong>.</p>
+    <p>Votre demande d'adhésion est en attente d'approbation par l'administrateur de la classe <strong id="pending-class-name"></strong>.</p>
   </div>
 
-  <!-- Calendrier -->
   <div class="container">
-    <div class="vue-toggle">
-      <span id="vue-label" class="vue-label"></span>
-      <button id="vue-toggle-btn" class="btn-secondary">Devoirs passés</button>
+    <div class="view-toggle">
+      <span id="view-label" class="view-label"></span>
+      <button id="view-toggle-btn" class="btn-secondary">Devoirs passés</button>
     </div>
     <div class="calendar-header">
       <button id="prev-month" class="btn-secondary">&lt;</button>
@@ -45,10 +41,9 @@
     <div id="calendar" class="calendar"></div>
   </div>
 
-  <button id="add-devoir-fab" class="add-devoir-fab" aria-label="Ajouter un devoir">+</button>
+  <button id="add-assignment-fab" class="add-assignment-fab" aria-label="Ajouter un devoir">+</button>
 
-  <!-- Modals pour les devoirs (gardés identiques) -->
-  <div id="devoir-modal" class="modal">
+  <div id="assignment-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
         <h2 id="modal-title">Détails du devoir</h2>
@@ -58,36 +53,36 @@
     </div>
   </div>
 
-  <div id="add-devoir-modal" class="modal">
+  <div id="add-assignment-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
         <h2>Ajouter un devoir</h2>
         <button class="modal-close" id="close-add-modal">&times;</button>
       </div>
-      <form id="devoir-form">
+      <form id="assignment-form">
         <div class="form-group">
-          <label for="devoir-titre" class="form-label">Titre du devoir</label>
-          <input type="text" id="devoir-titre" placeholder="Ex: Exercices de mathématiques" required>
+          <label for="assignment-title" class="form-label">Titre du devoir</label>
+          <input type="text" id="assignment-title" placeholder="Ex: Exercices de mathématiques" required>
         </div>
         <div class="form-group">
-          <label for="devoir-matiere" class="form-label">Matière</label>
-          <select id="devoir-matiere" required>
+          <label for="assignment-subject" class="form-label">Matière</label>
+          <select id="assignment-subject" required>
             <option value="">Sélectionner une matière</option>
           </select>
         </div>
         <div class="form-group">
-          <label for="devoir-description" class="form-label">Description (optionnel)</label>
-          <textarea id="devoir-description" placeholder="Détails du devoir..." rows="4"></textarea>
+          <label for="assignment-description" class="form-label">Description (optionnel)</label>
+          <textarea id="assignment-description" placeholder="Détails du devoir..." rows="4"></textarea>
           <small class="form-hint">Mise en forme Markdown : **gras**, *italique*, - listes, [lien](url)</small>
         </div>
         <div class="form-group">
-          <label for="devoir-date-limite" class="form-label">Pour le</label>
-          <input type="date" id="devoir-date-limite" required>
+          <label for="assignment-due-date" class="form-label">Pour le</label>
+          <input type="date" id="assignment-due-date" required>
         </div>
         <div class="form-group">
           <label class="form-label">Fichiers PDF (optionnel)</label>
-          <div id="devoir-drop-zone" style="border: 2px dashed var(--border); border-radius: 8px; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.3s ease; background: var(--light); margin-bottom: 0.5rem;">
-            <input type="file" id="devoir-fichiers" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls" multiple style="display: none;">
+          <div id="assignment-drop-zone" style="border: 2px dashed var(--border); border-radius: 8px; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.3s ease; background: var(--light); margin-bottom: 0.5rem;">
+            <input type="file" id="assignment-files" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls" multiple style="display: none;">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto; color: var(--primary);">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="17 8 12 3 7 8"></polyline>
@@ -96,55 +91,55 @@
             <p style="margin: 0.5rem 0 0 0; color: var(--primary); font-weight: 500;">Cliquez ou glissez-déposez vos fichiers</p>
             <small style="color: var(--secondary); font-size: 0.85rem;">10 Mo max par fichier</small>
           </div>
-          <div id="devoir-fichiers-list" style="margin-top: 0.5rem;"></div>
+          <div id="assignment-files-list" style="margin-top: 0.5rem;"></div>
         </div>
         <div class="form-actions">
-          <button type="submit" id="add-devoir-submit-btn" class="btn-primary">Créer le devoir</button>
-          <button type="button" id="cancel-devoir-btn" class="btn-secondary">Annuler</button>
+          <button type="submit" id="add-assignment-submit-btn" class="btn-primary">Créer le devoir</button>
+          <button type="button" id="cancel-assignment-btn" class="btn-secondary">Annuler</button>
         </div>
       </form>
     </div>
   </div>
 
-  <div id="edit-devoir-modal" class="modal">
+  <div id="edit-assignment-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
         <h2>Modifier le devoir</h2>
-        <button class="modal-close" id="close-edit-devoir-modal">&times;</button>
+        <button class="modal-close" id="close-edit-assignment-modal">&times;</button>
       </div>
-      <form id="edit-devoir-form">
-        <div id="edit-devoir-supprime-banner" class="modal-warning hidden">
+      <form id="edit-assignment-form">
+        <div id="edit-assignment-deleted-banner" class="modal-warning hidden">
           Ce devoir vient d'être supprimé par un autre utilisateur. En enregistrant, il sera recréé comme un nouveau devoir (les fichiers qui y étaient déjà joints sont définitivement perdus).
         </div>
-        <div id="edit-devoir-modifie-banner" class="modal-warning modal-warning-action hidden">
+        <div id="edit-assignment-changed-banner" class="modal-warning modal-warning-action hidden">
           <span>Ce devoir vient d'être modifié par un autre utilisateur. Votre saisie est conservée ; enregistrer écrasera ses modifications.</span>
-          <button type="button" id="edit-devoir-recharger-btn" class="btn-secondary">Charger les modifications</button>
+          <button type="button" id="edit-assignment-reload-btn" class="btn-secondary">Charger les modifications</button>
         </div>
-        <input type="hidden" id="edit-devoir-id">
+        <input type="hidden" id="edit-assignment-id">
         <div class="form-group">
-          <label for="edit-devoir-titre" class="form-label">Titre du devoir</label>
-          <input type="text" id="edit-devoir-titre" required>
+          <label for="edit-assignment-title" class="form-label">Titre du devoir</label>
+          <input type="text" id="edit-assignment-title" required>
         </div>
         <div class="form-group">
-          <label for="edit-devoir-matiere" class="form-label">Matière</label>
-          <select id="edit-devoir-matiere" required>
+          <label for="edit-assignment-subject" class="form-label">Matière</label>
+          <select id="edit-assignment-subject" required>
             <option value="">Sélectionner une matière</option>
           </select>
         </div>
         <div class="form-group">
-          <label for="edit-devoir-description" class="form-label">Description (optionnel)</label>
-          <textarea id="edit-devoir-description" rows="4"></textarea>
+          <label for="edit-assignment-description" class="form-label">Description (optionnel)</label>
+          <textarea id="edit-assignment-description" rows="4"></textarea>
           <small class="form-hint">Mise en forme Markdown : **gras**, *italique*, - listes, [lien](url)</small>
         </div>
         <div class="form-group">
-          <label for="edit-devoir-date-limite" class="form-label">Pour le</label>
-          <input type="date" id="edit-devoir-date-limite" required>
+          <label for="edit-assignment-due-date" class="form-label">Pour le</label>
+          <input type="date" id="edit-assignment-due-date" required>
         </div>
-        <div id="edit-devoir-fichiers-existants" style="margin-bottom: 1rem;"></div>
+        <div id="edit-assignment-existing-files" style="margin-bottom: 1rem;"></div>
         <div class="form-group">
           <label class="form-label">Ajouter des fichiers (optionnel)</label>
-          <div id="edit-devoir-drop-zone" style="border: 2px dashed var(--border); border-radius: 8px; padding: 2rem; text-align: center; cursor: pointer; background: var(--light); margin-bottom: 0.5rem;">
-            <input type="file" id="edit-devoir-nouveaux-fichiers" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls" multiple style="display: none;">
+          <div id="edit-assignment-drop-zone" style="border: 2px dashed var(--border); border-radius: 8px; padding: 2rem; text-align: center; cursor: pointer; background: var(--light); margin-bottom: 0.5rem;">
+            <input type="file" id="edit-assignment-new-files" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls" multiple style="display: none;">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto; color: var(--primary);">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="17 8 12 3 7 8"></polyline>
@@ -153,11 +148,11 @@
             <p style="margin: 0.5rem 0 0 0; color: var(--primary); font-weight: 500;">Cliquez ou glissez-déposez vos fichiers</p>
             <small style="color: var(--secondary); font-size: 0.85rem;">10 Mo max par fichier</small>
           </div>
-          <div id="edit-devoir-nouveaux-fichiers-list" style="margin-top: 0.5rem;"></div>
+          <div id="edit-assignment-new-files-list" style="margin-top: 0.5rem;"></div>
         </div>
         <div class="form-actions">
-          <button type="submit" id="edit-devoir-submit-btn" class="btn-primary">Enregistrer</button>
-          <button type="button" id="cancel-edit-devoir-btn" class="btn-secondary">Annuler</button>
+          <button type="submit" id="edit-assignment-submit-btn" class="btn-primary">Enregistrer</button>
+          <button type="button" id="cancel-edit-assignment-btn" class="btn-secondary">Annuler</button>
         </div>
       </form>
     </div>

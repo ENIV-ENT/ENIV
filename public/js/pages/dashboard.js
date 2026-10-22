@@ -5,16 +5,16 @@ import { renderMarkdown, hydrateMarkdownImages } from '../utils/markdown.js';
 import { connectRealtime, getRealtimeId } from '../utils/realtime.js';
 import { syncPushSubscription } from '../utils/push.js';
 
-let matieres = [];
-let devoirs = [];
+let subjects = [];
+let assignments = [];
 let currentMonth = new Date().getMonth();
 let currentYear = new Date().getFullYear();
-// Vue mobile : liste continue de jours à partir d'aujourd'hui, prolongée au défilement
+/** Mobile view: continuous list of days from today, extended while scrolling. */
 const MOBILE_DAYS_STEP = 14;
 let mobileDaysShown = MOBILE_DAYS_STEP;
 let mobileObserver = null;
-// Vue « devoirs passés » (/dashboard/?vue=passes) : une semaine à la fois
-let vuePasses = new URLSearchParams(window.location.search).get('vue') === 'passes';
+/** "Past assignments" view (/dashboard/?vue=passes): one week at a time. */
+let pastView = new URLSearchParams(window.location.search).get('vue') === 'passes';
 let pastWeekStart = null;
 const MONTH_NAMES = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 const DAY_NAMES = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
@@ -22,10 +22,14 @@ let selectedDate = null;
 let isMobileView = false;
 let authData = null;
 
-// L'annee scolaire commence en septembre (mois 8) et se termine en aout
+/** The school year starts in September (month 8) and ends in August. */
 const SCHOOL_YEAR_START_MONTH = 8;
 const schoolYear = getSchoolYear();
 
+/**
+ * @returns {{startYear: number, endYear: number, firstDay: Date, lastDay: Date}}
+ *   firstDay is September 1st of the start year, lastDay the last day of August of the end year.
+ */
 function getSchoolYear(reference = new Date()) {
   const startYear = reference.getMonth() >= SCHOOL_YEAR_START_MONTH
     ? reference.getFullYear()
@@ -34,9 +38,7 @@ function getSchoolYear(reference = new Date()) {
   return {
     startYear,
     endYear: startYear + 1,
-    // 1er septembre de l'annee de debut
     firstDay: new Date(startYear, SCHOOL_YEAR_START_MONTH, 1),
-    // Dernier jour d'aout de l'annee de fin
     lastDay: new Date(startYear + 1, SCHOOL_YEAR_START_MONTH, 0)
   };
 }
@@ -48,7 +50,7 @@ function monthIndex(year, month) {
 const minMonthIndex = monthIndex(schoolYear.startYear, SCHOOL_YEAR_START_MONTH);
 const maxMonthIndex = monthIndex(schoolYear.endYear, SCHOOL_YEAR_START_MONTH - 1);
 
-// Bornes au format YYYY-MM-DD, comparables directement aux dates des cellules
+/** Bounds as YYYY-MM-DD, directly comparable with the dates of the cells. */
 const minDateStr = toInputDate(schoolYear.firstDay);
 const maxDateStr = toInputDate(schoolYear.lastDay);
 
@@ -56,23 +58,36 @@ function isDateStrInSchoolYear(dateStr) {
   return dateStr >= minDateStr && dateStr <= maxDateStr;
 }
 
-// Stockage des fichiers accumulés
 let accumulatedFiles = [];
 let accumulatedEditFiles = [];
 
-// Temps réel : état des rafraîchissements déclenchés par les autres membres de la classe
-let currentDevoirId = null;        // devoir affiché dans #devoir-modal
-let currentDevoirSignature = null; // état du devoir au moment du rendu du modal
-let editDevoirRecreate = false;    // le devoir en cours d'édition a été supprimé ailleurs
-let editDevoirBaseline = null;     // version du devoir chargée dans le formulaire d'édition
+/**
+ * Realtime state: refreshes triggered by the other members of the class.
+ * - currentAssignmentId: assignment shown in #assignment-modal
+ * - currentAssignmentSignature: state of that assignment when the modal was rendered
+ * - editAssignmentRecreate: the assignment being edited was deleted elsewhere
+ * - editAssignmentBaseline: version of the assignment loaded in the edit form
+ * - refreshQueued: a refresh waits for a local submission to finish
+ * - commentSending: a comment is being sent
+ * - commentsRequest: number of the last comments load
+ * - pendingComments: assignment id → comment count received in realtime
+ */
+let currentAssignmentId = null;
+let currentAssignmentSignature = null;
+let editAssignmentRecreate = false;
+let editAssignmentBaseline = null;
 let refreshTimer = null;
-let refreshQueued = false;         // un rafraîchissement attend la fin d'un envoi local
+let refreshQueued = false;
 let isSubmitting = false;
-let commentaireEnvoi = false;      // un commentaire est en cours d'envoi
-let commentairesRequete = 0;       // numéro du dernier chargement des commentaires
+let commentSending = false;
+let commentsRequest = 0;
 const pendingResources = new Set();
-const pendingCommentaires = new Map(); // devoirId → nombre de commentaires reçu en temps réel
+const pendingComments = new Map();
 
+/**
+ * Realtime updates are only enabled for users attached to a class, the only
+ * ones who can receive anything.
+ */
 async function init() {
   mountHeader({ page: 'dashboard' });
 
@@ -82,15 +97,13 @@ async function init() {
 
   setHeaderUser(authData);
 
-  // Check pending request
   if (authData.pending_request) {
     document.getElementById('pending-banner').style.display = 'block';
-    document.getElementById('pending-classe-name').textContent = authData.pending_request.classe_nom;
+    document.getElementById('pending-class-name').textContent = authData.pending_request.classe_nom;
     document.getElementById('main-content').style.display = 'none';
     return;
   }
 
-  // If user has no class and isn't admin, show message
   if (!authData.classe_id && !authData.is_admin) {
     document.getElementById('main-content').innerHTML = `
       <div style="text-align: center; padding: 3rem; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -106,15 +119,13 @@ async function init() {
   applySchoolYearLimits();
   checkViewport();
   renderCalendar();
-  ouvrirDevoirDepuisURL();
+  openAssignmentFromUrl();
   syncPushSubscription();
 
-  // Mises à jour temps réel : uniquement pour les utilisateurs rattachés à une
-  // classe, les seuls qui peuvent recevoir quelque chose.
   if (authData.classe_id) {
     connectRealtime({
       onUpdate: (message) => {
-        if (message.resource === 'commentaires') pendingCommentaires.set(message.devoirId, message.nbCommentaires);
+        if (message.resource === 'commentaires') pendingComments.set(message.devoirId, message.nbCommentaires);
         scheduleRefresh(message.resource, message.devoirId);
       },
       onResync: () => scheduleRefresh('*', null)
@@ -122,21 +133,21 @@ async function init() {
   }
 }
 
-// ============= TEMPS RÉEL =============
-
 const REFRESH_DEBOUNCE_MS = 400;
-let refreshDevoirId = null;
+let refreshAssignmentId = null;
 
-// Une seule action distante (modifier un devoir puis envoyer trois fichiers) émet
-// plusieurs trames : on les regroupe pour ne recharger qu'une fois.
-function scheduleRefresh(resource, devoirId) {
+/**
+ * One remote action (editing an assignment, then uploading three files) sends
+ * several frames: they are grouped to reload only once. While a local
+ * submission is in progress, the refresh waits for it to end, so as not to
+ * reload half-written data.
+ */
+function scheduleRefresh(resource, assignmentId) {
   if (!resource) return;
 
   pendingResources.add(resource);
-  if (devoirId) refreshDevoirId = devoirId;
+  if (assignmentId) refreshAssignmentId = assignmentId;
 
-  // Un envoi local est en cours : le rafraîchissement attendra sa fin pour ne pas
-  // recharger des données à moitié écrites.
   if (isSubmitting) {
     refreshQueued = true;
     return;
@@ -153,176 +164,189 @@ function flushQueuedRefresh() {
   refreshTimer = setTimeout(applyRefresh, REFRESH_DEBOUNCE_MS);
 }
 
+/**
+ * Applies the grouped refresh. Comment notifications carry their count, so the
+ * assignments are only reloaded when a count is missing.
+ */
 async function applyRefresh() {
   refreshTimer = null;
 
   const resources = new Set(pendingResources);
-  const devoirId = refreshDevoirId;
-  const commentaires = new Map(pendingCommentaires);
+  const assignmentId = refreshAssignmentId;
+  const commentCounts = new Map(pendingComments);
   pendingResources.clear();
-  pendingCommentaires.clear();
-  refreshDevoirId = null;
+  pendingComments.clear();
+  refreshAssignmentId = null;
 
   const isResync = resources.has('*');
-  const wantsMatieres = isResync || resources.has('matieres');
-  // Les commentaires arrivent avec leur nombre : on ne recharge les devoirs que s'il manque
-  const nombreManquant = [...commentaires.values()].some(n => !Number.isInteger(n));
-  const wantsDevoirs = isResync || nombreManquant || ['devoirs', 'fichiers', 'quiz'].some(r => resources.has(r));
+  const wantsSubjects = isResync || resources.has('matieres');
+  const missingCount = [...commentCounts.values()].some(n => !Number.isInteger(n));
+  const wantsAssignments = isResync || missingCount || ['devoirs', 'fichiers', 'quiz'].some(r => resources.has(r));
 
   const tasks = [];
-  if (wantsMatieres) tasks.push(loadMatieres());
-  if (wantsDevoirs) tasks.push(loadDevoirs());
-  if (tasks.length === 0 && commentaires.size === 0) return;
+  if (wantsSubjects) tasks.push(loadSubjects());
+  if (wantsAssignments) tasks.push(loadAssignments());
+  if (tasks.length === 0 && commentCounts.size === 0) return;
 
   await Promise.all(tasks);
-  if (!wantsDevoirs) {
-    commentaires.forEach((n, id) => {
-      const devoir = devoirs.find(d => d.id === id);
-      if (devoir) devoir.nb_commentaires = n;
+  if (!wantsAssignments) {
+    commentCounts.forEach((n, id) => {
+      const assignment = assignments.find(a => a.id === id);
+      if (assignment) assignment.nb_commentaires = n;
     });
   }
   renderCalendar();
-  await refreshOpenModals(resources, devoirId, commentaires);
+  await refreshOpenModals(resources, assignmentId, commentCounts);
 }
 
 function isModalOpen(modalId) {
   return Boolean(document.getElementById(modalId)?.classList.contains('active'));
 }
 
-// Le statut "fait" est volontairement exclu : il est propre à chaque utilisateur
-// et ne peut pas changer du fait d'une action distante.
-function devoirSignature(devoir) {
-  if (!devoir) return null;
-  return [devoir.titre, devoir.description, devoir.matiere_id, devoir.date].join('|');
+/**
+ * Content signature of an assignment. The "done" status is left out on
+ * purpose: it belongs to each user and cannot change because of a remote
+ * action.
+ */
+function assignmentSignature(assignment) {
+  if (!assignment) return null;
+  return [assignment.titre, assignment.description, assignment.matiere_id, assignment.date].join('|');
 }
 
-async function refreshOpenModals(resources, devoirId, commentaires) {
+/**
+ * Updates the open modals after a remote change.
+ *
+ * The details modal is fully re-rendered only when its content really changed:
+ * re-rendering resets the scroll, which is annoying on long descriptions, and
+ * also reloads the comments.
+ *
+ * In the edit modal, the list of existing files only mirrors the server, so
+ * refreshing it cannot overwrite anything typed by the user. The form fields
+ * may hold an input in progress: the divergence is only reported, and
+ * reloading stays the user's choice.
+ */
+async function refreshOpenModals(resources, assignmentId, commentCounts) {
   const isResync = resources.has('*');
 
-  if (isModalOpen('devoir-modal') && currentDevoirId) {
-    const devoir = devoirs.find(d => d.id === currentDevoirId);
+  if (isModalOpen('assignment-modal') && currentAssignmentId) {
+    const assignment = assignments.find(a => a.id === currentAssignmentId);
 
-    if (!devoir) {
-      toggleModal('devoir-modal', false);
-      currentDevoirId = null;
-      currentDevoirSignature = null;
+    if (!assignment) {
+      toggleModal('assignment-modal', false);
+      currentAssignmentId = null;
+      currentAssignmentSignature = null;
       await showAlert("Ce devoir vient d'être supprimé par un autre utilisateur.", 'Devoir supprimé');
     } else {
-      const concerne = isResync || !devoirId || devoirId === currentDevoirId;
-      if (concerne && resources.has('fichiers')) loadDevoirModalFichiers(currentDevoirId);
-      if (concerne && resources.has('quiz')) loadQuizStatus(currentDevoirId);
+      const concerned = isResync || !assignmentId || assignmentId === currentAssignmentId;
+      if (concerned && resources.has('fichiers')) loadAssignmentModalFiles(currentAssignmentId);
+      if (concerned && resources.has('quiz')) loadQuizStatus(currentAssignmentId);
 
-      // Rendu complet uniquement si le contenu a réellement changé : il réinitialise
-      // le défilement, gênant sur les longues descriptions. Il recharge aussi les
-      // commentaires.
-      const signature = devoirSignature(devoir);
-      if (concerne && (isResync || resources.has('devoirs')) && signature !== currentDevoirSignature) {
-        await showDevoirModal(currentDevoirId);
-      } else if (isResync || commentaires.has(currentDevoirId)) {
-        loadCommentaires(currentDevoirId);
+      const signature = assignmentSignature(assignment);
+      if (concerned && (isResync || resources.has('devoirs')) && signature !== currentAssignmentSignature) {
+        await showAssignmentModal(currentAssignmentId);
+      } else if (isResync || commentCounts.has(currentAssignmentId)) {
+        loadComments(currentAssignmentId);
       }
     }
   }
 
-  if (isModalOpen('edit-devoir-modal') && !editDevoirRecreate) {
-    const editedId = parseInt(document.getElementById('edit-devoir-id').value, 10);
-    const devoir = Number.isFinite(editedId) ? devoirs.find(d => d.id === editedId) : null;
+  if (isModalOpen('edit-assignment-modal') && !editAssignmentRecreate) {
+    const editedId = parseInt(document.getElementById('edit-assignment-id').value, 10);
+    const assignment = Number.isFinite(editedId) ? assignments.find(a => a.id === editedId) : null;
 
-    if (Number.isFinite(editedId) && !devoir) {
-      markEditDevoirAsDeleted();
-    } else if (devoir) {
-      // La liste des fichiers existants n'est qu'un reflet de l'état du serveur :
-      // la rafraîchir ne peut rien écraser de ce que l'utilisateur a saisi.
+    if (Number.isFinite(editedId) && !assignment) {
+      markEditedAssignmentAsDeleted();
+    } else if (assignment) {
       if (isResync || resources.has('fichiers')) loadExistingFiles(editedId);
-
-      // Les champs du formulaire, eux, contiennent peut-être une saisie en cours :
-      // on se contente de signaler la divergence, le rechargement reste au choix
-      // de l'utilisateur.
-      setEditDevoirModifie(devoirSignature(devoir) !== editDevoirBaseline);
+      setEditedAssignmentChanged(assignmentSignature(assignment) !== editAssignmentBaseline);
     }
   }
 }
 
-function setEditDevoirModifie(modifie) {
-  document.getElementById('edit-devoir-modifie-banner').classList.toggle('hidden', !modifie);
+function setEditedAssignmentChanged(changed) {
+  document.getElementById('edit-assignment-changed-banner').classList.toggle('hidden', !changed);
 }
 
-// Remplace la saisie en cours par la version distante, à la demande explicite de
-// l'utilisateur via le bouton du bandeau.
-async function rechargerDevoirEnEdition() {
-  const editedId = parseInt(document.getElementById('edit-devoir-id').value, 10);
-  const devoir = devoirs.find(d => d.id === editedId);
-  if (!devoir) return;
+/** Replaces the input in progress with the remote version, when the user asks for it from the banner. */
+async function reloadEditedAssignment() {
+  const editedId = parseInt(document.getElementById('edit-assignment-id').value, 10);
+  const assignment = assignments.find(a => a.id === editedId);
+  if (!assignment) return;
 
-  await fillEditDevoirForm(devoir);
-  setEditDevoirModifie(false);
+  await fillEditAssignmentForm(assignment);
+  setEditedAssignmentChanged(false);
 }
 
-// Le devoir en cours d'édition a disparu : on conserve la saisie de l'utilisateur
-// et l'enregistrement devient une recréation.
-function markEditDevoirAsDeleted() {
-  editDevoirRecreate = true;
-  document.getElementById('edit-devoir-supprime-banner').classList.remove('hidden');
-  document.getElementById('edit-devoir-submit-btn').textContent = 'Recréer le devoir';
-  // La suppression prime sur une éventuelle modification signalée auparavant.
-  setEditDevoirModifie(false);
-  // Les fichiers joints ont été supprimés en cascade avec le devoir.
-  document.getElementById('edit-devoir-fichiers-existants').innerHTML = '';
+/**
+ * The assignment being edited is gone: the user's input is kept and saving
+ * becomes a re-creation. The deletion takes precedence over a change reported
+ * before, and the attached files were deleted along with the assignment.
+ */
+function markEditedAssignmentAsDeleted() {
+  editAssignmentRecreate = true;
+  document.getElementById('edit-assignment-deleted-banner').classList.remove('hidden');
+  document.getElementById('edit-assignment-submit-btn').textContent = 'Recréer le devoir';
+  setEditedAssignmentChanged(false);
+  document.getElementById('edit-assignment-existing-files').innerHTML = '';
 }
 
-function resetEditDevoirBanners() {
-  editDevoirRecreate = false;
-  document.getElementById('edit-devoir-supprime-banner').classList.add('hidden');
-  document.getElementById('edit-devoir-submit-btn').textContent = 'Enregistrer';
-  setEditDevoirModifie(false);
+function resetEditAssignmentBanners() {
+  editAssignmentRecreate = false;
+  document.getElementById('edit-assignment-deleted-banner').classList.add('hidden');
+  document.getElementById('edit-assignment-submit-btn').textContent = 'Enregistrer';
+  setEditedAssignmentChanged(false);
 }
-
-// ============= CALENDAR & DEVOIRS (inchangé) =============
 
 async function loadData() {
   await Promise.all([
-    loadMatieres(),
-    loadDevoirs()
+    loadSubjects(),
+    loadAssignments()
   ]);
   renderCalendar();
 }
 
-async function loadMatieres() {
+async function loadSubjects() {
   const data = await apiCall('/api/admin/matieres');
   if (!data.error) {
-    matieres = data;
-    updateMatiereSelect();
+    subjects = data;
+    updateSubjectSelects();
   }
 }
 
-function updateMatiereSelect() {
-  const selects = ['devoir-matiere', 'edit-devoir-matiere'];
+/**
+ * Rebuilds the subject selects. Rebuilding clears the current choice, so it is
+ * restored when the subject still exists (it may have been deleted meanwhile).
+ */
+function updateSubjectSelects() {
+  const selects = ['assignment-subject', 'edit-assignment-subject'];
   selects.forEach(selectId => {
     const select = document.getElementById(selectId);
     if (!select) return;
-    // La reconstruction efface la sélection en cours : on la restaure si la
-    // matière existe toujours (elle peut avoir été supprimée entre-temps).
     const previousValue = select.value;
     select.innerHTML = '<option value="">Sélectionner une matière</option>';
-    matieres.forEach(matiere => {
+    subjects.forEach(subject => {
       const option = document.createElement('option');
-      option.value = matiere.id;
-      option.textContent = matiere.nom;
+      option.value = subject.id;
+      option.textContent = subject.nom;
       select.appendChild(option);
     });
-    if (previousValue && matieres.some(m => String(m.id) === previousValue)) {
+    if (previousValue && subjects.some(s => String(s.id) === previousValue)) {
       select.value = previousValue;
     }
   });
 }
 
-async function loadDevoirs() {
+async function loadAssignments() {
   const data = await apiCall('/api/devoirs');
   if (!data.error) {
-    devoirs = data;
+    assignments = data;
   }
 }
 
+/**
+ * Wires the page. In the mobile view, days without assignments are hidden, so
+ * adding goes through the floating button (with a date to pick).
+ */
 function setupEventListeners() {
   document.getElementById('prev-month').addEventListener('click', () => {
     if (!navigate(-1)) return;
@@ -334,44 +358,43 @@ function setupEventListeners() {
     renderCalendar();
   });
 
-  setupModalClose('devoir-modal', 'close-modal');
-  setupModalClose('add-devoir-modal', 'close-add-modal');
-  setupModalClose('edit-devoir-modal', 'close-edit-devoir-modal');
+  setupModalClose('assignment-modal', 'close-modal');
+  setupModalClose('add-assignment-modal', 'close-add-modal');
+  setupModalClose('edit-assignment-modal', 'close-edit-assignment-modal');
 
-  document.getElementById('cancel-devoir-btn').addEventListener('click', () => {
-    toggleModal('add-devoir-modal', false);
-    document.getElementById('devoir-form').reset();
+  document.getElementById('cancel-assignment-btn').addEventListener('click', () => {
+    toggleModal('add-assignment-modal', false);
+    document.getElementById('assignment-form').reset();
     accumulatedFiles.length = 0;
-    document.getElementById('devoir-fichiers-list').innerHTML = '';
+    document.getElementById('assignment-files-list').innerHTML = '';
   });
 
-  document.getElementById('cancel-edit-devoir-btn').addEventListener('click', () => {
-    toggleModal('edit-devoir-modal', false);
-    document.getElementById('edit-devoir-form').reset();
-    resetEditDevoirBanners();
+  document.getElementById('cancel-edit-assignment-btn').addEventListener('click', () => {
+    toggleModal('edit-assignment-modal', false);
+    document.getElementById('edit-assignment-form').reset();
+    resetEditAssignmentBanners();
     accumulatedEditFiles.length = 0;
-    document.getElementById('edit-devoir-nouveaux-fichiers-list').innerHTML = '';
-    document.getElementById('edit-devoir-fichiers-existants').innerHTML = '';
+    document.getElementById('edit-assignment-new-files-list').innerHTML = '';
+    document.getElementById('edit-assignment-existing-files').innerHTML = '';
   });
 
-  document.getElementById('devoir-form').addEventListener('submit', handleAddDevoir);
-  document.getElementById('edit-devoir-form').addEventListener('submit', handleEditDevoir);
-  document.getElementById('edit-devoir-recharger-btn').addEventListener('click', rechargerDevoirEnEdition);
+  document.getElementById('assignment-form').addEventListener('submit', handleAddAssignment);
+  document.getElementById('edit-assignment-form').addEventListener('submit', handleEditAssignment);
+  document.getElementById('edit-assignment-reload-btn').addEventListener('click', reloadEditedAssignment);
 
-  setupDropZone('devoir-drop-zone', 'devoir-fichiers', accumulatedFiles, 'devoir-fichiers-list');
-  setupDropZone('edit-devoir-drop-zone', 'edit-devoir-nouveaux-fichiers', accumulatedEditFiles, 'edit-devoir-nouveaux-fichiers-list');
+  setupDropZone('assignment-drop-zone', 'assignment-files', accumulatedFiles, 'assignment-files-list');
+  setupDropZone('edit-assignment-drop-zone', 'edit-assignment-new-files', accumulatedEditFiles, 'edit-assignment-new-files-list');
 
   document.addEventListener('click', handleCalendarClick);
 
-  document.getElementById('vue-toggle-btn').addEventListener('click', () => setVuePasses(!vuePasses));
-  // Vue mobile : les jours sans devoir sont masqués, l'ajout passe par ce bouton (date à choisir)
-  document.getElementById('add-devoir-fab').addEventListener('click', () => {
-    document.getElementById('devoir-date-limite').value = '';
-    showAddDevoirModal(null);
+  document.getElementById('view-toggle-btn').addEventListener('click', () => setPastView(!pastView));
+  document.getElementById('add-assignment-fab').addEventListener('click', () => {
+    document.getElementById('assignment-due-date').value = '';
+    showAddAssignmentModal(null);
   });
   window.addEventListener('popstate', () => {
-    const passes = new URLSearchParams(window.location.search).get('vue') === 'passes';
-    if (passes !== vuePasses) setVuePasses(passes, { push: false });
+    const past = new URLSearchParams(window.location.search).get('vue') === 'passes';
+    if (past !== pastView) setPastView(past, { push: false });
   });
 
   window.addEventListener('resize', () => {
@@ -381,9 +404,9 @@ function setupEventListeners() {
   });
 }
 
-// Limite les champs date des formulaires a l'annee scolaire en cours
+/** Restricts the date fields of the forms to the current school year. */
 function applySchoolYearLimits() {
-  ['devoir-date-limite', 'edit-devoir-date-limite'].forEach(id => {
+  ['assignment-due-date', 'edit-assignment-due-date'].forEach(id => {
     const input = document.getElementById(id);
     if (!input) return;
     input.min = minDateStr;
@@ -395,7 +418,7 @@ function checkViewport() {
   isMobileView = window.innerWidth <= 768;
 }
 
-// Dates « jour » : minuit UTC du jour local (localDate), comparables aux dates des devoirs via dateKey
+/** "Day" dates are UTC midnight of the local day (localDate), comparable with assignment dates through dateKey. */
 function addDays(date, n) {
   return localDate(date.getFullYear(), date.getMonth(), date.getDate() + n);
 }
@@ -412,13 +435,13 @@ function mondayOf(date) {
   return addDays(date, -((date.getDay() + 6) % 7));
 }
 
-// Dernière semaine qui contient un jour passé (sur un lundi : la semaine précédente)
+/** Last week holding a past day (on a Monday: the previous week). */
 function lastPastWeekStart() {
   return mondayOf(addDays(todayLocal(), -1));
 }
 
-function devoirsDuJour(dateStr) {
-  return devoirs.filter(d => d.date && d.date.split('T')[0] === dateStr)
+function assignmentsOfDay(dateStr) {
+  return assignments.filter(a => a.date && a.date.split('T')[0] === dateStr)
     .sort((a, b) => a.fait - b.fait);
 }
 
@@ -501,21 +524,23 @@ function displayFileList(fileArray, listId) {
 }
 
 window.removeFileFromList = function(index, listId) {
-  const fileArray = listId === 'devoir-fichiers-list' ? accumulatedFiles : accumulatedEditFiles;
+  const fileArray = listId === 'assignment-files-list' ? accumulatedFiles : accumulatedEditFiles;
   fileArray.splice(index, 1);
   displayFileList(fileArray, listId);
 };
 
-// Retourne la periode cible (mois ou semaine) apres un deplacement, ou null si
-// elle sort de l'annee scolaire
+/**
+ * Returns the target period (month or week) after a move, or null when it
+ * leaves the school year. The mobile scrolling view has no navigation by
+ * period.
+ */
 function getNavigationTarget(direction) {
-  if (vuePasses) {
+  if (pastView) {
     const target = addDays(pastWeekStart, direction * 7);
     const minWeekStart = mondayOf(addDays(schoolYear.firstDay, 0));
     if (target < minWeekStart || target > lastPastWeekStart()) return null;
     return target;
   }
-  // Vue mobile à défilement : pas de navigation par période
   if (isMobileView) return null;
 
   const target = monthIndex(currentYear, currentMonth) + direction;
@@ -527,7 +552,7 @@ function navigate(direction) {
   const target = getNavigationTarget(direction);
   if (target === null) return false;
 
-  if (vuePasses) {
+  if (pastView) {
     pastWeekStart = target;
   } else {
     currentYear = Math.floor(target / 12);
@@ -547,22 +572,22 @@ function renderCalendar() {
   const calendar = document.getElementById('calendar');
   if (!calendar) return;
   disconnectMobileObserver();
-  document.querySelector('.calendar-header').classList.toggle('defilement', isMobileView && !vuePasses);
-  document.body.classList.toggle('vue-defilement', isMobileView && !vuePasses);
-  document.getElementById('vue-toggle-btn').textContent = vuePasses ? 'Devoirs à venir' : 'Devoirs passés';
-  document.getElementById('vue-label').textContent = vuePasses ? 'Devoirs passés' : '';
-  if (vuePasses) renderPastWeekView();
+  document.querySelector('.calendar-header').classList.toggle('scrolling', isMobileView && !pastView);
+  document.body.classList.toggle('scrolling-view', isMobileView && !pastView);
+  document.getElementById('view-toggle-btn').textContent = pastView ? 'Devoirs à venir' : 'Devoirs passés';
+  document.getElementById('view-label').textContent = pastView ? 'Devoirs passés' : '';
+  if (pastView) renderPastWeekView();
   else if (isMobileView) renderMobileScrollView();
   else renderDesktopMonthView();
   updateNavButtons();
 }
 
-function setVuePasses(actif, { push = true } = {}) {
-  vuePasses = actif;
-  if (actif) pastWeekStart = lastPastWeekStart();
+function setPastView(active, { push = true } = {}) {
+  pastView = active;
+  if (active) pastWeekStart = lastPastWeekStart();
   if (push) {
     const url = new URL(window.location.href);
-    if (actif) url.searchParams.set('vue', 'passes');
+    if (active) url.searchParams.set('vue', 'passes');
     else url.searchParams.delete('vue');
     history.pushState(null, '', url);
   }
@@ -577,26 +602,29 @@ function disconnectMobileObserver() {
   }
 }
 
-function renderMobileDevoirItems(dayDevoirs) {
+function renderMobileAssignmentItems(dayAssignments) {
   let html = '';
-  dayDevoirs.forEach(devoir => {
-    const matiere = matieres.find(m => m.id === devoir.matiere_id);
-    const couleur = matiere?.couleur || '#999';
-    html += `<div class="mobile-devoir-item ${devoir.fait ? 'fait' : ''}" data-devoir-id="${devoir.id}" style="border-left:4px solid ${couleur};">`;
-    html += `<div class="mobile-devoir-title">${escapeHtml(devoir.titre)}${badgeCommentaires(devoir)}</div>`;
-    html += `<div class="mobile-devoir-matiere" style="color:${couleur};">`;
-    const matiereNom = escapeHtml(devoir.matiere_nom || 'Sans matière');
-    if (matiere && matiere.lien) html += `<a href="${matiere.lien}" target="_blank">${matiereNom}</a>`;
-    else html += matiereNom;
+  dayAssignments.forEach(assignment => {
+    const subject = subjects.find(s => s.id === assignment.matiere_id);
+    const color = subject?.couleur || '#999';
+    html += `<div class="mobile-assignment-item ${assignment.fait ? 'done' : ''}" data-assignment-id="${assignment.id}" style="border-left:4px solid ${color};">`;
+    html += `<div class="mobile-assignment-title">${escapeHtml(assignment.titre)}${commentsBadge(assignment)}</div>`;
+    html += `<div class="mobile-assignment-subject" style="color:${color};">`;
+    const subjectName = escapeHtml(assignment.matiere_nom || 'Sans matière');
+    if (subject && subject.lien) html += `<a href="${subject.lien}" target="_blank">${subjectName}</a>`;
+    else html += subjectName;
     html += `</div></div>`;
   });
   return html;
 }
 
-// Vue mobile : aujourd'hui en premier (même sans devoir), puis les jours suivants qui ont des
-// devoirs, parcourus par MOBILE_DAYS_STEP
-// quand la fin de la liste approche. Le nombre de jours affichés est conservé d'un rendu à
-// l'autre (temps réel, case « fait ») pour ne pas ramener la page en haut.
+/**
+ * Mobile view: today first (even without assignments), then the following days
+ * that have assignments, read MOBILE_DAYS_STEP days at a time when the end of
+ * the list gets close. The number of days shown is kept from one render to the
+ * next (realtime, "done" checkbox) so that the page does not jump back to the
+ * top.
+ */
 function renderMobileScrollView() {
   const calendar = document.getElementById('calendar');
   const today = todayLocal();
@@ -604,23 +632,23 @@ function renderMobileScrollView() {
   document.getElementById('current-month').textContent = 'À venir';
 
   let html = '<div class="mobile-view">';
-  let moisAffiche = null;
-  let finAnnee = false;
+  let shownMonth = null;
+  let endOfYear = false;
   for (let i = 0; i < mobileDaysShown; i++) {
     const date = addDays(today, i);
     const dateStr = dateKey(date);
     if (dateStr > maxDateStr) {
-      finAnnee = true;
+      endOfYear = true;
       break;
     }
 
-    const dayDevoirs = devoirsDuJour(dateStr);
-    if (dayDevoirs.length === 0 && dateStr !== todayStr) continue;
+    const dayAssignments = assignmentsOfDay(dateStr);
+    if (dayAssignments.length === 0 && dateStr !== todayStr) continue;
 
-    const mois = `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
-    if (mois !== moisAffiche) {
-      html += `<div class="mobile-month-separator">${mois}</div>`;
-      moisAffiche = mois;
+    const month = `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
+    if (month !== shownMonth) {
+      html += `<div class="mobile-month-separator">${month}</div>`;
+      shownMonth = month;
     }
 
     let headerClass = 'week-day-header';
@@ -629,11 +657,11 @@ function renderMobileScrollView() {
 
     html += `<div class="week-day-card"><div class="${headerClass}" data-date="${dateStr}">`;
     html += `<div class="week-day-name">${DAY_NAMES[date.getDay()]}</div><div class="week-day-number">${date.getDate()}</div></div>`;
-    if (dayDevoirs.length > 0) html += `<div class="week-day-devoirs">${renderMobileDevoirItems(dayDevoirs)}</div>`;
-    else html += '<div class="week-day-devoirs empty">Aucun devoir</div>';
+    if (dayAssignments.length > 0) html += `<div class="week-day-assignments">${renderMobileAssignmentItems(dayAssignments)}</div>`;
+    else html += '<div class="week-day-assignments empty">Aucun devoir</div>';
     html += '</div>';
   }
-  html += finAnnee
+  html += endOfYear
     ? '<div class="mobile-scroll-end">Fin de l\'année scolaire</div>'
     : '<div id="mobile-scroll-sentinel" class="mobile-scroll-sentinel"></div>';
   html += '</div>';
@@ -650,7 +678,7 @@ function renderMobileScrollView() {
   }
 }
 
-// Devoirs passés : une semaine à la fois (navigation < >), jours sans devoir omis
+/** Past assignments: one week at a time (< > navigation), days without assignments left out. */
 function renderPastWeekView() {
   const calendar = document.getElementById('calendar');
   if (!pastWeekStart) pastWeekStart = lastPastWeekStart();
@@ -665,11 +693,11 @@ function renderPastWeekView() {
     const date = addDays(pastWeekStart, i);
     const dateStr = dateKey(date);
     if (dateStr >= todayStr) break;
-    const dayDevoirs = devoirsDuJour(dateStr);
-    if (dayDevoirs.length === 0) continue;
-    total += dayDevoirs.length;
+    const dayAssignments = assignmentsOfDay(dateStr);
+    if (dayAssignments.length === 0) continue;
+    total += dayAssignments.length;
     html += `<div class="past-day"><div class="past-day-title">${DAY_NAMES[date.getDay()]} ${date.getDate()} ${MONTH_NAMES[date.getMonth()].toLowerCase()}</div>`;
-    html += renderMobileDevoirItems(dayDevoirs);
+    html += renderMobileAssignmentItems(dayAssignments);
     html += '</div>';
   }
   if (total === 0) html += '<div class="past-empty">Aucun devoir cette semaine</div>';
@@ -692,31 +720,31 @@ function renderDesktopMonthView() {
   const prevLastDayDate = prevLastDay.getDate();
   const nextDays = 7 - (lastDay.getDay() === 0 ? 6 : lastDay.getDay() - 1) - 1;
 
-  let calendarHTML = '<div class="calendar-days">';
-  dayNames.forEach(day => { calendarHTML += `<div class="calendar-day-header">${day}</div>`; });
-  calendarHTML += '</div><div class="calendar-dates">';
+  let calendarHtml = '<div class="calendar-days">';
+  dayNames.forEach(day => { calendarHtml += `<div class="calendar-day-header">${day}</div>`; });
+  calendarHtml += '</div><div class="calendar-dates">';
 
   for (let x = firstDayIndex; x > 0; x--) {
-    calendarHTML += renderDateCell(localDate(currentYear, currentMonth - 1, prevLastDayDate - x + 1), true);
+    calendarHtml += renderDateCell(localDate(currentYear, currentMonth - 1, prevLastDayDate - x + 1), true);
   }
   for (let i = 1; i <= lastDayDate; i++) {
-    calendarHTML += renderDateCell(localDate(currentYear, currentMonth, i), false);
+    calendarHtml += renderDateCell(localDate(currentYear, currentMonth, i), false);
   }
   for (let j = 1; j <= nextDays; j++) {
-    calendarHTML += renderDateCell(localDate(currentYear, currentMonth + 1, j), true);
+    calendarHtml += renderDateCell(localDate(currentYear, currentMonth + 1, j), true);
   }
 
-  calendarHTML += '</div>';
-  calendar.innerHTML = calendarHTML;
+  calendarHtml += '</div>';
+  calendar.innerHTML = calendarHtml;
 }
 
 function renderDateCell(date, otherMonth) {
   const isToday = date.toDateString() === new Date().toDateString();
   const dateStr = date.toISOString().split('T')[0];
 
-  const dayDevoirs = devoirs.filter(d => {
-    if (!d.date) return false;
-    return d.date.split('T')[0] === dateStr;
+  const dayAssignments = assignments.filter(a => {
+    if (!a.date) return false;
+    return a.date.split('T')[0] === dateStr;
   }).sort((a, b) => a.fait - b.fait);
 
   let classes = 'calendar-date';
@@ -725,13 +753,13 @@ function renderDateCell(date, otherMonth) {
   if (!isDateStrInSchoolYear(dateStr)) classes += ' out-of-range';
 
   let html = `<div class="${classes}" data-date="${dateStr}">`;
-  html += `<div class="date-number">${date.getDate()}</div><div class="date-devoirs">`;
+  html += `<div class="date-number">${date.getDate()}</div><div class="date-assignments">`;
 
-  dayDevoirs.forEach(devoir => {
-    const matiere = matieres.find(m => m.id === devoir.matiere_id);
-    const couleur = matiere?.couleur || '#999';
-    const textColor = getContrastColor(couleur);
-    html += `<div class="devoir-item ${devoir.fait ? 'fait' : ''}" data-devoir-id="${devoir.id}" style="background-color:${couleur};color:${textColor};"><span class="devoir-item-titre">${escapeHtml(devoir.titre)}</span>${badgeCommentaires(devoir)}</div>`;
+  dayAssignments.forEach(assignment => {
+    const subject = subjects.find(s => s.id === assignment.matiere_id);
+    const color = subject?.couleur || '#999';
+    const textColor = getContrastColor(color);
+    html += `<div class="assignment-item ${assignment.fait ? 'done' : ''}" data-assignment-id="${assignment.id}" style="background-color:${color};color:${textColor};"><span class="assignment-item-title">${escapeHtml(assignment.titre)}</span>${commentsBadge(assignment)}</div>`;
   });
 
   html += '</div></div>';
@@ -739,14 +767,14 @@ function renderDateCell(date, otherMonth) {
 }
 
 function handleCalendarClick(e) {
-  if (e.target.closest('.mobile-devoir-item')) {
+  if (e.target.closest('.mobile-assignment-item')) {
     e.stopPropagation();
-    showDevoirModal(parseInt(e.target.closest('.mobile-devoir-item').dataset.devoirId));
+    showAssignmentModal(parseInt(e.target.closest('.mobile-assignment-item').dataset.assignmentId));
     return;
   }
-  if (e.target.closest('.devoir-item')) {
+  if (e.target.closest('.assignment-item')) {
     e.stopPropagation();
-    showDevoirModal(parseInt(e.target.closest('.devoir-item').dataset.devoirId));
+    showAssignmentModal(parseInt(e.target.closest('.assignment-item').dataset.assignmentId));
     return;
   }
   if (e.target.closest('.week-day-header')) {
@@ -754,94 +782,102 @@ function handleCalendarClick(e) {
     const header = e.target.closest('.week-day-header');
     if (header.classList.contains('out-of-range')) return;
     selectedDate = header.dataset.date;
-    showAddDevoirModal(selectedDate);
+    showAddAssignmentModal(selectedDate);
     return;
   }
   if (e.target.closest('.calendar-date')) {
     const cell = e.target.closest('.calendar-date');
     if (cell.classList.contains('out-of-range')) return;
     selectedDate = cell.dataset.date;
-    showAddDevoirModal(selectedDate);
+    showAddAssignmentModal(selectedDate);
   }
 }
 
-// deplierCommentaires : ouvrir directement la discussion (lien d'une notification de commentaire)
-async function showDevoirModal(devoirId, deplierCommentaires = false) {
-  const devoir = devoirs.find(d => d.id === devoirId);
-  if (!devoir) return;
+/**
+ * Shows the details of an assignment.
+ *
+ * When the same assignment is redrawn (changed remotely), the comment being
+ * typed is kept, and the comments and documents stay unfolded if they were.
+ * When an assignment is opened, both are folded. The comments come after the
+ * actions so that the discussion does not push "Marquer comme fait" down; the
+ * quiz stays outside the folding documents block, always visible. The textarea
+ * height can only be measured once the modal is visible (a kept draft may span
+ * several lines).
+ *
+ * @param {number} assignmentId
+ * @param {boolean} [unfoldComments] open the discussion directly (link from a comment notification)
+ */
+async function showAssignmentModal(assignmentId, unfoldComments = false) {
+  const assignment = assignments.find(a => a.id === assignmentId);
+  if (!assignment) return;
 
-  // Redessin du même devoir (modifié à distance) : garder le commentaire en cours
-  const ancienneSaisie = currentDevoirId === devoirId ? document.querySelector('#devoir-commentaires textarea') : null;
-  const brouillon = ancienneSaisie?.value || '';
-  const saisieActive = ancienneSaisie !== null && document.activeElement === ancienneSaisie;
-  // Commentaires repliés à l'ouverture du devoir, laissés ouverts s'il est seulement redessiné
-  const commentairesOuverts = currentDevoirId === devoirId
-    && document.getElementById('devoir-modal')?.classList.contains('active')
-    && document.querySelector('#devoir-commentaires .commentaires-contenu:not([hidden])') !== null;
-  const documentsOuverts = currentDevoirId === devoirId
-    && document.getElementById('devoir-modal')?.classList.contains('active')
-    && document.querySelector('#devoir-modal-fichiers .documents-contenu:not([hidden])') !== null;
+  const previousInput = currentAssignmentId === assignmentId ? document.querySelector('#assignment-comments textarea') : null;
+  const draft = previousInput?.value || '';
+  const inputFocused = previousInput !== null && document.activeElement === previousInput;
+  const commentsOpen = currentAssignmentId === assignmentId
+    && document.getElementById('assignment-modal')?.classList.contains('active')
+    && document.querySelector('#assignment-comments .comments-content:not([hidden])') !== null;
+  const documentsOpen = currentAssignmentId === assignmentId
+    && document.getElementById('assignment-modal')?.classList.contains('active')
+    && document.querySelector('#assignment-modal-files .documents-content:not([hidden])') !== null;
 
-  currentDevoirId = devoirId;
-  currentDevoirSignature = devoirSignature(devoir);
+  currentAssignmentId = assignmentId;
+  currentAssignmentSignature = assignmentSignature(assignment);
 
-  const matiere = matieres.find(m => m.id === devoir.matiere_id);
+  const subject = subjects.find(s => s.id === assignment.matiere_id);
   const modalBody = document.getElementById('modal-body');
 
-  let html = `<h3>${escapeHtml(devoir.titre)}</h3><p><strong>Matière:</strong> `;
-  const matiereNom = escapeHtml(devoir.matiere_nom || 'Non définie');
-  if (matiere && matiere.lien) html += `<a href="${matiere.lien}" target="_blank">${matiereNom}</a>`;
-  else html += matiereNom;
+  let html = `<h3>${escapeHtml(assignment.titre)}</h3><p><strong>Matière:</strong> `;
+  const subjectName = escapeHtml(assignment.matiere_nom || 'Non définie');
+  if (subject && subject.lien) html += `<a href="${subject.lien}" target="_blank">${subjectName}</a>`;
+  else html += subjectName;
   html += '</p>';
-  if (devoir.description) {
-    html += `<p><strong>Description:</strong></p><div class="markdown-body">${renderMarkdown(devoir.description)}</div>`;
+  if (assignment.description) {
+    html += `<p><strong>Description:</strong></p><div class="markdown-body">${renderMarkdown(assignment.description)}</div>`;
   }
-  // Les documents se replient ; le quiz reste en dehors de ce bloc, toujours visible
-  html += `<div id="devoir-modal-fichiers" class="documents"></div>`;
-  html += `<div id="devoir-quiz-section"></div>`;
+  html += `<div id="assignment-modal-files" class="documents"></div>`;
+  html += `<div id="assignment-quiz-section"></div>`;
   html += `<div class="modal-actions">
-    <label class="checkbox-container"><input type="checkbox" ${devoir.fait ? 'checked' : ''} id="devoir-statut-${devoir.id}"><span>Marquer comme fait</span></label>
-    <button class="btn-secondary" id="export-devoir-${devoir.id}">Exporter / Partager</button>
-    <button class="btn-secondary" id="edit-devoir-${devoir.id}">Modifier</button>
-    <button class="btn-danger" id="delete-devoir-${devoir.id}">Supprimer</button>
+    <label class="checkbox-container"><input type="checkbox" ${assignment.fait ? 'checked' : ''} id="assignment-status-${assignment.id}"><span>Marquer comme fait</span></label>
+    <button class="btn-secondary" id="export-assignment-${assignment.id}">Exporter / Partager</button>
+    <button class="btn-secondary" id="edit-assignment-${assignment.id}">Modifier</button>
+    <button class="btn-danger" id="delete-assignment-${assignment.id}">Supprimer</button>
   </div>`;
 
-  // Après les actions : la discussion ne doit pas repousser « Marquer comme fait »
-  html += `<section id="devoir-commentaires" class="commentaires" aria-label="Commentaires"></section>`;
+  html += `<section id="assignment-comments" class="comments" aria-label="Commentaires"></section>`;
 
   modalBody.innerHTML = html;
   hydrateMarkdownImages(modalBody);
-  loadDevoirModalFichiers(devoirId, documentsOuverts);
-  loadQuizStatus(devoirId);
-  initCommentaires(devoirId, brouillon, deplierCommentaires || commentairesOuverts || saisieActive);
-  if (saisieActive) document.querySelector('#devoir-commentaires textarea').focus();
-  loadCommentaires(devoirId);
+  loadAssignmentModalFiles(assignmentId, documentsOpen);
+  loadQuizStatus(assignmentId);
+  initComments(assignmentId, draft, unfoldComments || commentsOpen || inputFocused);
+  if (inputFocused) document.querySelector('#assignment-comments textarea').focus();
+  loadComments(assignmentId);
 
-  document.getElementById(`devoir-statut-${devoir.id}`).addEventListener('change', async function() {
-    await toggleDevoirStatut(devoir.id, this.checked);
-    toggleModal('devoir-modal', false);
+  document.getElementById(`assignment-status-${assignment.id}`).addEventListener('change', async function() {
+    await toggleAssignmentStatus(assignment.id, this.checked);
+    toggleModal('assignment-modal', false);
   });
 
-  document.getElementById(`export-devoir-${devoir.id}`).addEventListener('click', async () => {
-    await partagerDevoir(devoir);
+  document.getElementById(`export-assignment-${assignment.id}`).addEventListener('click', async () => {
+    await shareAssignment(assignment);
   });
 
-  document.getElementById(`edit-devoir-${devoir.id}`).addEventListener('click', () => editDevoir(devoir.id));
-  document.getElementById(`delete-devoir-${devoir.id}`).addEventListener('click', () => deleteDevoir(devoir.id));
+  document.getElementById(`edit-assignment-${assignment.id}`).addEventListener('click', () => editAssignment(assignment.id));
+  document.getElementById(`delete-assignment-${assignment.id}`).addEventListener('click', () => deleteAssignment(assignment.id));
 
-  toggleModal('devoir-modal', true);
-  // Mesurable seulement une fois le modal visible (brouillon conservé sur plusieurs lignes)
-  ajusterSaisie(document.querySelector('#devoir-commentaires textarea'));
+  toggleModal('assignment-modal', true);
+  fitTextarea(document.querySelector('#assignment-comments textarea'));
 }
 
-// Partage un lien vers une page "test" (ouvre le devoir depuis l'URL)
-async function partagerDevoir(devoir) {
+/** Shares a link that opens the assignment from the URL (copied to the clipboard, or prompted as a last resort). */
+async function shareAssignment(assignment) {
   const url = new URL('/dashboard', window.location.origin);
-  url.searchParams.set('devoir', String(devoir.id)); // lien à envoyer
+  url.searchParams.set('devoir', String(assignment.id));
 
   const shareData = {
-    title: `Devoir: ${devoir.titre || ''}`,
-    text: `Ouvre ce lien pour voir le devoir "${devoir.titre || ''}"`,
+    title: `Devoir: ${assignment.titre || ''}`,
+    text: `Ouvre ce lien pour voir le devoir "${assignment.titre || ''}"`,
     url: url.toString()
   };
 
@@ -857,26 +893,28 @@ async function partagerDevoir(devoir) {
       return;
     }
 
-    // fallback très basique
     prompt('Copie ce lien :', shareData.url);
   } catch (e) {
-    console.error('Partager devoir erreur:', e);
+    console.error('Sharing the assignment failed:', e);
     await showAlert('Impossible de partager pour le moment.', 'Erreur');
   }
 }
 
-// Auto-ouvre le modal si on arrive avec ?devoir=123 (&commentaires=1 : discussion dépliée)
-function ouvrirDevoirDepuisURL() {
+/**
+ * Opens the modal when the page is loaded with ?devoir=123 (&commentaires=1
+ * unfolds the discussion). When the assignments are not loaded yet, it retries
+ * every 200 ms for about 4 s.
+ */
+function openAssignmentFromUrl() {
   const params = new URLSearchParams(window.location.search);
-  const devoirId = parseInt(params.get('devoir'), 10);
-  if (!Number.isFinite(devoirId)) return;
-  const deplierCommentaires = params.get('commentaires') === '1';
+  const assignmentId = parseInt(params.get('devoir'), 10);
+  if (!Number.isFinite(assignmentId)) return;
+  const unfoldComments = params.get('commentaires') === '1';
 
-  // Si les devoirs ne sont pas encore chargés, on retente un peu
   const tryOpen = () => {
-    const exists = devoirs.some(d => d.id === devoirId);
+    const exists = assignments.some(a => a.id === assignmentId);
     if (exists) {
-      showDevoirModal(devoirId, deplierCommentaires);
+      showAssignmentModal(assignmentId, unfoldComments);
       return true;
     }
     return false;
@@ -887,18 +925,16 @@ function ouvrirDevoirDepuisURL() {
   let attempts = 0;
   const timer = setInterval(() => {
     attempts++;
-    if (tryOpen() || attempts > 20) clearInterval(timer); // ~4s max
+    if (tryOpen() || attempts > 20) clearInterval(timer);
   }, 200);
 }
 
-// ============= COMMENTAIRES =============
-
-function badgeCommentaires(devoir) {
-  const n = Number(devoir.nb_commentaires) || 0;
-  return n > 0 ? ` <span class="badge-commentaires" title="${n} commentaire${n > 1 ? 's' : ''}">💬 ${n}</span>` : '';
+function commentsBadge(assignment) {
+  const n = Number(assignment.nb_commentaires) || 0;
+  return n > 0 ? ` <span class="comments-badge" title="${n} commentaire${n > 1 ? 's' : ''}">💬 ${n}</span>` : '';
 }
 
-function formatDateCommentaire(value) {
+function formatCommentDate(value) {
   const date = new Date(value);
   const sameDay = date.toDateString() === new Date().toDateString();
   return sameDay
@@ -906,9 +942,11 @@ function formatDateCommentaire(value) {
     : date.toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-// Hauteur ajustée au texte, sans barre de défilement avant le max-height du CSS.
-// Sans effet tant que le modal est masqué (scrollHeight nul).
-function ajusterSaisie(textarea) {
+/**
+ * Fits the textarea height to its text, without a scrollbar before the CSS
+ * max-height. No effect while the modal is hidden (scrollHeight is zero).
+ */
+function fitTextarea(textarea) {
   if (!textarea) return;
   textarea.style.height = 'auto';
   if (!textarea.scrollHeight) return;
@@ -916,27 +954,33 @@ function ajusterSaisie(textarea) {
   textarea.style.overflowY = textarea.scrollHeight > textarea.clientHeight ? 'auto' : 'hidden';
 }
 
-function titreCommentaires(n) {
+function commentsTitle(n) {
   return `💬 Commentaires (${Number(n) || 0})`;
 }
 
-// Formulaire construit une fois par affichage du devoir : les rafraîchissements ne
-// remplacent que la liste, pour ne pas perturber une saisie en cours.
-// Repliés par défaut : seule la ligne « Commentaires (n) » est visible, un clic
-// affiche la discussion et la zone de saisie
-function initCommentaires(devoirId, brouillon, ouverts = false) {
-  const devoir = devoirs.find(d => d.id === devoirId);
-  const section = document.getElementById('devoir-commentaires');
+/**
+ * Builds the comment section once per display of the assignment: refreshes only
+ * replace the list, so as not to disturb an input in progress.
+ *
+ * Folded by default: only the "Commentaires (n)" line is visible, and a click
+ * shows the discussion and the input. Enter sends and Shift+Enter adds a line;
+ * on touch screens (no Shift) and during an IME composition, Enter keeps its
+ * normal role. After sending, the modal may have been redrawn: the displayed
+ * input is only cleared if it still holds the sent text.
+ */
+function initComments(assignmentId, draft, open = false) {
+  const assignment = assignments.find(a => a.id === assignmentId);
+  const section = document.getElementById('assignment-comments');
   section.innerHTML = `
     <h4>
-      <button type="button" class="commentaires-toggle" aria-expanded="${ouverts}" aria-controls="commentaires-contenu">
-        <span class="commentaires-signe" aria-hidden="true">${ouverts ? '▾' : '▸'}</span>
-        <span class="commentaires-titre">${titreCommentaires(devoir?.nb_commentaires)}</span>
+      <button type="button" class="comments-toggle" aria-expanded="${open}" aria-controls="comments-content">
+        <span class="comments-chevron" aria-hidden="true">${open ? '▾' : '▸'}</span>
+        <span class="comments-title">${commentsTitle(assignment?.nb_commentaires)}</span>
       </button>
     </h4>
-    <div class="commentaires-contenu" id="commentaires-contenu"${ouverts ? '' : ' hidden'}>
-      <div class="commentaires-fil"></div>
-      <form class="commentaire-form">
+    <div class="comments-content" id="comments-content"${open ? '' : ' hidden'}>
+      <div class="comments-thread"></div>
+      <form class="comment-form">
         <textarea rows="1" maxlength="2000" placeholder="Écrire un commentaire…" required></textarea>
         <button type="submit" class="btn-primary">Envoyer</button>
       </form>
@@ -944,25 +988,22 @@ function initCommentaires(devoirId, brouillon, ouverts = false) {
 
   const form = section.querySelector('form');
   const textarea = form.querySelector('textarea');
-  textarea.value = brouillon;
-  ajusterSaisie(textarea);
+  textarea.value = draft;
+  fitTextarea(textarea);
 
-  const toggle = section.querySelector('.commentaires-toggle');
-  const contenu = section.querySelector('.commentaires-contenu');
+  const toggle = section.querySelector('.comments-toggle');
+  const content = section.querySelector('.comments-content');
   toggle.addEventListener('click', () => {
-    const ouvrir = contenu.hidden;
-    contenu.hidden = !ouvrir;
-    toggle.setAttribute('aria-expanded', String(ouvrir));
-    toggle.querySelector('.commentaires-signe').textContent = ouvrir ? '▾' : '▸';
-    if (!ouvrir) return;
-    // Mesurable seulement une fois visible : hauteur de la saisie, dernier message en bas
-    ajusterSaisie(textarea);
-    const liste = section.querySelector('.commentaires-liste');
-    if (liste) liste.scrollTop = liste.scrollHeight;
+    const unfold = content.hidden;
+    content.hidden = !unfold;
+    toggle.setAttribute('aria-expanded', String(unfold));
+    toggle.querySelector('.comments-chevron').textContent = unfold ? '▾' : '▸';
+    if (!unfold) return;
+    fitTextarea(textarea);
+    const list = section.querySelector('.comments-list');
+    if (list) list.scrollTop = list.scrollHeight;
   });
-  textarea.addEventListener('input', () => ajusterSaisie(textarea));
-  // Entrée envoie, Maj+Entrée va à la ligne. Sur écran tactile (pas de Maj) et
-  // pendant une composition IME, Entrée garde son rôle normal.
+  textarea.addEventListener('input', () => fitTextarea(textarea));
   textarea.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !matchMedia('(pointer: coarse)').matches) {
       e.preventDefault();
@@ -972,143 +1013,148 @@ function initCommentaires(devoirId, brouillon, ouverts = false) {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const contenu = textarea.value.trim();
-    if (!contenu || commentaireEnvoi) return;
-    commentaireEnvoi = true;
+    const text = textarea.value.trim();
+    if (!text || commentSending) return;
+    commentSending = true;
     form.querySelector('button').disabled = true;
     try {
-      const result = await apiCall(`/api/devoirs/${devoirId}/commentaires`, {
+      const result = await apiCall(`/api/devoirs/${assignmentId}/commentaires`, {
         method: 'POST',
-        body: JSON.stringify({ contenu })
+        body: JSON.stringify({ contenu: text })
       });
       if (result.error) {
         await showAlert(result.error, 'Erreur');
         return;
       }
-      // Le modal a pu être redessiné pendant l'envoi : vider la zone affichée,
-      // sauf si on y a déjà tapé autre chose
-      const affichee = document.querySelector('#devoir-commentaires textarea');
-      if (currentDevoirId === devoirId && affichee?.value.trim() === contenu) {
-        affichee.value = '';
-        ajusterSaisie(affichee);
+      const shown = document.querySelector('#assignment-comments textarea');
+      if (currentAssignmentId === assignmentId && shown?.value.trim() === text) {
+        shown.value = '';
+        fitTextarea(shown);
       }
-      await loadCommentaires(devoirId);
+      await loadComments(assignmentId);
     } finally {
-      commentaireEnvoi = false;
-      document.querySelector('#devoir-commentaires .commentaire-form button')?.removeAttribute('disabled');
+      commentSending = false;
+      document.querySelector('#assignment-comments .comment-form button')?.removeAttribute('disabled');
     }
   });
 
-  section.querySelector('.commentaires-fil').addEventListener('click', async (e) => {
-    const btn = e.target.closest('.commentaire-supprimer');
+  section.querySelector('.comments-thread').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.comment-delete');
     if (!btn) return;
     if (!await showConfirm('Supprimer ce commentaire ?', 'Supprimer')) return;
-    const result = await apiCall(`/api/devoirs/${devoirId}/commentaires/${btn.dataset.id}`, { method: 'DELETE' });
+    const result = await apiCall(`/api/devoirs/${assignmentId}/commentaires/${btn.dataset.id}`, { method: 'DELETE' });
     if (result.error) {
       await showAlert(result.error, 'Erreur');
       return;
     }
-    await loadCommentaires(devoirId);
+    await loadComments(assignmentId);
   });
 }
 
-async function loadCommentaires(devoirId) {
-  const requete = ++commentairesRequete;
-  const commentaires = await apiCall(`/api/devoirs/${devoirId}/commentaires`);
-  // Le modal a pu changer de devoir, ou une requête plus récente être partie entre-temps
-  if (requete !== commentairesRequete || currentDevoirId !== devoirId || commentaires.error) return;
+/**
+ * Loads the comments of the open assignment. A response is dropped when the
+ * modal switched to another assignment or a newer request left meanwhile. The
+ * calendar badge follows the list, without reloading every assignment. The
+ * reading position is kept, or the list stays at the bottom when it was there
+ * (last message visible); a first display starts at the bottom, as when
+ * unfolding.
+ */
+async function loadComments(assignmentId) {
+  const request = ++commentsRequest;
+  const comments = await apiCall(`/api/devoirs/${assignmentId}/commentaires`);
+  if (request !== commentsRequest || currentAssignmentId !== assignmentId || comments.error) return;
 
-  // Le badge du calendrier suit la liste : pas besoin de recharger tous les devoirs
-  const devoir = devoirs.find(d => d.id === devoirId);
-  if (devoir && Number(devoir.nb_commentaires) !== commentaires.length) {
-    devoir.nb_commentaires = commentaires.length;
+  const assignment = assignments.find(a => a.id === assignmentId);
+  if (assignment && Number(assignment.nb_commentaires) !== comments.length) {
+    assignment.nb_commentaires = comments.length;
     renderCalendar();
   }
 
-  const section = document.getElementById('devoir-commentaires');
-  const fil = section?.querySelector('.commentaires-fil');
-  if (!fil) return;
+  const section = document.getElementById('assignment-comments');
+  const thread = section?.querySelector('.comments-thread');
+  if (!thread) return;
 
-  const liste = commentaires.map((c) => {
-    const auteur = [c.prenom, c.nom].filter(Boolean).join(' ') || c.username;
-    return `<li class="commentaire">
-      <div class="commentaire-entete">
-        <strong>${escapeHtml(auteur)}</strong>
-        <span>${formatDateCommentaire(c.created_at)}</span>
-        ${c.supprimable ? `<button type="button" class="commentaire-supprimer" data-id="${c.id}" aria-label="Supprimer ce commentaire">&times;</button>` : ''}
+  const items = comments.map((c) => {
+    const author = [c.prenom, c.nom].filter(Boolean).join(' ') || c.username;
+    return `<li class="comment">
+      <div class="comment-header">
+        <strong>${escapeHtml(author)}</strong>
+        <span>${formatCommentDate(c.created_at)}</span>
+        ${c.supprimable ? `<button type="button" class="comment-delete" data-id="${c.id}" aria-label="Supprimer ce commentaire">&times;</button>` : ''}
       </div>
       <p>${escapeHtml(c.contenu)}</p>
     </li>`;
   }).join('');
 
-  // Garder la position de lecture, ou rester en bas si on y était (dernier message visible).
-  // Premier affichage de la liste : en bas, comme au dépliage
-  const ancienne = fil.querySelector('.commentaires-liste');
-  const enBas = !ancienne || ancienne.scrollHeight - ancienne.scrollTop - ancienne.clientHeight < 4;
-  const scrollTop = ancienne?.scrollTop || 0;
+  const previousList = thread.querySelector('.comments-list');
+  const atBottom = !previousList || previousList.scrollHeight - previousList.scrollTop - previousList.clientHeight < 4;
+  const scrollTop = previousList?.scrollTop || 0;
 
-  section.querySelector('.commentaires-titre').textContent = titreCommentaires(commentaires.length);
-  fil.innerHTML = liste
-    ? `<ul class="commentaires-liste">${liste}</ul>`
-    : '<p class="commentaires-vide">Une question sur ce devoir ? Posez-la à la classe.</p>';
+  section.querySelector('.comments-title').textContent = commentsTitle(comments.length);
+  thread.innerHTML = items
+    ? `<ul class="comments-list">${items}</ul>`
+    : '<p class="comments-empty">Une question sur ce devoir ? Posez-la à la classe.</p>';
 
-  const nouvelle = fil.querySelector('.commentaires-liste');
-  if (nouvelle) nouvelle.scrollTop = enBas ? nouvelle.scrollHeight : scrollTop;
+  const newList = thread.querySelector('.comments-list');
+  if (newList) newList.scrollTop = atBottom ? newList.scrollHeight : scrollTop;
 }
 
-// Documents repliés par défaut : seule la ligne « Documents (n) » est visible, un clic
-// affiche la liste. Un rafraîchissement de la liste garde l'état ; ouvertParDefaut
-// ne sert qu'à l'affichage d'un devoir (redessiné pendant qu'il était ouvert).
-async function loadDevoirModalFichiers(devoirId, ouvertParDefaut = false) {
-  const container = document.getElementById('devoir-modal-fichiers');
+/**
+ * Documents block of the details modal, folded by default: only the
+ * "Documents (n)" line is visible and a click shows the list. A refresh of the
+ * list keeps the folding state; openByDefault only applies when an assignment
+ * is displayed (redrawn while it was open).
+ */
+async function loadAssignmentModalFiles(assignmentId, openByDefault = false) {
+  const container = document.getElementById('assignment-modal-files');
   if (!container) return;
   try {
-    const fichiers = await apiCall(`/api/devoirs/${devoirId}/fichiers`);
-    if (!fichiers || fichiers.length === 0) { container.innerHTML = ''; return; }
+    const files = await apiCall(`/api/devoirs/${assignmentId}/fichiers`);
+    if (!files || files.length === 0) { container.innerHTML = ''; return; }
 
-    const toggleActuel = container.querySelector('.documents-toggle');
-    const ouvert = toggleActuel ? toggleActuel.getAttribute('aria-expanded') === 'true' : ouvertParDefaut;
+    const currentToggle = container.querySelector('.documents-toggle');
+    const open = currentToggle ? currentToggle.getAttribute('aria-expanded') === 'true' : openByDefault;
 
-    const lignes = fichiers.map(fichier => `
-      <div class="document-item" onclick="ouvrirFichier(${fichier.id})">
+    const rows = files.map(file => `
+      <div class="document-item" onclick="openFile(${file.id})">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-        <div class="document-infos">
-          <div class="document-nom">${escapeHtml(fichier.original_name)}</div>
-          <div class="document-auteur">Uploadé par ${escapeHtml(fichier.uploaded_by_username || 'Inconnu')}</div>
+        <div class="document-info">
+          <div class="document-name">${escapeHtml(file.original_name)}</div>
+          <div class="document-author">Uploadé par ${escapeHtml(file.uploaded_by_username || 'Inconnu')}</div>
         </div>
       </div>`).join('');
 
     container.innerHTML = `
       <h4>
-        <button type="button" class="documents-toggle" aria-expanded="${ouvert}" aria-controls="documents-contenu">
-          <span class="documents-signe" aria-hidden="true">${ouvert ? '▾' : '▸'}</span>
-          <span>📄 Documents (${fichiers.length})</span>
+        <button type="button" class="documents-toggle" aria-expanded="${open}" aria-controls="documents-content">
+          <span class="documents-chevron" aria-hidden="true">${open ? '▾' : '▸'}</span>
+          <span>📄 Documents (${files.length})</span>
         </button>
       </h4>
-      <div class="documents-contenu" id="documents-contenu"${ouvert ? '' : ' hidden'}>${lignes}</div>`;
+      <div class="documents-content" id="documents-content"${open ? '' : ' hidden'}>${rows}</div>`;
 
     const toggle = container.querySelector('.documents-toggle');
-    const contenu = container.querySelector('.documents-contenu');
+    const content = container.querySelector('.documents-content');
     toggle.addEventListener('click', () => {
-      const ouvrir = contenu.hidden;
-      contenu.hidden = !ouvrir;
-      toggle.setAttribute('aria-expanded', String(ouvrir));
-      toggle.querySelector('.documents-signe').textContent = ouvrir ? '▾' : '▸';
+      const unfold = content.hidden;
+      content.hidden = !unfold;
+      toggle.setAttribute('aria-expanded', String(unfold));
+      toggle.querySelector('.documents-chevron').textContent = unfold ? '▾' : '▸';
     });
   } catch { container.innerHTML = ''; }
 }
 
-async function uploadFiles(devoirId, files, statusBtn) {
+/** Uploads the files one by one. Multipart uploads bypass apiCall, so the realtime header is added here. */
+async function uploadFiles(assignmentId, files, statusBtn) {
   for (let i = 0; i < files.length; i++) {
     const formData = new FormData();
     formData.append('pdf', files[i]);
     try {
       const realtimeId = getRealtimeId();
-      await fetch(`/api/devoirs/${devoirId}/upload`, {
+      await fetch(`/api/devoirs/${assignmentId}/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          // Envoi multipart : ne passe pas par apiCall, l'en-tête est donc ajouté ici.
           ...(realtimeId ? { 'X-Realtime-Id': realtimeId } : {})
         },
         body: formData
@@ -1122,17 +1168,17 @@ async function uploadFiles(devoirId, files, statusBtn) {
   }
 }
 
-function showAddDevoirModal(dateStr) {
-  if (dateStr) document.getElementById('devoir-date-limite').value = dateStr;
+function showAddAssignmentModal(dateStr) {
+  if (dateStr) document.getElementById('assignment-due-date').value = dateStr;
   accumulatedFiles.length = 0;
-  document.getElementById('devoir-fichiers-list').innerHTML = '';
-  updateMatiereSelect();
-  toggleModal('add-devoir-modal', true);
+  document.getElementById('assignment-files-list').innerHTML = '';
+  updateSubjectSelects();
+  toggleModal('add-assignment-modal', true);
 }
 
-async function handleAddDevoir(e) {
+async function handleAddAssignment(e) {
   e.preventDefault();
-  const submitBtn = document.getElementById('add-devoir-submit-btn');
+  const submitBtn = document.getElementById('add-assignment-submit-btn');
   const originalText = submitBtn.textContent;
   submitBtn.disabled = true;
   submitBtn.textContent = 'Création en cours...';
@@ -1142,10 +1188,10 @@ async function handleAddDevoir(e) {
     const data = await apiCall('/api/devoirs', {
       method: 'POST',
       body: JSON.stringify({
-        titre: document.getElementById('devoir-titre').value,
-        description: document.getElementById('devoir-description').value,
-        matiere_id: document.getElementById('devoir-matiere').value,
-        date: document.getElementById('devoir-date-limite').value
+        titre: document.getElementById('assignment-title').value,
+        description: document.getElementById('assignment-description').value,
+        matiere_id: document.getElementById('assignment-subject').value,
+        date: document.getElementById('assignment-due-date').value
       })
     });
 
@@ -1160,11 +1206,11 @@ async function handleAddDevoir(e) {
       await uploadFiles(data.devoirId, accumulatedFiles, submitBtn);
     }
 
-    toggleModal('add-devoir-modal', false);
-    document.getElementById('devoir-form').reset();
+    toggleModal('add-assignment-modal', false);
+    document.getElementById('assignment-form').reset();
     accumulatedFiles.length = 0;
-    document.getElementById('devoir-fichiers-list').innerHTML = '';
-    await loadDevoirs();
+    document.getElementById('assignment-files-list').innerHTML = '';
+    await loadAssignments();
     renderCalendar();
   } finally {
     submitBtn.disabled = false;
@@ -1174,92 +1220,99 @@ async function handleAddDevoir(e) {
   }
 }
 
-async function editDevoir(id) {
-  const devoir = devoirs.find(d => d.id === id);
-  if (!devoir) return;
-  toggleModal('devoir-modal', false);
+async function editAssignment(id) {
+  const assignment = assignments.find(a => a.id === id);
+  if (!assignment) return;
+  toggleModal('assignment-modal', false);
 
-  resetEditDevoirBanners();
+  resetEditAssignmentBanners();
   accumulatedEditFiles.length = 0;
-  document.getElementById('edit-devoir-nouveaux-fichiers-list').innerHTML = '';
-  await fillEditDevoirForm(devoir);
-  toggleModal('edit-devoir-modal', true);
+  document.getElementById('edit-assignment-new-files-list').innerHTML = '';
+  await fillEditAssignmentForm(assignment);
+  toggleModal('edit-assignment-modal', true);
 }
 
-// Charge un devoir dans le formulaire d'édition et mémorise sa version : c'est
-// cette référence qui permet de détecter qu'un autre utilisateur l'a modifié
-// pendant la saisie. Ne touche pas aux fichiers ajoutés par l'utilisateur.
-async function fillEditDevoirForm(devoir) {
-  document.getElementById('edit-devoir-id').value = devoir.id;
-  document.getElementById('edit-devoir-titre').value = devoir.titre;
-  document.getElementById('edit-devoir-description').value = devoir.description || '';
-  document.getElementById('edit-devoir-date-limite').value = toInputDate(devoir.date);
+/**
+ * Loads an assignment in the edit form and remembers its version: this baseline
+ * tells that another user changed it while the form was being filled. The files
+ * added by the user are left untouched.
+ */
+async function fillEditAssignmentForm(assignment) {
+  document.getElementById('edit-assignment-id').value = assignment.id;
+  document.getElementById('edit-assignment-title').value = assignment.titre;
+  document.getElementById('edit-assignment-description').value = assignment.description || '';
+  document.getElementById('edit-assignment-due-date').value = toInputDate(assignment.date);
 
-  updateMatiereSelect();
-  document.getElementById('edit-devoir-matiere').value = devoir.matiere_id || '';
+  updateSubjectSelects();
+  document.getElementById('edit-assignment-subject').value = assignment.matiere_id || '';
 
-  editDevoirBaseline = devoirSignature(devoir);
-  await loadExistingFiles(devoir.id);
+  editAssignmentBaseline = assignmentSignature(assignment);
+  await loadExistingFiles(assignment.id);
 }
 
-async function loadExistingFiles(devoirId) {
-  const container = document.getElementById('edit-devoir-fichiers-existants');
+async function loadExistingFiles(assignmentId) {
+  const container = document.getElementById('edit-assignment-existing-files');
   container.innerHTML = '';
   try {
-    const fichiers = await apiCall(`/api/devoirs/${devoirId}/fichiers`);
-    if (!fichiers || fichiers.length === 0) return;
+    const files = await apiCall(`/api/devoirs/${assignmentId}/fichiers`);
+    if (!files || files.length === 0) return;
 
-    container.innerHTML = fichiers.map(f => `
+    container.innerHTML = files.map(f => `
       <div style="padding:0.5rem;background:white;border-radius:4px;margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);">
-        <a href="#" onclick="ouvrirFichier(${f.id}); return false;" style="color:var(--primary);text-decoration:none;font-size:0.9rem;">${escapeHtml(f.original_name)}</a>
-        <button type="button" class="btn-danger" style="padding:0.25rem 0.5rem;font-size:0.8rem;" onclick="deleteFichier(${f.id}, ${devoirId})">Supprimer</button>
+        <a href="#" onclick="openFile(${f.id}); return false;" style="color:var(--primary);text-decoration:none;font-size:0.9rem;">${escapeHtml(f.original_name)}</a>
+        <button type="button" class="btn-danger" style="padding:0.25rem 0.5rem;font-size:0.8rem;" onclick="deleteFile(${f.id}, ${assignmentId})">Supprimer</button>
       </div>
     `).join('');
   } catch { container.innerHTML = ''; }
 }
 
-// Les documents ne sont plus accessibles par une adresse fixe : on demande un
-// lien temporaire (réservé à la classe) puis on l'ouvre. L'onglet est ouvert
-// tout de suite, pendant le clic, sinon les navigateurs bloquent la fenêtre.
-window.ouvrirFichier = async function(fichierId) {
-  const onglet = window.open('', '_blank');
-  const data = await apiCall(`/api/devoirs/fichiers/${fichierId}/lien`);
+/**
+ * Opens an attached file. Documents no longer have a fixed address: a
+ * temporary link (restricted to the class) is requested, then opened. The tab
+ * is opened right away, during the click, otherwise browsers block the window.
+ */
+window.openFile = async function(fileId) {
+  const tab = window.open('', '_blank');
+  const data = await apiCall(`/api/devoirs/fichiers/${fileId}/lien`);
   if (data.error || !data.url) {
-    if (onglet) onglet.close();
+    if (tab) tab.close();
     await showAlert(data.error || 'Impossible d\'ouvrir le document', 'Erreur');
     return;
   }
-  if (onglet) onglet.location.href = data.url;
+  if (tab) tab.location.href = data.url;
   else window.location.href = data.url;
 };
 
-window.deleteFichier = async function(fichierId, devoirId) {
+window.deleteFile = async function(fileId, assignmentId) {
   const confirmed = await showConfirm('Supprimer ce fichier ?', 'Confirmation');
   if (!confirmed) return;
-  const result = await apiCall(`/api/devoirs/fichiers/${fichierId}`, { method: 'DELETE' });
+  const result = await apiCall(`/api/devoirs/fichiers/${fileId}`, { method: 'DELETE' });
   if (result.error) { await showAlert(result.error, 'Erreur'); return; }
-  await loadExistingFiles(devoirId);
+  await loadExistingFiles(assignmentId);
 };
 
-async function handleEditDevoir(e) {
+/**
+ * Saves the edit form. When the assignment was deleted by someone else during
+ * the edit, the input is kept and saved as a new assignment; the button label
+ * follows that mode, so a failed re-creation stays a re-creation.
+ */
+async function handleEditAssignment(e) {
   e.preventDefault();
-  const id = document.getElementById('edit-devoir-id').value;
-  const submitBtn = document.getElementById('edit-devoir-submit-btn');
+  const id = document.getElementById('edit-assignment-id').value;
+  const submitBtn = document.getElementById('edit-assignment-submit-btn');
   submitBtn.disabled = true;
-  submitBtn.textContent = editDevoirRecreate ? 'Recréation en cours...' : 'Enregistrement...';
+  submitBtn.textContent = editAssignmentRecreate ? 'Recréation en cours...' : 'Enregistrement...';
   isSubmitting = true;
 
   try {
     const payload = JSON.stringify({
-      titre: document.getElementById('edit-devoir-titre').value,
-      description: document.getElementById('edit-devoir-description').value,
-      matiere_id: document.getElementById('edit-devoir-matiere').value,
-      date: document.getElementById('edit-devoir-date-limite').value
+      titre: document.getElementById('edit-assignment-title').value,
+      description: document.getElementById('edit-assignment-description').value,
+      matiere_id: document.getElementById('edit-assignment-subject').value,
+      date: document.getElementById('edit-assignment-due-date').value
     });
 
-    // Le devoir a été supprimé par quelqu'un d'autre pendant l'édition : la saisie
-    // est conservée et enregistrée comme un nouveau devoir.
-    const data = editDevoirRecreate
+    const data = editAssignmentRecreate
       ? await apiCall('/api/devoirs', { method: 'POST', body: payload })
       : await apiCall(`/api/devoirs/${id}`, { method: 'PUT', body: payload });
 
@@ -1268,62 +1321,61 @@ async function handleEditDevoir(e) {
       return;
     }
 
-    const targetId = editDevoirRecreate ? data.devoirId : id;
+    const targetId = editAssignmentRecreate ? data.devoirId : id;
     if (accumulatedEditFiles.length > 0) {
       await uploadFiles(targetId, accumulatedEditFiles);
     }
 
-    toggleModal('edit-devoir-modal', false);
-    document.getElementById('edit-devoir-form').reset();
-    resetEditDevoirBanners();
+    toggleModal('edit-assignment-modal', false);
+    document.getElementById('edit-assignment-form').reset();
+    resetEditAssignmentBanners();
     accumulatedEditFiles.length = 0;
-    document.getElementById('edit-devoir-nouveaux-fichiers-list').innerHTML = '';
-    document.getElementById('edit-devoir-fichiers-existants').innerHTML = '';
-    await loadDevoirs();
+    document.getElementById('edit-assignment-new-files-list').innerHTML = '';
+    document.getElementById('edit-assignment-existing-files').innerHTML = '';
+    await loadAssignments();
     renderCalendar();
   } finally {
     submitBtn.disabled = false;
-    // Le libellé dépend du mode : l'échec d'une recréation doit rester une recréation.
-    submitBtn.textContent = editDevoirRecreate ? 'Recréer le devoir' : 'Enregistrer';
+    submitBtn.textContent = editAssignmentRecreate ? 'Recréer le devoir' : 'Enregistrer';
     isSubmitting = false;
     flushQueuedRefresh();
   }
 }
 
-async function deleteDevoir(id) {
+async function deleteAssignment(id) {
   const confirmed = await showConfirm('Supprimer ce devoir ?', 'Confirmation');
   if (!confirmed) return;
   await apiCall(`/api/devoirs/${id}`, { method: 'DELETE' });
-  toggleModal('devoir-modal', false);
-  await loadDevoirs();
+  toggleModal('assignment-modal', false);
+  await loadAssignments();
   renderCalendar();
 }
 
-async function loadQuizStatus(devoirId) {
-  const container = document.getElementById('devoir-quiz-section');
+async function loadQuizStatus(assignmentId) {
+  const container = document.getElementById('assignment-quiz-section');
   if (!container) return;
 
   try {
-    const status = await apiCall(`/api/devoirs/${devoirId}/quiz-status`);
+    const status = await apiCall(`/api/devoirs/${assignmentId}/quiz-status`);
     if (!status.hasDocuments) { container.innerHTML = ''; return; }
 
     let html = '<div class="quiz-box">';
 
     if (status.isGenerating) {
-      html += `<div class="quiz-box-ligne" style="justify-content:flex-start;gap:0.75rem;">
+      html += `<div class="quiz-box-row" style="justify-content:flex-start;gap:0.75rem;">
         <div class="quiz-spinner"></div>
-        <div><div class="quiz-box-titre">Génération en cours...</div>
-        <div class="quiz-box-texte">Vous recevrez un email quand le quiz sera prêt</div></div></div>`;
+        <div><div class="quiz-box-title">Génération en cours...</div>
+        <div class="quiz-box-text">Vous recevrez un email quand le quiz sera prêt</div></div></div>`;
     } else if (status.hasQuiz) {
-      html += `<div class="quiz-box-ligne">
-        <div><div class="quiz-box-titre">Quiz disponible</div>
-        <div class="quiz-box-texte">Réviser avec un questionnaire interactif</div></div>
-        <button onclick="startQuiz(${devoirId})" class="btn-primary" style="white-space:nowrap;">S'entraîner</button></div>`;
+      html += `<div class="quiz-box-row">
+        <div><div class="quiz-box-title">Quiz disponible</div>
+        <div class="quiz-box-text">Réviser avec un questionnaire interactif</div></div>
+        <button onclick="startQuiz(${assignmentId})" class="btn-primary" style="white-space:nowrap;">S'entraîner</button></div>`;
     } else if (status.quizEnabled) {
-      html += `<div class="quiz-box-ligne">
-        <div><div class="quiz-box-titre">Documents disponibles</div>
-        <div class="quiz-box-texte">Générer 20-100 questions avec IA</div></div>
-        <button onclick="generateQuiz(${devoirId})" class="btn-primary" style="white-space:nowrap;">Générer Quiz</button></div>`;
+      html += `<div class="quiz-box-row">
+        <div><div class="quiz-box-title">Documents disponibles</div>
+        <div class="quiz-box-text">Générer 20-100 questions avec IA</div></div>
+        <button onclick="generateQuiz(${assignmentId})" class="btn-primary" style="white-space:nowrap;">Générer Quiz</button></div>`;
     } else {
       container.innerHTML = '';
       return;
@@ -1334,26 +1386,26 @@ async function loadQuizStatus(devoirId) {
   } catch { container.innerHTML = ''; }
 }
 
-window.startQuiz = function(devoirId) { window.location.href = `/quiz?id=${devoirId}`; };
+window.startQuiz = function(assignmentId) { window.location.href = `/quiz?id=${assignmentId}`; };
 
-window.generateQuiz = async function(devoirId) {
+window.generateQuiz = async function(assignmentId) {
   const confirmed = await showConfirm('La génération peut prendre quelques minutes. Continuer ?', 'Générer le quiz');
   if (!confirmed) return;
 
   try {
-    const result = await apiCall(`/api/devoirs/${devoirId}/generate-quiz`, { method: 'POST' });
+    const result = await apiCall(`/api/devoirs/${assignmentId}/generate-quiz`, { method: 'POST' });
     if (result.error) { await showAlert(result.error, 'Erreur'); return; }
     await showAlert('Génération démarrée ! Email envoyé quand prêt.', 'Quiz');
-    await loadQuizStatus(devoirId);
+    await loadQuizStatus(assignmentId);
   } catch { await showAlert('Erreur lors de la génération', 'Erreur'); }
 };
 
-async function toggleDevoirStatut(devoirId, fait) {
-  await apiCall(`/api/devoirs/${devoirId}/statut`, {
+async function toggleAssignmentStatus(assignmentId, done) {
+  await apiCall(`/api/devoirs/${assignmentId}/statut`, {
     method: 'POST',
-    body: JSON.stringify({ fait })
+    body: JSON.stringify({ fait: done })
   });
-  await loadDevoirs();
+  await loadAssignments();
   renderCalendar();
 }
 

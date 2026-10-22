@@ -63,8 +63,8 @@ html.dark-theme textarea::placeholder {
 }
 
 /* Améliorer la zone de drop des fichiers en mode sombre */
-html.dark-theme #devoir-drop-zone,
-html.dark-theme #edit-devoir-drop-zone {
+html.dark-theme #assignment-drop-zone,
+html.dark-theme #edit-assignment-drop-zone {
   background: var(--bg-secondary) !important;
   border-color: var(--border) !important;
 }
@@ -325,11 +325,11 @@ body {
 }
 
 /* Bouton flottant d'ajout : vue mobile à défilement uniquement */
-.add-devoir-fab {
+.add-assignment-fab {
   display: none;
 }
 
-body.vue-defilement .add-devoir-fab {
+body.scrolling-view .add-assignment-fab {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -350,7 +350,7 @@ body.vue-defilement .add-devoir-fab {
 }
 
 /* Bascule « devoirs à venir » / « devoirs passés » */
-.vue-toggle {
+.view-toggle {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -358,7 +358,7 @@ body.vue-defilement .add-devoir-fab {
   margin-bottom: 0.75rem;
 }
 
-.vue-label {
+.view-label {
   font-weight: 600;
   color: var(--dark);
 }
@@ -374,7 +374,7 @@ body.vue-defilement .add-devoir-fab {
   margin-bottom: 0.5rem;
 }
 
-.past-view .mobile-devoir-item {
+.past-view .mobile-assignment-item {
   background: var(--light);
   padding: 0.75rem;
   margin-bottom: 0.5rem;
@@ -382,15 +382,15 @@ body.vue-defilement .add-devoir-fab {
   cursor: pointer;
 }
 
-.past-view .mobile-devoir-item.fait {
+.past-view .mobile-assignment-item.done {
   opacity: 0.7;
 }
 
-.past-view .mobile-devoir-item.fait .mobile-devoir-title {
+.past-view .mobile-assignment-item.done .mobile-assignment-title {
   text-decoration: line-through;
 }
 
-.past-view .mobile-devoir-title {
+.past-view .mobile-assignment-title {
   font-weight: 600;
   color: var(--dark);
   margin-bottom: 0.25rem;
@@ -495,13 +495,13 @@ html.dark-theme .calendar-date.today {
   font-size: 0.875rem;
 }
 
-.date-devoirs {
+.date-assignments {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
 }
 
-.devoir-item {
+.assignment-item {
   background: var(--primary);
   color: white;
   padding: 0.25rem 0.5rem;
@@ -513,29 +513,29 @@ html.dark-theme .calendar-date.today {
   white-space: nowrap;
   font-weight: 500;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-  /* Le titre se coupe, le badge des commentaires reste visible */
+  /* Le titre se coupe, le badge des comments reste visible */
   display: flex;
   align-items: baseline;
   gap: 0.25rem;
 }
 
-.devoir-item-titre {
+.assignment-item-title {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.devoir-item:hover {
+.assignment-item:hover {
   opacity: 0.8;
 }
 
-.devoir-item.fait {
+.assignment-item.done {
   text-decoration: line-through;
   opacity: 0.6;
 }
 
 /* Commentaires sous un devoir */
-.badge-commentaires {
+.comments-badge {
   font-size: 0.7em;
   font-weight: 600;
   opacity: 0.9;
@@ -543,18 +543,18 @@ html.dark-theme .calendar-date.today {
   flex-shrink: 0;
 }
 
-.commentaires {
+.comments {
   margin: 1.25rem 0 0.5rem;
   padding-top: 1rem;
   border-top: 1px solid var(--border);
 }
 
-.commentaires h4 {
+.comments h4 {
   font-size: 1rem;
 }
 
 /* Ligne « Commentaires (n) » / « Documents (n) » qui déplie son contenu */
-.commentaires-toggle,
+.comments-toggle,
 .documents-toggle {
   display: flex;
   align-items: center;
@@ -570,15 +570,15 @@ html.dark-theme .calendar-date.today {
 }
 
 /* Triangle ▸ (replié) / ▾ (déplié), de largeur fixe pour que le titre ne bouge pas */
-.commentaires-signe,
-.documents-signe {
+.comments-chevron,
+.documents-chevron {
   width: 1em;
   font-size: 0.9rem;
   line-height: 1;
   text-align: center;
 }
 
-.commentaires-contenu {
+.comments-content {
   margin-top: 0.75rem;
 }
 
@@ -591,7 +591,7 @@ html.dark-theme .calendar-date.today {
   font-size: 1rem;
 }
 
-.documents-contenu {
+.documents-content {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -599,7 +599,7 @@ html.dark-theme .calendar-date.today {
 }
 
 /* [hidden] perd contre display:flex ci-dessus */
-.documents-contenu[hidden] {
+.documents-content[hidden] {
   display: none;
 }
 
@@ -618,12 +618,12 @@ html.dark-theme .calendar-date.today {
   border-color: var(--primary);
 }
 
-.document-infos {
+.document-info {
   flex: 1;
   min-width: 0;
 }
 
-.document-nom {
+.document-name {
   font-size: 0.95rem;
   font-weight: 500;
   color: var(--primary);
@@ -632,7 +632,7 @@ html.dark-theme .calendar-date.today {
   white-space: nowrap;
 }
 
-.document-auteur {
+.document-author {
   font-size: 0.8rem;
   color: var(--secondary);
 }
@@ -646,18 +646,18 @@ html.dark-theme .calendar-date.today {
   border-left: 4px solid #2196f3;
 }
 
-.quiz-box-ligne {
+.quiz-box-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.quiz-box-titre {
+.quiz-box-title {
   font-weight: 600;
   color: #2196f3;
 }
 
-.quiz-box-texte {
+.quiz-box-text {
   font-size: 0.85rem;
   color: var(--text-secondary);
 }
@@ -675,7 +675,7 @@ html.dark-theme .calendar-date.today {
   to { transform: rotate(360deg); }
 }
 
-.commentaires-liste {
+.comments-list {
   list-style: none;
   display: flex;
   flex-direction: column;
@@ -685,25 +685,25 @@ html.dark-theme .calendar-date.today {
   margin-bottom: 0.75rem;
 }
 
-.commentaire {
+.comment {
   padding: 0.6rem 0.8rem;
   border-radius: 8px;
   background: var(--light);
 }
 
-.commentaire-entete {
+.comment-header {
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
   font-size: 0.85rem;
 }
 
-.commentaire-entete span {
+.comment-header span {
   color: var(--secondary);
   font-size: 0.75rem;
 }
 
-.commentaire-supprimer {
+.comment-delete {
   margin-left: auto;
   background: none;
   border: none;
@@ -713,24 +713,24 @@ html.dark-theme .calendar-date.today {
   cursor: pointer;
 }
 
-.commentaire-supprimer:hover {
+.comment-delete:hover {
   color: var(--danger);
 }
 
-.commentaire p {
+.comment p {
   margin-top: 0.25rem;
   font-size: 0.9rem;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-.commentaires-vide {
+.comments-empty {
   color: var(--secondary);
   font-size: 0.85rem;
   margin-bottom: 0.75rem;
 }
 
-.modal-content form.commentaire-form {
+.modal-content form.comment-form {
   display: flex;
   flex-direction: row;
   gap: 0.5rem;
@@ -739,7 +739,7 @@ html.dark-theme .calendar-date.today {
 
 /* Une ligne : même hauteur que le bouton Envoyer. Hauteur ajustée au texte par
    ajusterSaisie() (dashboard.js), jusqu'à max-height */
-.modal-content .commentaire-form textarea {
+.modal-content .comment-form textarea {
   flex: 1;
   resize: none;
   min-height: 2.4rem;
@@ -750,7 +750,7 @@ html.dark-theme .calendar-date.today {
   margin: 0;
 }
 
-.modal-content .commentaire-form button {
+.modal-content .comment-form button {
   flex-shrink: 0;
   height: 2.4rem;
 }
@@ -777,7 +777,7 @@ html.dark-theme .calendar-date.today {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.devoir-card.fait {
+.devoir-card.done {
   opacity: 0.7;
 }
 
@@ -810,11 +810,11 @@ html.dark-theme .calendar-date.today {
   font-size: 1.25rem;
 }
 
-.devoir-matiere {
+.assignment-subject {
   flex: 1;
 }
 
-.devoir-matiere h4 {
+.assignment-subject h4 {
   font-size: 0.875rem;
   color: var(--secondary);
 }
@@ -843,18 +843,18 @@ html.dark-theme .calendar-date.today {
   color: var(--secondary);
 }
 
-.devoir-date-limite {
+.assignment-due-date {
   font-weight: 500;
   color: var(--danger);
 }
 
-.devoir-fichiers {
+.assignment-files {
   margin-top: 0.75rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--border);
 }
 
-.devoir-fichiers h5 {
+.assignment-files h5 {
   font-size: 0.875rem;
   margin-bottom: 0.5rem;
 }
@@ -1551,7 +1551,7 @@ input[type="color"] {
     font-size: 0.75rem;
   }
 
-  .devoir-item {
+  .assignment-item {
     font-size: 0.65rem;
     padding: 0.15rem 0.3rem;
   }
@@ -1578,7 +1578,7 @@ input[type="color"] {
     display: block !important;
   }
   /* Défilement continu : pas de navigation par semaine, ni de titre */
-  .calendar-header.defilement {
+  .calendar-header.scrolling {
     display: none;
   }
 
@@ -1654,18 +1654,18 @@ input[type="color"] {
     justify-content: center;
   }
 
-  .week-day-devoirs {
+  .week-day-assignments {
     padding: 0.75rem 1rem;
   }
 
-  .week-day-devoirs.empty {
+  .week-day-assignments.empty {
     padding: 0.5rem 1rem;
     color: var(--secondary);
     font-size: 0.875rem;
     font-style: italic;
   }
 
-  .mobile-devoir-item {
+  .mobile-assignment-item {
     background: var(--light);
     border-left: 4px solid var(--primary);
     padding: 0.75rem;
@@ -1675,27 +1675,27 @@ input[type="color"] {
     transition: all 0.2s;
   }
 
-  .mobile-devoir-item:hover {
+  .mobile-assignment-item:hover {
     background: #e0e0e0;
     transform: translateX(4px);
   }
 
-  .mobile-devoir-item.fait {
+  .mobile-assignment-item.done {
     border-left-color: var(--success);
     opacity: 0.7;
   }
 
-  .mobile-devoir-item.fait .mobile-devoir-title {
+  .mobile-assignment-item.done .mobile-assignment-title {
     text-decoration: line-through;
   }
 
-  .mobile-devoir-title {
+  .mobile-assignment-title {
     font-weight: 600;
     color: var(--dark);
     margin-bottom: 0.25rem;
   }
 
-  .mobile-devoir-matiere {
+  .mobile-assignment-subject {
     font-size: 0.875rem;
     color: var(--secondary);
   }
