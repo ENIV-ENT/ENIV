@@ -3,7 +3,7 @@ const path = require('path');
 const { z } = require('zod');
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const db = require('../models/dbHelper');
-const { notifyClasse } = require('./realtime');
+const { notifyClass } = require('./realtime');
 const { convertToPDF } = require('./fileConverter');
 const { extractTextFromPDF } = require('./quizGenerator');
 const { toDateString, snapshotDevoir, diffSnapshots, logDevoirAction } = require('./devoirLogger');
@@ -83,7 +83,7 @@ function createMcpServer(user) {
   // logDevoirAction attend une requête Express : seul req.user est lu
   const logReq = { user };
 
-  const notify = (devoirId, method) => notifyClasse(classeId, {
+  const notify = (devoirId, method) => notifyClass(classeId, {
     type: 'update',
     resource: 'devoirs',
     devoirId,

@@ -1,8 +1,6 @@
-// Migration: Système d'inscription - tables etablissements, join_requests, modifications classes
-
 module.exports = {
   up: async (pool) => {
-    console.log('Migration 010: Système d\'inscription interactif');
+    console.log('Migration 010: registration system');
 
     const connection = await pool.getConnection();
     try {
@@ -18,7 +16,7 @@ module.exports = {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
-      console.log('  + Table etablissements créée');
+      console.log('  + Table etablissements created');
 
       await connection.query(`
         CREATE TABLE IF NOT EXISTS join_requests (
@@ -32,27 +30,27 @@ module.exports = {
           FOREIGN KEY (classe_id) REFERENCES classes(id) ON DELETE CASCADE
         )
       `);
-      console.log('  + Table join_requests créée');
+      console.log('  + Table join_requests created');
 
-      const [classeCols] = await connection.query("SHOW COLUMNS FROM classes");
-      const classeColumns = classeCols.map(col => col.Field);
+      const [classCols] = await connection.query("SHOW COLUMNS FROM classes");
+      const classColumns = classCols.map(col => col.Field);
 
-      if (!classeColumns.includes('etablissement_id')) {
+      if (!classColumns.includes('etablissement_id')) {
         await connection.query(`
           ALTER TABLE classes
           ADD COLUMN etablissement_id INT,
           ADD CONSTRAINT fk_classes_etablissement FOREIGN KEY (etablissement_id) REFERENCES etablissements(id) ON DELETE SET NULL
         `);
-        console.log('  + Colonne etablissement_id ajoutée à classes');
+        console.log('  + Column etablissement_id added to classes');
       }
 
-      if (!classeColumns.includes('admin_id')) {
+      if (!classColumns.includes('admin_id')) {
         await connection.query(`
           ALTER TABLE classes
           ADD COLUMN admin_id INT,
           ADD CONSTRAINT fk_classes_admin FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE SET NULL
         `);
-        console.log('  + Colonne admin_id ajoutée à classes');
+        console.log('  + Column admin_id added to classes');
       }
 
       await connection.query(`
@@ -62,7 +60,7 @@ module.exports = {
         )
         WHERE c.admin_id IS NULL
       `);
-      console.log('  + admin_id mis à jour pour les classes existantes');
+      console.log('  + admin_id filled for existing classes');
 
     } finally {
       connection.release();
@@ -70,12 +68,11 @@ module.exports = {
   },
 
   down: async (pool) => {
-    console.log('Migration 010 (rollback): Suppression du système d\'inscription');
+    console.log('Migration 010 (rollback): drop the registration system');
     const connection = await pool.getConnection();
     try {
       await connection.query('DROP TABLE IF EXISTS join_requests');
 
-      // Look up foreign key names dynamically to avoid relying on auto-generated names
       const [fkRows] = await connection.query(`
         SELECT COLUMN_NAME, CONSTRAINT_NAME
         FROM information_schema.KEY_COLUMN_USAGE
@@ -85,15 +82,15 @@ module.exports = {
           AND REFERENCED_TABLE_NAME IS NOT NULL
       `);
 
-      for (const { COLUMN_NAME, CONSTRAINT_NAME } of fkRows) {
-        await connection.query(`ALTER TABLE classes DROP FOREIGN KEY ${CONSTRAINT_NAME}`);
-        await connection.query(`ALTER TABLE classes DROP COLUMN ${COLUMN_NAME}`);
-        console.log(`  - Contrainte ${CONSTRAINT_NAME} et colonne ${COLUMN_NAME} supprimées`);
+      for (const { COLUMN_NAME: columnName, CONSTRAINT_NAME: constraintName } of fkRows) {
+        await connection.query(`ALTER TABLE classes DROP FOREIGN KEY ${constraintName}`);
+        await connection.query(`ALTER TABLE classes DROP COLUMN ${columnName}`);
+        console.log(`  - Constraint ${constraintName} and column ${columnName} dropped`);
       }
 
       await connection.query('DROP TABLE IF EXISTS etablissements');
     } catch (error) {
-      console.error('Erreur lors du rollback de la migration 010:', error);
+      console.error('Rollback failed: 010:', error);
       throw error;
     } finally {
       connection.release();

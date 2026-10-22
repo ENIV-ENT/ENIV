@@ -1,19 +1,18 @@
-const { notifyClasse } = require('../services/realtime');
-
-// Diffuse une notification temps réel après chaque mutation réussie, à la seule
-// classe concernée (celle de l'utilisateur authentifié).
+const { notifyClass } = require('../services/realtime');
 
 const MUTATING_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
-// Liste blanche : seules les routes présentes ici déclenchent une diffusion.
-// Le premier motif correspondant l'emporte, et `null` signifie "aucune diffusion".
-// Une liste blanche est volontairement préférée à une liste noire : si une future
-// route n'est pas ajoutée ici, elle ne diffuse rien — ce qui est un bien meilleur
-// défaut que de réveiller toute la classe à chaque action personnelle.
+/**
+ * Allow list: only these routes trigger a broadcast. The first matching pattern
+ * wins, and `null` means "no broadcast" (status, quiz results and account routes
+ * only concern one user). An allow list is preferred on purpose: a future route
+ * missing here broadcasts nothing, a much better default than waking the whole
+ * class on every personal action.
+ */
 const RESOURCE_RULES = [
-  [/^\/api\/devoirs\/\d+\/statut$/, null],        // "fait" : propre à un utilisateur
-  [/^\/api\/quiz\/results$/, null],               // résultats : propres à un utilisateur
-  [/^\/api\/auth\//, null],                       // compte : propre à un utilisateur
+  [/^\/api\/devoirs\/\d+\/statut$/, null],
+  [/^\/api\/quiz\/results$/, null],
+  [/^\/api\/auth\//, null],
   [/^\/api\/devoirs\/fichiers\//, 'fichiers'],
   [/^\/api\/devoirs\/\d+\/upload$/, 'fichiers'],
   [/^\/api\/devoirs\/\d+\/generate-quiz$/, 'quiz'],
@@ -28,18 +27,32 @@ function deriveResource(path) {
   return rule ? rule[1] : null;
 }
 
-// Uniquement les identifiants de devoir : sur /api/devoirs/fichiers/7, le 7 est un
-// identifiant de fichier et ne doit surtout pas être pris pour un devoir.
-function deriveDevoirId(path) {
+/**
+ * Only assignment ids: in /api/devoirs/fichiers/7, 7 is a file id and must not be
+ * taken for an assignment.
+ */
+function deriveAssignmentId(path) {
   const match = path.match(/^\/api\/devoirs\/(\d+)(\/|$)/);
   return match ? Number(match[1]) : null;
 }
 
+/**
+ * Broadcasts a realtime notification after each successful mutation, only to the
+ * class concerned (the authenticated user's).
+ *
+ * - The full path is captured before the request enters a router, since mounted
+ *   routers rewrite req.url.
+ * - The response is sent first: a slow broadcast must never delay it, and a failed
+ *   broadcast must never break it.
+ * - res.locals.realtimeClassId lets a route target another class than the user's.
+ * - res.locals.realtimeData is merged into the message, so clients do not have to
+ *   reload everything (comment count for instance).
+ * - The tab that made the change (X-Realtime-Id header) already reloaded its data
+ *   and is excluded from the broadcast.
+ */
 function realtimeNotifier(req, res, next) {
   if (!MUTATING_METHODS.includes(req.method)) return next();
 
-  // req.url est réécrit par les routeurs montés : le chemin complet doit être figé
-  // ici, avant que la requête n'entre dans un routeur.
   const fullPath = req.originalUrl.split('?')[0];
   if (!fullPath.startsWith('/api/')) return next();
 
@@ -48,7 +61,6 @@ function realtimeNotifier(req, res, next) {
 
   const originalJson = res.json;
   res.json = function (data) {
-    // On répond d'abord : une diffusion lente ne doit jamais retarder la réponse.
     const result = originalJson.call(this, data);
 
     try {
@@ -56,28 +68,21 @@ function realtimeNotifier(req, res, next) {
       const hasError = data && typeof data === 'object' && data.error !== undefined;
       if (!isSuccess || hasError) return result;
 
-      // res.locals.realtimeClasseId permet à une route de viser une autre classe
-      // que celle de l'utilisateur (routes superadmin par exemple).
-      const classeId = res.locals.realtimeClasseId ?? req.user?.classe_id ?? null;
-      if (!classeId) return result;
+      const classId = res.locals.realtimeClassId ?? req.user?.classe_id ?? null;
+      if (!classId) return result;
 
-      // L'onglet à l'origine de la modification a déjà rechargé ses données :
-      // lui rediffuser l'événement provoquerait un appel d'API inutile.
       const origin = req.headers['x-realtime-id'];
 
-      // res.locals.realtimeData : données jointes par la route, pour éviter aux
-      // clients de tout recharger (nombre de commentaires par exemple).
-      notifyClasse(classeId, {
+      notifyClass(classId, {
         type: 'update',
         resource,
-        devoirId: deriveDevoirId(fullPath),
+        devoirId: deriveAssignmentId(fullPath),
         method: req.method,
         at: Date.now(),
         ...res.locals.realtimeData
       }, typeof origin === 'string' ? origin : null);
     } catch (error) {
-      // Une notification ratée ne doit jamais casser la réponse HTTP.
-      console.error('Notification temps réel échouée:', error);
+      console.error('Realtime notification failed:', error);
     }
 
     return result;

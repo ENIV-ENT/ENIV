@@ -1,14 +1,16 @@
+/**
+ * Rate limits of the sensitive public routes (login, signup...).
+ *
+ * The IP address comes from req.ip: behind Caddy, server.js sets "trust proxy"
+ * to read X-Forwarded-For, otherwise every visitor would share the same IP.
+ * The store is in memory: it assumes a single Node process, like the realtime
+ * service.
+ *
+ * A whole school often goes out through the same public IP, so the limits per
+ * IP alone are generous, so as not to block an entire class.
+ * @module
+ */
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
-
-// Limites de débit des routes publiques sensibles (connexion, inscription...).
-//
-// L'adresse IP vient de req.ip : derrière Caddy, server.js règle « trust proxy »
-// pour lire X-Forwarded-For, sinon tous les visiteurs partageraient la même IP.
-// Le registre est en mémoire : il suppose un unique processus Node, comme le
-// service temps réel.
-//
-// Tout un établissement sort souvent par la même IP publique : les plafonds par
-// IP seule sont donc larges, pour ne pas bloquer une classe entière.
 
 function limiter({ windowMinutes, message, ...options }) {
   return rateLimit({
@@ -20,43 +22,47 @@ function limiter({ windowMinutes, message, ...options }) {
   });
 }
 
-// Connexion : seuls les mauvais identifiants (401) comptent. Un élève qui se
-// reconnecte souvent n'est jamais bloqué, ni une classe pendant une panne (500).
-// Les échecs sont comptés par IP + identifiant, pour que les fautes de frappe
-// d'un élève ne bloquent pas ses voisins, avec un plafond large par IP seule
-// contre l'essai de nombreux identifiants.
 const loginOptions = {
   windowMinutes: 15,
   skipSuccessfulRequests: true,
   requestWasSuccessful: (req, res) => res.statusCode !== 401,
   message: 'Trop de tentatives de connexion. Réessayez dans 15 minutes.',
 };
+
+/**
+ * Login: only wrong credentials (401) count, so a student who logs in often is
+ * never blocked, nor a class during an outage (500). Failures are counted per
+ * IP + username (lowercased, as login ignores the username case), so a student's
+ * typos do not block their neighbors, with a generous limit per IP alone against
+ * trying many usernames.
+ */
 const loginLimiter = [
   limiter({ ...loginOptions, limit: 100 }),
   limiter({
     ...loginOptions,
     limit: 10,
-    // Minuscules : la connexion ignore la casse de l'identifiant
     keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${String(req.body?.username ?? '').toLowerCase()}`,
   }),
 ];
 
-// Création de comptes et demandes d'établissement
+/** Account creation and school requests. */
 const signupLimiter = limiter({
   windowMinutes: 60,
   limit: 200,
   message: 'Trop de demandes. Réessayez dans une heure.',
 });
 
-// Vérification de disponibilité d'un identifiant (appelée à la frappe)
+/** Username availability check, called while typing. */
 const lookupLimiter = limiter({
   windowMinutes: 15,
   limit: 1000,
   message: 'Trop de requêtes. Réessayez dans quelques minutes.',
 });
 
-// Commentaires : chaque envoi recharge les devoirs de toute la classe en temps
-// réel. Compté par compte (route authentifiée), pas par IP partagée.
+/**
+ * Comments: each one reloads the assignments of the whole class in real time.
+ * Counted per account (authenticated route), not per shared IP.
+ */
 const commentLimiter = limiter({
   windowMinutes: 1,
   limit: 10,

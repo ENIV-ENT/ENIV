@@ -1,16 +1,14 @@
-// Migration: supprimer admin_id de la table classes
-
 module.exports = {
   up: async (pool) => {
-    console.log('Migration 011: Suppression de admin_id sur classes');
+    console.log('Migration 011: drop admin_id from classes');
 
     const connection = await pool.getConnection();
     try {
-      const [classeCols] = await connection.query('SHOW COLUMNS FROM classes');
-      const classeColumns = classeCols.map(col => col.Field);
+      const [classCols] = await connection.query('SHOW COLUMNS FROM classes');
+      const classColumns = classCols.map(col => col.Field);
 
-      if (!classeColumns.includes('admin_id')) {
-        console.log('  - Colonne admin_id inexistante, rien a faire');
+      if (!classColumns.includes('admin_id')) {
+        console.log('  - Column admin_id does not exist, nothing to do');
         return;
       }
 
@@ -23,28 +21,28 @@ module.exports = {
           AND REFERENCED_TABLE_NAME IS NOT NULL
       `);
 
-      for (const { CONSTRAINT_NAME } of fkRows) {
-        await connection.query(`ALTER TABLE classes DROP FOREIGN KEY ${CONSTRAINT_NAME}`);
-        console.log(`  - Contrainte ${CONSTRAINT_NAME} supprimee`);
+      for (const { CONSTRAINT_NAME: constraintName } of fkRows) {
+        await connection.query(`ALTER TABLE classes DROP FOREIGN KEY ${constraintName}`);
+        console.log(`  - Constraint ${constraintName} dropped`);
       }
 
       await connection.query('ALTER TABLE classes DROP COLUMN admin_id');
-      console.log('  - Colonne admin_id supprimee');
+      console.log('  - Column admin_id dropped');
     } finally {
       connection.release();
     }
   },
 
   down: async (pool) => {
-    console.log('Migration 011 (rollback): Ajout de admin_id sur classes');
+    console.log('Migration 011 (rollback): add admin_id to classes');
 
     const connection = await pool.getConnection();
     try {
-      const [classeCols] = await connection.query('SHOW COLUMNS FROM classes');
-      const classeColumns = classeCols.map(col => col.Field);
+      const [classCols] = await connection.query('SHOW COLUMNS FROM classes');
+      const classColumns = classCols.map(col => col.Field);
 
-      if (classeColumns.includes('admin_id')) {
-        console.log('  - Colonne admin_id deja presente, rien a faire');
+      if (classColumns.includes('admin_id')) {
+        console.log('  - Column admin_id already exists, nothing to do');
         return;
       }
 
@@ -62,7 +60,7 @@ module.exports = {
         WHERE c.admin_id IS NULL
       `);
 
-      console.log('  + Colonne admin_id ajoutee et renseignee');
+      console.log('  + Column admin_id added and filled');
     } finally {
       connection.release();
     }

@@ -3,7 +3,6 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const MigrationManager = require('../migrations/migrationManager');
 
-// Configuration de la connexion MySQL
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   port: process.env.DB_PORT || 3306,
@@ -13,21 +12,27 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  timezone: "Z", // UTC ; "utc" n'est pas une valeur reconnue par mysql2
+  timezone: "Z",
 });
 
-// Tester la connexion
 pool.getConnection()
   .then(connection => {
-    console.log('Connexion à MySQL établie avec succès');
+    console.log('Connected to MySQL');
     connection.release();
   })
   .catch(err => {
-    console.error('Erreur de connexion à la base de données:', err);
+    console.error('Database connection failed:', err);
     process.exit(1);
   });
 
-// Créer les tables de base
+/**
+ * Creates the base tables, runs the migrations and creates the superadmin account.
+ *
+ * The superadmin password comes from SUPERADMIN_PASSWORD; otherwise it is drawn at
+ * random and printed once in the logs, so there is no password known to everyone.
+ * Databases created before that change may still use the old public password
+ * superadmin123: it is reported on every startup until it is changed.
+ */
 async function initDatabase() {
   const connection = await pool.getConnection();
   try {
@@ -132,13 +137,9 @@ async function initDatabase() {
       )
     `);
 
-    // Exécuter les migrations
     const migrationManager = new MigrationManager(pool);
     await migrationManager.runMigrations();
 
-    // Créer le superadmin s'il n'existe pas. Son mot de passe vient de
-    // SUPERADMIN_PASSWORD, sinon il est tiré au hasard et affiché une seule fois
-    // dans les journaux : plus de mot de passe connu de tous.
     const [rows] = await connection.query('SELECT COUNT(*) as count FROM users WHERE role = ?', ['superadmin']);
     if (rows[0].count === 0) {
       const fromEnv = process.env.SUPERADMIN_PASSWORD;
@@ -146,31 +147,28 @@ async function initDatabase() {
       const hashedPassword = bcrypt.hashSync(password, 10);
       await connection.query('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', ['superadmin', hashedPassword, 'superadmin']);
       if (fromEnv) {
-        console.log('Superadmin créé : username=superadmin, mot de passe = SUPERADMIN_PASSWORD');
+        console.log('Superadmin created: username=superadmin, password = SUPERADMIN_PASSWORD');
       } else {
-        console.log(`Superadmin créé : username=superadmin, password=${password} (à changer dès la première connexion)`);
+        console.log(`Superadmin created: username=superadmin, password=${password} (change it on first login)`);
       }
     }
 
-    // Les bases créées avant ce correctif peuvent garder l'ancien mot de passe
-    // connu de tous : on le signale à chaque démarrage tant qu'il n'est pas changé.
     const [superadmins] = await connection.query('SELECT username, password FROM users WHERE role = ?', ['superadmin']);
     for (const { username, password } of superadmins) {
       if (await bcrypt.compare('superadmin123', password)) {
-        console.warn(`⚠ Le superadmin « ${username} » utilise encore le mot de passe par défaut superadmin123 : changez-le immédiatement.`);
+        console.warn(`⚠ Superadmin "${username}" still uses the default password superadmin123: change it now.`);
       }
     }
   } catch (error) {
-    console.error('Erreur lors de l\'initialisation de la base de données:', error);
+    console.error('Database initialization failed:', error);
     throw error;
   } finally {
     connection.release();
   }
 }
 
-// Initialiser la base de données au démarrage
 initDatabase().catch(err => {
-  console.error('Erreur fatale lors de l\'initialisation:', err);
+  console.error('Fatal: initialization failed:', err);
   process.exit(1);
 });
 

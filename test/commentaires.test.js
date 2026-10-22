@@ -32,7 +32,7 @@ const fake = installFakeDb((method, sql, params) => {
 // Le notificateur temps réel est testé avec un double du service de diffusion
 const sent = [];
 const realtimeFile = path.join(__dirname, '../backend/services/realtime.js');
-require.cache[realtimeFile] = { id: realtimeFile, filename: realtimeFile, loaded: true, exports: { notifyClasse: (classeId, message) => sent.push({ classeId, message }) } };
+require.cache[realtimeFile] = { id: realtimeFile, filename: realtimeFile, loaded: true, exports: { notifyClass: (classeId, message) => sent.push({ classeId, message }) } };
 
 // Notifications push : double qui enregistre les envois au lieu de les faire
 const pushes = [];

@@ -212,7 +212,7 @@ function init(server) {
 
 // excludeClientId : connexion à l'origine de la modification, qui a déjà mis à
 // jour son propre affichage et n'a donc rien à recharger.
-function notifyClasse(classeId, message, excludeClientId = null) {
+function notifyClass(classeId, message, excludeClientId = null) {
   if (classeId == null) return;
 
   const sockets = clientsByClasse.get(classeId);
@@ -250,4 +250,4 @@ function getStats() {
   return { classes: clientsByClasse.size, sockets };
 }
 
-module.exports = { init, notifyClasse, close, getStats };
+module.exports = { init, notifyClass, close, getStats };

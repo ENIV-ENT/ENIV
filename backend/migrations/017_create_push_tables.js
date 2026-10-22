@@ -1,12 +1,14 @@
-// Migration: Notifications push (Web Push)
-// - push_subscriptions : un abonnement par navigateur/appareil d'un utilisateur
-//   (l'endpoint fourni par le navigateur et ses deux clés de chiffrement) ;
-// - push_preferences : ce que l'utilisateur souhaite recevoir. Absence de ligne
-//   = valeurs par défaut (tout activé).
-
+/**
+ * Creates the Web Push tables:
+ * - push_subscriptions: one subscription per browser/device of a user (the endpoint
+ *   given by the browser and its two encryption keys), indexed by the SHA-256 of the
+ *   endpoint, which can exceed the size of an index key;
+ * - push_preferences: what the user wants to receive. No row means the defaults
+ *   (everything enabled).
+ */
 module.exports = {
   up: async (pool) => {
-    console.log('Migration 017: Création des tables de notifications push');
+    console.log('Migration 017: create the push notification tables');
 
     const connection = await pool.getConnection();
     try {
@@ -26,7 +28,7 @@ module.exports = {
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
       `);
-      console.log('  ✓ Table push_subscriptions créée');
+      console.log('  ✓ Table push_subscriptions created');
 
       await connection.query(`
         CREATE TABLE IF NOT EXISTS push_preferences (
@@ -38,19 +40,19 @@ module.exports = {
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
       `);
-      console.log('  ✓ Table push_preferences créée');
+      console.log('  ✓ Table push_preferences created');
     } finally {
       connection.release();
     }
   },
 
   down: async (pool) => {
-    console.log('Migration 017 (rollback): Suppression des tables de notifications push');
+    console.log('Migration 017 (rollback): drop the push notification tables');
     const connection = await pool.getConnection();
     try {
       await connection.query('DROP TABLE IF EXISTS push_preferences');
       await connection.query('DROP TABLE IF EXISTS push_subscriptions');
-      console.log('  ✓ Tables supprimées');
+      console.log('  ✓ Tables dropped');
     } finally {
       connection.release();
     }

@@ -1,8 +1,6 @@
-// Migration: Créer la table invitations pour gérer les invitations par email
-
 module.exports = {
   up: async (pool) => {
-    console.log('Migration 002: Création de la table invitations');
+    console.log('Migration 002: create table invitations');
 
     const connection = await pool.getConnection();
     try {
@@ -23,18 +21,18 @@ module.exports = {
         )
       `);
 
-      console.log('  ✓ Table invitations créée');
+      console.log('  ✓ Table invitations created');
     } finally {
       connection.release();
     }
   },
 
   down: async (pool) => {
-    console.log('Migration 002 (rollback): Suppression de la table invitations');
+    console.log('Migration 002 (rollback): drop table invitations');
     const connection = await pool.getConnection();
     try {
       await connection.query('DROP TABLE IF EXISTS invitations');
-      console.log('  ✓ Table invitations supprimée');
+      console.log('  ✓ Table invitations dropped');
     } finally {
       connection.release();
     }

@@ -7,7 +7,7 @@ const { resolveJwtSecret } = require('../backend/config/jwt');
 const { loginLimiter } = require('../backend/middleware/rateLimit');
 
 test('JWT_SECRET manquant : refus en production', () => {
-  assert.throws(() => resolveJwtSecret({ NODE_ENV: 'production' }), /JWT_SECRET manquant/);
+  assert.throws(() => resolveJwtSecret({ NODE_ENV: 'production' }), /JWT_SECRET is missing/);
 });
 
 test('JWT_SECRET manquant : valeur de développement hors production', () => {
@@ -17,7 +17,7 @@ test('JWT_SECRET manquant : valeur de développement hors production', () => {
 
 test('JWT_SECRET d\'exemple : refus en production', () => {
   const secret = 'your-jwt-secret-key-change-in-production';
-  assert.throws(() => resolveJwtSecret({ NODE_ENV: 'production', JWT_SECRET: secret }), /valeur d'exemple/);
+  assert.throws(() => resolveJwtSecret({ NODE_ENV: 'production', JWT_SECRET: secret }), /public sample value/);
   assert.equal(resolveJwtSecret({ NODE_ENV: 'development', JWT_SECRET: secret }), secret);
 });
 

@@ -1,37 +1,31 @@
-// Migration: Ajouter les champs email, nom et prenom à la table users
-
 module.exports = {
   up: async (pool) => {
-    console.log('Migration 001: Ajout des champs email, nom et prenom à la table users');
+    console.log('Migration 001: add email, nom and prenom to users');
 
     const connection = await pool.getConnection();
     try {
-      // Vérifier si les colonnes existent déjà
       const [tableInfo] = await connection.query("SHOW COLUMNS FROM users");
       const columns = tableInfo.map(col => col.Field);
 
-      // Ajouter la colonne email si elle n'existe pas
       if (!columns.includes('email')) {
         await connection.query('ALTER TABLE users ADD COLUMN email VARCHAR(255)');
-        console.log('  ✓ Colonne email ajoutée');
+        console.log('  ✓ Column email added');
       } else {
-        console.log('  - Colonne email déjà existante');
+        console.log('  - Column email already exists');
       }
 
-      // Ajouter la colonne nom si elle n'existe pas
       if (!columns.includes('nom')) {
         await connection.query('ALTER TABLE users ADD COLUMN nom VARCHAR(255)');
-        console.log('  ✓ Colonne nom ajoutée');
+        console.log('  ✓ Column nom added');
       } else {
-        console.log('  - Colonne nom déjà existante');
+        console.log('  - Column nom already exists');
       }
 
-      // Ajouter la colonne prenom si elle n'existe pas
       if (!columns.includes('prenom')) {
         await connection.query('ALTER TABLE users ADD COLUMN prenom VARCHAR(255)');
-        console.log('  ✓ Colonne prenom ajoutée');
+        console.log('  ✓ Column prenom added');
       } else {
-        console.log('  - Colonne prenom déjà existante');
+        console.log('  - Column prenom already exists');
       }
     } finally {
       connection.release();
@@ -39,13 +33,13 @@ module.exports = {
   },
 
   down: async (pool) => {
-    console.log('Migration 001 (rollback): Suppression des champs email, nom et prenom');
+    console.log('Migration 001 (rollback): drop email, nom and prenom');
     const connection = await pool.getConnection();
     try {
       await connection.query('ALTER TABLE users DROP COLUMN email');
       await connection.query('ALTER TABLE users DROP COLUMN nom');
       await connection.query('ALTER TABLE users DROP COLUMN prenom');
-      console.log('  ✓ Colonnes supprimées');
+      console.log('  ✓ Columns dropped');
     } finally {
       connection.release();
     }

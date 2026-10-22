@@ -1,13 +1,21 @@
 const fs = require('fs');
 const path = require('path');
 
+/**
+ * Runs the numbered migrations of this folder at startup.
+ *
+ * Migrations are tracked by file name in the `migrations` table: renaming a
+ * migration file makes it run again. Each `up(pool)` receives the pool, not the
+ * transaction connection, and MySQL DDL commits implicitly, so a migration that
+ * fails halfway is not rolled back: write migrations that can run again safely.
+ */
 class MigrationManager {
   constructor(db) {
     this.db = db;
     this.migrationsPath = __dirname;
   }
 
-  // Créer la table de suivi des migrations
+  /** Creates the migration tracking table. */
   async initMigrationsTable() {
     const connection = await this.db.getConnection();
     try {
@@ -23,7 +31,7 @@ class MigrationManager {
     }
   }
 
-  // Récupérer toutes les migrations déjà exécutées
+  /** @returns {Promise<string[]>} file names of the migrations already run */
   async getExecutedMigrations() {
     const connection = await this.db.getConnection();
     try {
@@ -34,7 +42,7 @@ class MigrationManager {
     }
   }
 
-  // Récupérer tous les fichiers de migration disponibles
+  /** @returns {string[]} file names of every migration in the folder, sorted */
   getAvailableMigrations() {
     const files = fs.readdirSync(this.migrationsPath);
     return files
@@ -42,7 +50,7 @@ class MigrationManager {
       .sort();
   }
 
-  // Exécuter les migrations en attente
+  /** Runs the pending migrations, in file name order. */
   async runMigrations() {
     await this.initMigrationsTable();
 
@@ -52,11 +60,11 @@ class MigrationManager {
     const pending = available.filter(migration => !executed.includes(migration));
 
     if (pending.length === 0) {
-      console.log('✓ Aucune migration en attente');
+      console.log('✓ No pending migrations');
       return;
     }
 
-    console.log(`\n=== Exécution de ${pending.length} migration(s) ===\n`);
+    console.log(`\n=== Running ${pending.length} migration(s) ===\n`);
 
     for (const migrationFile of pending) {
       const connection = await this.db.getConnection();
@@ -66,36 +74,33 @@ class MigrationManager {
         const migrationPath = path.join(this.migrationsPath, migrationFile);
         const migration = require(migrationPath);
 
-        // Exécuter la migration dans une transaction
         await connection.beginTransaction();
 
-        // Passer le pool à la migration
         await migration.up(this.db);
 
-        // Enregistrer la migration comme exécutée
         await connection.query('INSERT INTO migrations (name) VALUES (?)', [migrationFile]);
 
         await connection.commit();
 
-        console.log(`✓ Migration ${migrationFile} terminée\n`);
+        console.log(`✓ Migration ${migrationFile} done\n`);
       } catch (error) {
         await connection.rollback();
-        console.error(`✗ Erreur lors de la migration ${migrationFile}:`, error.message);
+        console.error(`✗ Migration failed: ${migrationFile}:`, error.message);
         throw error;
       } finally {
         connection.release();
       }
     }
 
-    console.log('=== Migrations terminées ===\n');
+    console.log('=== Migrations completed ===\n');
   }
 
-  // Revenir en arrière d'une migration (rollback)
+  /** Reverts one migration with its `down` function, if any. */
   async rollback(migrationName) {
     const executed = await this.getExecutedMigrations();
 
     if (!executed.includes(migrationName)) {
-      console.log(`Migration ${migrationName} n'a pas été exécutée`);
+      console.log(`Migration ${migrationName} has not been run`);
       return;
     }
 
@@ -106,41 +111,39 @@ class MigrationManager {
       const migrationPath = path.join(this.migrationsPath, migrationName);
       const migration = require(migrationPath);
 
-      // Exécuter le rollback dans une transaction
       await connection.beginTransaction();
 
       if (migration.down) {
         await migration.down(this.db);
       }
 
-      // Supprimer l'enregistrement de la migration
       await connection.query('DELETE FROM migrations WHERE name = ?', [migrationName]);
 
       await connection.commit();
 
-      console.log(`✓ Rollback ${migrationName} terminé\n`);
+      console.log(`✓ Rollback ${migrationName} done\n`);
     } catch (error) {
       await connection.rollback();
-      console.error(`✗ Erreur lors du rollback ${migrationName}:`, error.message);
+      console.error(`✗ Rollback failed: ${migrationName}:`, error.message);
       throw error;
     } finally {
       connection.release();
     }
   }
 
-  // Afficher le statut des migrations
+  /** Prints which migrations ran and which are pending. */
   async status() {
     const executed = await this.getExecutedMigrations();
     const available = this.getAvailableMigrations();
 
-    console.log('\n=== Statut des migrations ===\n');
+    console.log('\n=== Migration status ===\n');
 
     available.forEach(migration => {
-      const status = executed.includes(migration) ? '✓ Exécutée' : '○ En attente';
+      const status = executed.includes(migration) ? '✓ Done' : '○ Pending';
       console.log(`${status} - ${migration}`);
     });
 
-    console.log(`\nTotal: ${available.length} migration(s), ${executed.length} exécutée(s), ${available.length - executed.length} en attente\n`);
+    console.log(`\nTotal: ${available.length} migration(s), ${executed.length} done, ${available.length - executed.length} pending\n`);
   }
 }
 

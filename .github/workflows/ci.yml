@@ -91,8 +91,8 @@ jobs:
       - name: All migrations ran
         run: |
           # Migrations run in the background at startup: wait for them to finish
-          for _ in $(seq 1 60); do grep -q "Migrations terminées" server.log && break; sleep 1; done
-          grep -q "Migrations terminées" server.log
+          for _ in $(seq 1 60); do grep -q "Migrations completed" server.log && break; sleep 1; done
+          grep -q "Migrations completed" server.log
 
       - name: Smoke test
         run: node scripts/smoke-test.js http://127.0.0.1:3000
@@ -105,15 +105,15 @@ jobs:
           for _ in $(seq 1 30); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
           if kill -0 "$pid" 2>/dev/null; then echo "The previous server does not stop"; exit 1; fi
           node server.js > server2.log 2>&1 &
-          for _ in $(seq 1 30); do grep -q "Aucune migration en attente" server2.log && break; sleep 1; done
-          grep -q "Aucune migration en attente" server2.log
+          for _ in $(seq 1 30); do grep -q "No pending migrations" server2.log && break; sleep 1; done
+          grep -q "No pending migrations" server2.log
           node scripts/smoke-test.js http://127.0.0.1:3000
 
       - name: No migration or initialization error
         # After the smoke tests, to also catch errors logged after the expected
         # messages; `if` because `! grep` does not trigger errexit.
         run: |
-          if grep -e "Erreur lors de la migration" -e "Erreur lors de l'initialisation" server.log server2.log; then exit 1; fi
+          if grep -e "Migration failed" -e "initialization failed" server.log server2.log; then exit 1; fi
 
       - name: Server logs
         if: always()
