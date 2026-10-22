@@ -121,7 +121,7 @@
     <header>
         <h1>Eniv</h1>
         <div class="header-actions">
-            <button class="btn-secondary" onclick="goBack()">
+            <button type="button" id="back-btn" class="btn-secondary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 0.5rem;">
                     <path d="M19 12H5M12 19l-7-7 7-7"/>
                 </svg>
@@ -139,10 +139,10 @@
         <div id="alert" class="alert"></div>
 
         <div class="form-container">
-            <form id="quizForm">
+            <form id="quiz-form">
                 <div class="form-group">
-                    <label for="devoirId">ID du Devoir *</label>
-                    <input type="number" id="devoirId" name="devoirId" required>
+                    <label for="assignment-id">ID du Devoir *</label>
+                    <input type="number" id="assignment-id" name="assignment-id" required>
                     <div class="help-text">L'identifiant du devoir auquel associer ce quiz</div>
                 </div>
 
@@ -185,93 +185,12 @@
 
                 <div style="margin-top: 30px; display: flex; gap: 15px;">
                     <button type="submit" class="btn-create">Créer le Quiz</button>
-                    <button type="button" class="btn btn-secondary" onclick="goBack()">Annuler</button>
+                    <button type="button" id="cancel-btn" class="btn btn-secondary">Annuler</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <script>
-        document.getElementById('quizForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const devoirId = document.getElementById('devoirId').value;
-            const mode = document.getElementById('mode').value;
-            const questionsText = document.getElementById('questions').value;
-
-            // Valider le JSON
-            let questions;
-            try {
-                questions = JSON.parse(questionsText);
-                if (!Array.isArray(questions) || questions.length === 0) {
-                    throw new Error('Le JSON doit être un tableau non vide');
-                }
-
-                // Valider chaque question
-                for (let i = 0; i < questions.length; i++) {
-                    const q = questions[i];
-                    if (!q.question || !Array.isArray(q.options) || q.correct === undefined) {
-                        throw new Error(`Question ${i + 1} : format invalide (question, options et correct sont obligatoires)`);
-                    }
-                    if (q.options.length < 2 || q.options.length > 4) {
-                        throw new Error(`Question ${i + 1} : il faut entre 2 et 4 options`);
-                    }
-                    if (q.correct < 0 || q.correct >= q.options.length) {
-                        throw new Error(`Question ${i + 1} : l'index correct est invalide`);
-                    }
-                }
-            } catch (error) {
-                showAlert('error', 'Erreur JSON : ' + error.message);
-                return;
-            }
-
-            // Envoyer au serveur
-            try {
-                const response = await fetch('/api/quiz/create', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify({
-                        devoirId: parseInt(devoirId),
-                        questions: questions,
-                        mode: mode
-                    })
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    showAlert('success', 'Quiz créé avec succès !');
-                    setTimeout(() => {
-                        window.location.href = '/admin';
-                    }, 2000);
-                } else {
-                    showAlert('error', data.error || 'Erreur lors de la création du quiz');
-                }
-            } catch (error) {
-                console.error(error);
-                showAlert('error', 'Erreur de connexion au serveur');
-            }
-        });
-
-        function showAlert(type, message) {
-            const alert = document.getElementById('alert');
-            alert.className = `alert ${type}`;
-            alert.textContent = message;
-            alert.style.display = 'block';
-
-            if (type === 'success') {
-                setTimeout(() => {
-                    alert.style.display = 'none';
-                }, 3000);
-            }
-        }
-
-        function goBack() {
-            window.location.href = '/admin';
-        }
-    </script>
+    <script type="module" src="/js/pages/quizCreate.js"></script>
 </body>
 </html>
