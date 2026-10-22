@@ -1,5 +1,5 @@
 import { apiCall, checkAuth } from '../utils/api.js';
-import { escapeHTML, toggleModal, setupModalClose } from '../utils/dom.js';
+import { escapeHtml, toggleModal, setupModalClose } from '../utils/dom.js';
 import { mountHeader, setHeaderUser } from '../components/header.js';
 
 // Les cours sont affichés à l'heure de l'établissement, quel que soit le
@@ -313,11 +313,11 @@ function renderBlocCours(c, { relief, maintenant, style = '' }) {
   const styles = [style, couleur].filter(Boolean).join('; ');
 
   return `
-    <button type="button" class="${classes.join(' ')}" title="${escapeHTML(c.titre)}"
+    <button type="button" class="${classes.join(' ')}" title="${escapeHtml(c.titre)}"
       data-index="${c.index}" ${styles ? `style="${styles}"` : ''}>
       ${mis ? `<span class="edt-relief">${libelleRelief(c, maintenant)}</span>` : ''}
-      <span class="edt-cours-titre">${c.type ? `<span class="edt-cours-type">${c.type}</span> ` : ''}${escapeHTML(c.titreCourt)}</span>
-      ${c.lieu ? `<span class="edt-cours-lieu">${escapeHTML(c.lieu)}</span>` : ''}
+      <span class="edt-cours-titre">${c.type ? `<span class="edt-cours-type">${c.type}</span> ` : ''}${escapeHtml(c.titreCourt)}</span>
+      ${c.lieu ? `<span class="edt-cours-lieu">${escapeHtml(c.lieu)}</span>` : ''}
       <span class="edt-cours-heure">${formatHeure(c.debutMin)} – ${formatHeure(c.finMin)}</span>
     </button>`;
 }
@@ -326,7 +326,7 @@ function renderJournees(journees) {
   return journees.map(j => {
     const { classe, style } = apparence(j);
     return `
-      <button type="button" class="edt-journee ${classe}" data-index="${j.index}" ${style ? `style="${style}"` : ''}>${escapeHTML(j.titre)}</button>`;
+      <button type="button" class="edt-journee ${classe}" data-index="${j.index}" ${style ? `style="${style}"` : ''}>${escapeHtml(j.titre)}</button>`;
   }).join('');
 }
 
@@ -543,11 +543,11 @@ function ouvrirCours(index) {
   }
 
   const lignes = [
-    ['Quand', escapeHTML(quand.charAt(0).toUpperCase() + quand.slice(1))],
-    c.lieu && ['Salle', escapeHTML(c.lieu)],
-    c.matiere && ['Matière', escapeHTML(c.matiere.nom)],
+    ['Quand', escapeHtml(quand.charAt(0).toUpperCase() + quand.slice(1))],
+    c.lieu && ['Salle', escapeHtml(c.lieu)],
+    c.matiere && ['Matière', escapeHtml(c.matiere.nom)],
     c.type && ['Type', c.type],
-    c.description && ['Détails', c.description.split('\n').map(escapeHTML).join('<br>')]
+    c.description && ['Détails', c.description.split('\n').map(escapeHtml).join('<br>')]
   ].filter(Boolean);
 
   document.getElementById('cours-modal-titre').textContent = c.titre || 'Sans titre';
@@ -600,7 +600,7 @@ async function charger({ silencieux = false } = {}) {
     // Un rechargement en arrière-plan qui échoue garde l'affichage actuel
     if (silencieux && state.cours.length) return;
     renderEtat(
-      `Impossible de récupérer l'emploi du temps : ${escapeHTML(data.error)}. Réessayez dans quelques minutes.`,
+      `Impossible de récupérer l'emploi du temps : ${escapeHtml(data.error)}. Réessayez dans quelques minutes.`,
       '<button type="button" class="btn-primary" data-recharger>Réessayer</button>'
     );
     return;
@@ -681,7 +681,7 @@ function setupEventListeners() {
 }
 
 async function init() {
-  mountHeader({ page: 'emploi-temps' });
+  mountHeader({ page: 'timetable' });
 
   const auth = await checkAuth();
   if (!auth.authenticated) return;

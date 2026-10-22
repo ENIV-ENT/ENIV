@@ -1,37 +1,47 @@
-// Client WebSocket pour les mises à jour temps réel.
-//
-// Le serveur n'envoie que des notifications de la classe de l'utilisateur, et
-// uniquement après authentification par le JWT déjà utilisé par l'API REST.
+/**
+ * WebSocket client for realtime updates.
+ *
+ * The server only sends notifications about the user's class, and only after
+ * authentication with the JWT already used by the REST API.
+ * @module realtime
+ */
 
 const BASE_DELAY_MS = 1000;
 const MAX_DELAY_MS = 30000;
 const BACKOFF_FACTOR = 1.7;
-const WATCHDOG_MS = 75000; // supérieur à deux battements de cœur serveur (30 s)
-const CONTINUITY_LIMIT_MS = 45000; // au-delà d'un battement manqué, on ne garantit plus rien
+/** Longer than two server heartbeats (30 s each). */
+const WATCHDOG_MS = 75000;
+/** Past one missed heartbeat, continuity is no longer guaranteed. */
+const CONTINUITY_LIMIT_MS = 45000;
 const MAX_AUTH_FAILURES = 3;
 
+/**
+ * Close codes sent by the server. 4004 (silent client, typically a frozen tab)
+ * is not handled separately: it follows the normal reconnection path, started
+ * when the tab wakes up.
+ */
 const CLOSE_NORMAL = 1000;
 const CLOSE_AUTH_FAILED = 4001;
 const CLOSE_TOKEN_EXPIRED = 4003;
-// 4004 (client silencieux, typiquement un onglet gelé) n'est pas traité à part :
-// il suit le chemin normal de reconnexion, déclenché au réveil de l'onglet.
 
-// Identifiant de la connexion courante, fourni par le serveur à l'authentification.
-//
-// Il est stocké sur window et non dans une variable de module, car les imports de
-// ce projet sont versionnés au déploiement par une chaîne de requête
-// (`realtime.js?v=<hash>`) écrite dans chaque fichier importateur. Deux
-// importateurs dont les versions divergeraient (l'un servi par le réseau, l'autre
-// par le cache du service worker) chargeraient deux instances distinctes du
-// module, et l'identifiant écrit par l'une serait invisible à l'autre — panne
-// silencieuse de la suppression d'écho.
+/**
+ * Stores the id of the current connection, given by the server on
+ * authentication.
+ *
+ * It lives on window rather than in a module variable because imports are
+ * versioned at deployment with a query string (`realtime.js?v=<hash>`) written
+ * in each importing file. Two importers with diverging versions (one served by
+ * the network, the other by the service worker cache) would load two separate
+ * instances of this module, and the id written by one would be invisible to the
+ * other: echo suppression would silently break.
+ */
 function setClientId(id) {
   window.__enivRealtimeId = id || null;
 }
 
 /**
- * Identifiant à joindre aux requêtes mutantes (en-tête X-Realtime-Id) pour que le
- * serveur ne rediffuse pas à cet onglet une modification qu'il vient de faire.
+ * Id to attach to mutating requests (X-Realtime-Id header) so that the server
+ * does not send back to this tab a change it just made.
  * @returns {string|null}
  */
 export function getRealtimeId() {
@@ -39,11 +49,33 @@ export function getRealtimeId() {
 }
 
 /**
- * Ouvre une connexion temps réel et la maintient (reconnexion, chien de garde).
+ * Opens a realtime connection and keeps it alive (reconnection, watchdog).
+ *
+ * - The watchdog closes half-open connections (sleep, NAT, silent proxy), whose
+ *   close event would never fire on its own.
+ * - Reconnection uses exponential backoff with jitter: when the server
+ *   restarts, a whole class reconnects at the same time. The attempt counter is
+ *   only reset on the `ready` frame, otherwise a server that accepts the
+ *   connection but refuses the authentication would cause a 1 s loop.
+ * - Heartbeats are answered from the `message` event rather than from an
+ *   independent timer: the browser heavily throttles background tab timers (up
+ *   to once a minute, or in five-minute slices), which would close healthy
+ *   connections, while `message` events are not throttled.
+ * - Handlers target their own `ws`, not `socket`: an old socket closing late
+ *   must not interfere with the current connection.
+ * - After repeated authentication failures, only realtime updates stop: session
+ *   handling belongs to checkAuth/apiCall, not to this layer.
+ * - When the tab becomes visible again, an open connection that received a
+ *   frame recently proves that no notification was missed, so a resync only
+ *   happens when continuity cannot be shown.
+ * - pagehide is used rather than beforeunload: it works with the bfcache, and
+ *   beforeunload does not fire reliably on iOS Safari. A page restored from the
+ *   bfcache reconnects on pageshow, without relying on visibilitychange, whose
+ *   timing around the bfcache varies between browsers.
  *
  * @param {Object} handlers
- * @param {Function} handlers.onUpdate - reçoit chaque notification {type:'update', resource, devoirId}
- * @param {Function} [handlers.onResync] - appelé après une RE-connexion : tout recharger
+ * @param {Function} handlers.onUpdate - receives each notification {type:'update', resource, devoirId}
+ * @param {Function} [handlers.onResync] - called after a RE-connection: reload everything
  * @returns {{close: Function, isConnected: Function}}
  */
 export function connectRealtime({ onUpdate, onResync }) {
@@ -54,7 +86,7 @@ export function connectRealtime({ onUpdate, onResync }) {
   let stopped = false;
   let reconnectTimer = null;
   let watchdogTimer = null;
-  let lastFrameAt = 0; // date de la dernière trame reçue, pour juger de la continuité
+  let lastFrameAt = 0;
 
   function clearReconnectTimer() {
     if (reconnectTimer) {
@@ -63,21 +95,18 @@ export function connectRealtime({ onUpdate, onResync }) {
     }
   }
 
-  // Le socket peut s'être fermé entre la réception d'une trame et notre réponse.
   function send(ws, message) {
     if (ws.readyState !== WebSocket.OPEN) return;
     try {
       ws.send(JSON.stringify(message));
     } catch {
-      // Rien à faire : la fermeture déclenchera la reconnexion.
+      return;
     }
   }
 
   function resetWatchdog(ws) {
     if (watchdogTimer) clearTimeout(watchdogTimer);
     watchdogTimer = setTimeout(() => {
-      // Connexion à moitié ouverte (mise en veille, NAT, proxy silencieux) :
-      // l'événement close ne se déclencherait jamais tout seul.
       ws.close();
     }, WATCHDOG_MS);
   }
@@ -86,8 +115,6 @@ export function connectRealtime({ onUpdate, onResync }) {
     if (stopped || reconnectTimer) return;
 
     const base = Math.min(MAX_DELAY_MS, BASE_DELAY_MS * Math.pow(BACKOFF_FACTOR, attempts));
-    // Pleine gigue : au redémarrage du serveur, toute une classe se reconnecte
-    // en même temps.
     const delay = base * (0.5 + Math.random() * 0.5);
     attempts++;
 
@@ -105,15 +132,10 @@ export function connectRealtime({ onUpdate, onResync }) {
     if (!token) return;
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Les gestionnaires ciblent `ws` et non `socket` : un ancien socket qui se
-    // ferme tardivement ne doit pas interférer avec la connexion courante.
     const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
     socket = ws;
 
     ws.addEventListener('open', () => {
-      // Le compteur de tentatives n'est remis à zéro qu'à la trame 'ready' : un
-      // serveur qui accepte la connexion puis refuse l'authentification
-      // provoquerait sinon une boucle à 1 s.
       send(ws, { type: 'auth', token: localStorage.getItem('token') });
       resetWatchdog(ws);
     });
@@ -143,12 +165,6 @@ export function connectRealtime({ onUpdate, onResync }) {
       }
 
       if (message.type === 'heartbeat') {
-        // Réponse applicative : elle prouve au serveur que ce JavaScript tourne
-        // encore. Répondre à la trame reçue plutôt que battre sur une minuterie
-        // indépendante est volontaire : les minuteries d'un onglet en arrière-plan
-        // sont fortement ralenties par le navigateur (jusqu'à une fois par minute,
-        // voire par tranches de cinq minutes), ce qui ferait fermer des connexions
-        // parfaitement saines. Un événement 'message', lui, n'est pas ralenti.
         send(ws, { type: 'heartbeat' });
         return;
       }
@@ -157,7 +173,6 @@ export function connectRealtime({ onUpdate, onResync }) {
     });
 
     ws.addEventListener('close', (event) => {
-      // Fermeture d'un socket déjà remplacé : rien à faire.
       if (socket !== ws) return;
 
       if (watchdogTimer) {
@@ -165,12 +180,11 @@ export function connectRealtime({ onUpdate, onResync }) {
         watchdogTimer = null;
       }
       socket = null;
-      setClientId(null); // l'identifiant est propre à la connexion fermée
+      setClientId(null);
 
       if (stopped || event.code === CLOSE_NORMAL) return;
 
       if (event.code === CLOSE_TOKEN_EXPIRED) {
-        // Le token a peut-être été renouvelé entre-temps : une tentative immédiate.
         attempts = 0;
         scheduleReconnect();
         return;
@@ -180,9 +194,7 @@ export function connectRealtime({ onUpdate, onResync }) {
         authFailures++;
         if (authFailures >= MAX_AUTH_FAILURES) {
           stopped = true;
-          // On désactive uniquement les mises à jour temps réel : la gestion de
-          // session appartient à checkAuth/apiCall, pas à cette couche.
-          console.warn('Mises à jour temps réel désactivées (authentification refusée).');
+          console.warn('Realtime updates disabled (authentication refused).');
           return;
         }
       }
@@ -201,16 +213,10 @@ export function connectRealtime({ onUpdate, onResync }) {
   window.addEventListener('online', reconnectNow);
   window.addEventListener('offline', clearReconnectTimer);
 
-  // Au retour sur l'onglet. Depuis la mise en place du battement de cœur
-  // bidirectionnel, une connexion ouverte qui a reçu une trame récemment prouve
-  // qu'aucune notification n'a pu être manquée : resynchroniser systématiquement
-  // coûterait deux requêtes à chaque changement d'onglet pour rien. On ne
-  // recharge donc que si la continuité n'est pas démontrable.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
 
     if (!socket || socket.readyState !== WebSocket.OPEN) {
-      // La reconnexion déclenche elle-même onResync une fois authentifiée.
       reconnectNow();
       return;
     }
@@ -218,16 +224,10 @@ export function connectRealtime({ onUpdate, onResync }) {
     if (Date.now() - lastFrameAt > CONTINUITY_LIMIT_MS && onResync) onResync();
   });
 
-  // pagehide plutôt que beforeunload : compatible bfcache, et beforeunload n'est
-  // pas déclenché de façon fiable sur iOS Safari.
   window.addEventListener('pagehide', () => {
     if (socket) socket.close(CLOSE_NORMAL);
   });
 
-  // Retour depuis le cache de navigation arrière/avant : la page est restaurée
-  // telle quelle, mais son socket a été fermé par pagehide ci-dessus. Ne pas
-  // dépendre de visibilitychange, dont le déclenchement autour du bfcache varie
-  // selon les navigateurs.
   window.addEventListener('pageshow', (event) => {
     if (event.persisted) reconnectNow();
   });

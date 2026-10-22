@@ -1,6 +1,6 @@
 import { apiCall, checkAuth } from '../utils/api.js';
 import { mountHeader, setHeaderUser } from '../components/header.js';
-import { escapeHTML, formatDate, toggleModal, setupModalClose, showAlert, showConfirm } from '../utils/dom.js';
+import { escapeHtml, formatDate, toggleModal, setupModalClose, showAlert, showConfirm } from '../utils/dom.js';
 
 let currentUserId = null;
 let eleves = [];
@@ -10,7 +10,7 @@ let logs = [];
 let joinRequests = [];
 
 async function init() {
-  mountHeader({ page: 'admin', titre: 'Admin' });
+  mountHeader({ page: 'admin', title: 'Admin' });
 
   const auth = await checkAuth();
 
@@ -122,8 +122,8 @@ function renderEleves() {
     <div class="list-item">
       <div class="list-item-info">
         <div>
-          <h3>${escapeHTML(eleve.prenom || '')} ${escapeHTML(eleve.nom || '')}${isAdmin ? ' <span class="role-badge role-admin">Admin</span>' : ''}</h3>
-          <p>${escapeHTML(eleve.username)}</p>
+          <h3>${escapeHtml(eleve.prenom || '')} ${escapeHtml(eleve.nom || '')}${isAdmin ? ' <span class="role-badge role-admin">Admin</span>' : ''}</h3>
+          <p>${escapeHtml(eleve.username)}</p>
           <p class="list-item-meta">${formatLastLogin(eleve.last_login_at)}</p>
         </div>
       </div>
@@ -271,7 +271,7 @@ function renderMatieres() {
       <div class="list-item-info">
         <div style="width:40px;height:40px;border-radius:8px;background:${m.couleur || '#999'};flex-shrink:0;"></div>
         <div>
-          <h3>${escapeHTML(m.nom)}</h3>
+          <h3>${escapeHtml(m.nom)}</h3>
           ${m.lien ? `<p><a href="${m.lien}" target="_blank">Lien</a></p>` : ''}
         </div>
       </div>
@@ -379,8 +379,8 @@ function renderJoinRequests() {
     <div class="list-item">
       <div class="list-item-info">
         <div>
-          <h3>${escapeHTML(req.prenom || '')} ${escapeHTML(req.nom || '')}</h3>
-          <p>${escapeHTML(req.username)} ${req.email ? '- ' + escapeHTML(req.email) : ''}</p>
+          <h3>${escapeHtml(req.prenom || '')} ${escapeHtml(req.nom || '')}</h3>
+          <p>${escapeHtml(req.username)} ${req.email ? '- ' + escapeHtml(req.email) : ''}</p>
           <p style="font-size: 0.8rem; color: var(--secondary);">Demande le ${formatDate(req.created_at)}</p>
         </div>
       </div>
@@ -440,7 +440,7 @@ function renderInvitations() {
     <div class="list-item">
       <div class="list-item-info">
         <div>
-          <h3>${escapeHTML(inv.email)}</h3>
+          <h3>${escapeHtml(inv.email)}</h3>
           <p style="font-size: 0.8rem; color: var(--secondary);">
             Envoyée le ${new Date(inv.created_at).toLocaleDateString('fr-FR')}
           </p>
@@ -554,15 +554,15 @@ function formatLogAuthor(log, details) {
 function formatLogFieldValue(field, value, matiereNom) {
   if (field === 'matiere_id') {
     const nom = matiereNom || (value ? `Matière n° ${value}` : null);
-    return nom ? escapeHTML(nom) : LOG_EMPTY_VALUE;
+    return nom ? escapeHtml(nom) : LOG_EMPTY_VALUE;
   }
 
   if (field === 'date') {
-    return value ? escapeHTML(formatDate(value)) : LOG_EMPTY_VALUE;
+    return value ? escapeHtml(formatDate(value)) : LOG_EMPTY_VALUE;
   }
 
   if (value === null || value === undefined || value === '') return LOG_EMPTY_VALUE;
-  return escapeHTML(String(value));
+  return escapeHtml(String(value));
 }
 
 /**
@@ -613,7 +613,7 @@ function normalizeLogDetails(log) {
 function renderLogDetailRow(label, valueHTML) {
   return `
     <div class="log-detail">
-      <span class="log-detail-label">${escapeHTML(label)}</span>
+      <span class="log-detail-label">${escapeHtml(label)}</span>
       <span class="log-detail-value">${valueHTML}</span>
     </div>`;
 }
@@ -652,16 +652,16 @@ function renderLogDetails(details) {
   if (fichier) {
     const taille = formatFileSize(fichier.size);
     if (taille) {
-      rows.push(renderLogDetailRow('Taille', `<span class="log-value">${escapeHTML(taille)}</span>`));
+      rows.push(renderLogDetailRow('Taille', `<span class="log-value">${escapeHtml(taille)}</span>`));
     }
     if (fichier.mimetype) {
-      rows.push(renderLogDetailRow('Type', `<span class="log-value">${escapeHTML(fichier.mimetype)}</span>`));
+      rows.push(renderLogDetailRow('Type', `<span class="log-value">${escapeHtml(fichier.mimetype)}</span>`));
     }
     if (fichier.uploaded_by_username) {
-      rows.push(renderLogDetailRow('Ajouté par', `<span class="log-value">${escapeHTML(fichier.uploaded_by_username)}</span>`));
+      rows.push(renderLogDetailRow('Ajouté par', `<span class="log-value">${escapeHtml(fichier.uploaded_by_username)}</span>`));
     }
     if (fichier.uploaded_at) {
-      rows.push(renderLogDetailRow('Ajouté le', `<span class="log-value">${escapeHTML(formatLogDateTime(fichier.uploaded_at))}</span>`));
+      rows.push(renderLogDetailRow('Ajouté le', `<span class="log-value">${escapeHtml(formatLogDateTime(fichier.uploaded_at))}</span>`));
     }
   }
 
@@ -670,7 +670,7 @@ function renderLogDetails(details) {
   if (commentaire) {
     rows.push(renderLogDetailRow('Message', `<span class="log-value">${formatLogFieldValue('contenu', commentaire.contenu)}</span>`));
     if (commentaire.created_at) {
-      rows.push(renderLogDetailRow('Écrit le', `<span class="log-value">${escapeHTML(formatLogDateTime(commentaire.created_at))}</span>`));
+      rows.push(renderLogDetailRow('Écrit le', `<span class="log-value">${escapeHtml(formatLogDateTime(commentaire.created_at))}</span>`));
     }
   }
 
@@ -682,7 +682,7 @@ function renderLogDetails(details) {
       const origine = [auteur, ajoutLe].filter(Boolean).join(' ');
       const taille = formatFileSize(f.size);
       const complement = [origine || null, taille].filter(Boolean).join(', ');
-      return `<li>${escapeHTML(f.original_name || 'Document sans nom')}${complement ? ` <span class="log-empty">(${escapeHTML(complement)})</span>` : ''}</li>`;
+      return `<li>${escapeHtml(f.original_name || 'Document sans nom')}${complement ? ` <span class="log-empty">(${escapeHtml(complement)})</span>` : ''}</li>`;
     }).join('');
 
     rows.push(renderLogDetailRow(
@@ -699,13 +699,13 @@ function renderLogDetails(details) {
  * Phrase résumant l'action, avec l'auteur, le devoir et le document concernés
  */
 function renderLogSummary(log, config, details) {
-  const auteur = `<strong>${escapeHTML(formatLogAuthor(log, details))}</strong>`;
+  const auteur = `<strong>${escapeHtml(formatLogAuthor(log, details))}</strong>`;
   const titre = details.titre || log.devoir_titre;
-  const devoir = titre ? `<strong>« ${escapeHTML(titre)} »</strong>` : null;
+  const devoir = titre ? `<strong>« ${escapeHtml(titre)} »</strong>` : null;
 
   if (config.cible === 'fichier') {
     const nom = details.fichier?.original_name;
-    const document = nom ? `<strong>« ${escapeHTML(nom)} »</strong>` : 'un document';
+    const document = nom ? `<strong>« ${escapeHtml(nom)} »</strong>` : 'un document';
     const rattachement = devoir ? ` ${config.preposition} ${devoir}` : '';
     return `${auteur} ${config.verbe} le document ${document}${rattachement}`;
   }
@@ -713,7 +713,7 @@ function renderLogSummary(log, config, details) {
   if (config.cible === 'commentaire') {
     const a = details.commentaire?.auteur || {};
     const nomComplet = [a.prenom, a.nom].filter(Boolean).join(' ');
-    const ecritPar = a.username ? ` de <strong>${escapeHTML(nomComplet ? `${nomComplet} (${a.username})` : a.username)}</strong>` : '';
+    const ecritPar = a.username ? ` de <strong>${escapeHtml(nomComplet ? `${nomComplet} (${a.username})` : a.username)}</strong>` : '';
     const rattachement = devoir ? ` ${config.preposition} ${devoir}` : '';
     return `${auteur} ${config.verbe} un commentaire${ecritPar}${rattachement}`;
   }
@@ -730,7 +730,7 @@ function renderLogSummary(log, config, details) {
 function renderLogDevoirReference(log) {
   if (!log.devoir_id) return '';
 
-  const numero = `devoir n° ${escapeHTML(String(log.devoir_id))}`;
+  const numero = `devoir n° ${escapeHtml(String(log.devoir_id))}`;
 
   if (log.devoir_existe) {
     return `<a class="log-link" href="/dashboard?devoir=${encodeURIComponent(log.devoir_id)}">${numero}</a>`;
@@ -752,8 +752,8 @@ function renderLogItem(log) {
   return `
     <div class="list-item log-item">
       <div class="log-header">
-        <span class="log-badge ${config.badgeClass}">${escapeHTML(config.badge)}</span>
-        <span class="log-date">${escapeHTML(formatLogDateTime(log.created_at))}</span>
+        <span class="log-badge ${config.badgeClass}">${escapeHtml(config.badge)}</span>
+        <span class="log-date">${escapeHtml(formatLogDateTime(log.created_at))}</span>
         ${reference}
       </div>
       <p class="log-summary">${renderLogSummary(log, config, details)}</p>

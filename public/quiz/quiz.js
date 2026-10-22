@@ -1,4 +1,4 @@
-import {escapeHTML} from "../js/utils/dom.js";
+import {escapeHtml} from "../js/utils/dom.js";
 import {mountHeader, setHeaderUser} from "../js/components/header.js";
 
 // Variables globales
@@ -160,7 +160,7 @@ function formatTextWithCode(text) {
 
     // Remplacer '''code''' par des blocs de code HTML avec coloration syntaxique
     // Support pour ''' (3 apostrophes) et ``` (3 backticks)
-    let result = escapeHTML(text);
+    let result = escapeHtml(text);
 
     function replacer(match, code) {
       return `<pre><code>${code.trim()}</code></pre>`;
@@ -329,7 +329,7 @@ function loadQuestion() {
             }
             const letter = String.fromCharCode(65 + displayIndex);
             optionDiv.innerHTML = `
-                <div class="option-letter">${escapeHTML(letter)}</div>
+                <div class="option-letter">${escapeHtml(letter)}</div>
                 <div class="option-text">${formatTextWithCode(option.text)}</div>
             `;
 

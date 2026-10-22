@@ -1,5 +1,5 @@
 import { apiCall, checkAuth, logout } from "../utils/api.js";
-import { escapeHTML, toggleModal, setupModalClose, showAlert, showConfirm } from "../utils/dom.js";
+import { escapeHtml, toggleModal, setupModalClose, showAlert, showConfirm } from "../utils/dom.js";
 
 let classes = [];
 let admins = [];
@@ -217,7 +217,7 @@ function renderClasses() {
     item.className = "list-item";
     item.innerHTML = `
       <div class="list-item-info">
-        <h3>${escapeHTML(classe.nom)}</h3>
+        <h3>${escapeHtml(classe.nom)}</h3>
         <label class="checkbox-container">
           <input type="checkbox" class="premium-classe-checkbox" data-id="${
             classe.id
@@ -317,8 +317,8 @@ function renderAdmins() {
     item.className = "list-item";
     item.innerHTML = `
       <div class="list-item-info">
-      <h3>${escapeHTML(admin.username)}</h3>
-      <p>${escapeHTML(admin.classe_nom || "Aucune classe")}</p>
+      <h3>${escapeHtml(admin.username)}</h3>
+      <p>${escapeHtml(admin.classe_nom || "Aucune classe")}</p>
       </div>
       <div class="list-item-actions">
       <button class="btn btn-secondary edit-admin-btn" data-id="${
@@ -396,8 +396,8 @@ function renderInvitations() {
 
     item.innerHTML = `
       <div class="list-item-info">
-        <h3>${escapeHTML(invitation.email)}</h3>
-        <p>Classe: ${escapeHTML(invitation.classe_nom || 'Aucune')}</p>
+        <h3>${escapeHtml(invitation.email)}</h3>
+        <p>Classe: ${escapeHtml(invitation.classe_nom || 'Aucune')}</p>
         <p style="font-size: 0.8rem; color: var(--secondary);">
           Envoyée le ${createdDate} - Expire le ${expiresDate}
         </p>
@@ -508,10 +508,10 @@ function renderEtabRequests() {
 
     item.innerHTML = `
       <div class="list-item-info">
-        <h3>${escapeHTML(request.nom)}</h3>
-        <p>${escapeHTML(request.commune || "")} ${request.code_postal ? "(" + escapeHTML(request.code_postal) + ")" : ""}</p>
+        <h3>${escapeHtml(request.nom)}</h3>
+        <p>${escapeHtml(request.commune || "")} ${request.code_postal ? "(" + escapeHtml(request.code_postal) + ")" : ""}</p>
         <p style="font-size: 0.85rem; color: var(--secondary);">
-          Demandeur : ${escapeHTML(request.email_demandeur || "")} - ${createdDate}
+          Demandeur : ${escapeHtml(request.email_demandeur || "")} - ${createdDate}
         </p>
       </div>
       <div class="list-item-actions">

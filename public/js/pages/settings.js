@@ -1,6 +1,6 @@
 import { apiCall, checkAuth } from '../utils/api.js';
 import { mountHeader, setHeaderUser } from '../components/header.js';
-import { showAlert, showConfirm, escapeHTML, toggleModal } from '../utils/dom.js';
+import { showAlert, showConfirm, escapeHtml, toggleModal } from '../utils/dom.js';
 import { isPushSupported, needsHomeScreenInstall, getPushSubscription, enablePush, disablePush, syncPushSubscription } from '../utils/push.js';
 
 async function init() {
@@ -178,7 +178,7 @@ function renderPushDevices() {
     return `
       <li class="token-item">
         <div>
-          <div class="token-name">${escapeHTML(device.appareil)}${device.current ? '<span class="token-badge info">Cet appareil</span>' : ''}</div>
+          <div class="token-name">${escapeHtml(device.appareil)}${device.current ? '<span class="token-badge info">Cet appareil</span>' : ''}</div>
           <div class="token-meta">${meta.join(' · ')}</div>
         </div>
         ${device.current ? '' : `
@@ -280,7 +280,7 @@ function renderMcpTokens() {
     return `
       <li class="token-item${token.expired ? ' expired' : ''}">
         <div>
-          <div class="token-name">${escapeHTML(token.nom)}${token.expired ? '<span class="token-badge">Expiré</span>' : ''}</div>
+          <div class="token-name">${escapeHtml(token.nom)}${token.expired ? '<span class="token-badge">Expiré</span>' : ''}</div>
           <div class="token-meta">${meta.join(' · ')}</div>
         </div>
         <div class="token-actions">

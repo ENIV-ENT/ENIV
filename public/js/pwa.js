@@ -1,9 +1,11 @@
-// Enregistre le service worker (app installable + consultation hors ligne)
-// et signale quand les données affichées viennent du cache.
+/**
+ * Registers the service worker (installable app, offline reading) and shows a
+ * banner when the displayed data comes from the cache.
+ */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch((error) => {
-      console.error('Service worker non enregistré :', error);
+      console.error('Service worker not registered:', error);
     });
   });
 }

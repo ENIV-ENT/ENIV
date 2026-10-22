@@ -1,6 +1,6 @@
 import { apiCall, checkAuth } from '../utils/api.js';
 import { mountHeader, setHeaderUser } from '../components/header.js';
-import { escapeHTML, localDate, toInputDate, toggleModal, setupModalClose, showAlert, showConfirm, getContrastColor } from '../utils/dom.js';
+import { escapeHtml, localDate, toInputDate, toggleModal, setupModalClose, showAlert, showConfirm, getContrastColor } from '../utils/dom.js';
 import { renderMarkdown, hydrateMarkdownImages } from '../utils/markdown.js';
 import { connectRealtime, getRealtimeId } from '../utils/realtime.js';
 import { syncPushSubscription } from '../utils/push.js';
@@ -492,7 +492,7 @@ function displayFileList(fileArray, listId) {
   fileArray.forEach((file, index) => {
     const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
     html += `<div style="padding:0.5rem;background:white;border-radius:4px;margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);">`;
-    html += `<span style="font-size:0.9rem;flex:1;">${escapeHTML(file.name)} <span style="color:var(--secondary);">(${sizeInMB} Mo)</span></span>`;
+    html += `<span style="font-size:0.9rem;flex:1;">${escapeHtml(file.name)} <span style="color:var(--secondary);">(${sizeInMB} Mo)</span></span>`;
     html += `<button type="button" class="btn-danger" style="padding:0.25rem 0.5rem;font-size:0.8rem;" onclick="removeFileFromList(${index}, '${listId}')">Retirer</button>`;
     html += `</div>`;
   });
@@ -583,9 +583,9 @@ function renderMobileDevoirItems(dayDevoirs) {
     const matiere = matieres.find(m => m.id === devoir.matiere_id);
     const couleur = matiere?.couleur || '#999';
     html += `<div class="mobile-devoir-item ${devoir.fait ? 'fait' : ''}" data-devoir-id="${devoir.id}" style="border-left:4px solid ${couleur};">`;
-    html += `<div class="mobile-devoir-title">${escapeHTML(devoir.titre)}${badgeCommentaires(devoir)}</div>`;
+    html += `<div class="mobile-devoir-title">${escapeHtml(devoir.titre)}${badgeCommentaires(devoir)}</div>`;
     html += `<div class="mobile-devoir-matiere" style="color:${couleur};">`;
-    const matiereNom = escapeHTML(devoir.matiere_nom || 'Sans matière');
+    const matiereNom = escapeHtml(devoir.matiere_nom || 'Sans matière');
     if (matiere && matiere.lien) html += `<a href="${matiere.lien}" target="_blank">${matiereNom}</a>`;
     else html += matiereNom;
     html += `</div></div>`;
@@ -731,7 +731,7 @@ function renderDateCell(date, otherMonth) {
     const matiere = matieres.find(m => m.id === devoir.matiere_id);
     const couleur = matiere?.couleur || '#999';
     const textColor = getContrastColor(couleur);
-    html += `<div class="devoir-item ${devoir.fait ? 'fait' : ''}" data-devoir-id="${devoir.id}" style="background-color:${couleur};color:${textColor};"><span class="devoir-item-titre">${escapeHTML(devoir.titre)}</span>${badgeCommentaires(devoir)}</div>`;
+    html += `<div class="devoir-item ${devoir.fait ? 'fait' : ''}" data-devoir-id="${devoir.id}" style="background-color:${couleur};color:${textColor};"><span class="devoir-item-titre">${escapeHtml(devoir.titre)}</span>${badgeCommentaires(devoir)}</div>`;
   });
 
   html += '</div></div>';
@@ -788,8 +788,8 @@ async function showDevoirModal(devoirId, deplierCommentaires = false) {
   const matiere = matieres.find(m => m.id === devoir.matiere_id);
   const modalBody = document.getElementById('modal-body');
 
-  let html = `<h3>${escapeHTML(devoir.titre)}</h3><p><strong>Matière:</strong> `;
-  const matiereNom = escapeHTML(devoir.matiere_nom || 'Non définie');
+  let html = `<h3>${escapeHtml(devoir.titre)}</h3><p><strong>Matière:</strong> `;
+  const matiereNom = escapeHtml(devoir.matiere_nom || 'Non définie');
   if (matiere && matiere.lien) html += `<a href="${matiere.lien}" target="_blank">${matiereNom}</a>`;
   else html += matiereNom;
   html += '</p>';
@@ -1033,11 +1033,11 @@ async function loadCommentaires(devoirId) {
     const auteur = [c.prenom, c.nom].filter(Boolean).join(' ') || c.username;
     return `<li class="commentaire">
       <div class="commentaire-entete">
-        <strong>${escapeHTML(auteur)}</strong>
+        <strong>${escapeHtml(auteur)}</strong>
         <span>${formatDateCommentaire(c.created_at)}</span>
         ${c.supprimable ? `<button type="button" class="commentaire-supprimer" data-id="${c.id}" aria-label="Supprimer ce commentaire">&times;</button>` : ''}
       </div>
-      <p>${escapeHTML(c.contenu)}</p>
+      <p>${escapeHtml(c.contenu)}</p>
     </li>`;
   }).join('');
 
@@ -1073,8 +1073,8 @@ async function loadDevoirModalFichiers(devoirId, ouvertParDefaut = false) {
       <div class="document-item" onclick="ouvrirFichier(${fichier.id})">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
         <div class="document-infos">
-          <div class="document-nom">${escapeHTML(fichier.original_name)}</div>
-          <div class="document-auteur">Uploadé par ${escapeHTML(fichier.uploaded_by_username || 'Inconnu')}</div>
+          <div class="document-nom">${escapeHtml(fichier.original_name)}</div>
+          <div class="document-auteur">Uploadé par ${escapeHtml(fichier.uploaded_by_username || 'Inconnu')}</div>
         </div>
       </div>`).join('');
 
@@ -1211,7 +1211,7 @@ async function loadExistingFiles(devoirId) {
 
     container.innerHTML = fichiers.map(f => `
       <div style="padding:0.5rem;background:white;border-radius:4px;margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);">
-        <a href="#" onclick="ouvrirFichier(${f.id}); return false;" style="color:var(--primary);text-decoration:none;font-size:0.9rem;">${escapeHTML(f.original_name)}</a>
+        <a href="#" onclick="ouvrirFichier(${f.id}); return false;" style="color:var(--primary);text-decoration:none;font-size:0.9rem;">${escapeHtml(f.original_name)}</a>
         <button type="button" class="btn-danger" style="padding:0.25rem 0.5rem;font-size:0.8rem;" onclick="deleteFichier(${f.id}, ${devoirId})">Supprimer</button>
       </div>
     `).join('');

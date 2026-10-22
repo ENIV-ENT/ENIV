@@ -1,9 +1,12 @@
 import { apiCall } from './http.js';
 import { showConfirm } from './dom.js';
 
-// Notifications push côté navigateur : permission, abonnement auprès du service
-// push du navigateur, puis enregistrement de cet abonnement sur le serveur
-// (voir backend/routes/push.js).
+/**
+ * Browser side of push notifications: permission, subscription with the
+ * browser's push service, then registration of that subscription on the server
+ * (see backend/routes/push.js).
+ * @module push
+ */
 
 const SUBSCRIBE_TIMEOUT_MS = 15000;
 
@@ -18,22 +21,33 @@ export function isPushSupported() {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 }
 
-// Sur iPhone/iPad, le push n'existe que pour une app ajoutée à l'écran d'accueil
+/**
+ * On iPhone and iPad, push only exists for an app added to the home screen.
+ * @returns {boolean}
+ */
 export function needsHomeScreenInstall() {
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent)
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-  return isIOS && !standalone;
+  return isIos && !standalone;
 }
 
+/**
+ * Returns the current push subscription. Uses getRegistration rather than
+ * serviceWorker.ready, which never settles when the registration failed.
+ * @returns {Promise<PushSubscription|null>}
+ */
 export async function getPushSubscription() {
   if (!isPushSupported()) return null;
-  // Pas serviceWorker.ready : elle n'aboutit jamais si l'enregistrement échoue
   const registration = await navigator.serviceWorker.getRegistration();
   return registration ? registration.pushManager.getSubscription() : null;
 }
 
-// La clé VAPID arrive en base64url ; pushManager.subscribe attend des octets
+/**
+ * The VAPID key comes as base64url; pushManager.subscribe expects bytes.
+ * @param {string} base64Url
+ * @returns {Uint8Array}
+ */
 function base64UrlToUint8Array(base64Url) {
   const padding = '='.repeat((4 - (base64Url.length % 4)) % 4);
   const base64 = (base64Url + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -54,7 +68,14 @@ async function sendSubscription(subscription) {
 }
 
 /**
- * Demande la permission puis abonne ce navigateur.
+ * Asks for the permission, then subscribes this browser.
+ *
+ * serviceWorker.ready is wrapped in a timeout because it never settles when the
+ * service worker does not register. A subscription created with another server
+ * key would receive nothing, so it is recreated. Some browsers have no push
+ * service at all (some Chromium builds, Brave with the option disabled), in
+ * which case subscribe times out.
+ *
  * @returns {Promise<{ok: boolean, error?: string}>}
  */
 export async function enablePush() {
@@ -77,13 +98,11 @@ export async function enablePush() {
 
   let registration;
   try {
-    // serviceWorker.ready n'aboutit jamais si le service worker ne s'enregistre pas
     registration = await withTimeout(navigator.serviceWorker.ready, SUBSCRIBE_TIMEOUT_MS);
   } catch {
     return { ok: false, error: 'Eniv n\'a pas pu préparer les notifications dans ce navigateur. Rechargez la page puis réessayez.' };
   }
   let subscription = await registration.pushManager.getSubscription();
-  // Un abonnement créé avec une autre clé serveur ne recevrait rien : on le refait
   const key = subscription?.options?.applicationServerKey;
   if (subscription && key && arrayBufferToBase64Url(key) !== publicKey) {
     await subscription.unsubscribe();
@@ -96,7 +115,6 @@ export async function enablePush() {
         applicationServerKey: base64UrlToUint8Array(publicKey),
       }), SUBSCRIBE_TIMEOUT_MS);
     } catch {
-      // Navigateur sans service push (certains Chromium, Brave avec l'option désactivée...)
       return { ok: false, error: 'Le service de notifications de ce navigateur ne répond pas. Essayez avec Chrome, Edge, Firefox ou Safari.' };
     }
   }
@@ -117,13 +135,15 @@ export async function disablePush() {
   return { ok: true };
 }
 
-const LOGOUT_CHOICE_KEY = 'push-logout-choice'; // 'keep' | 'disable'
+/** localStorage key holding `'keep'` or `'disable'`. */
+const LOGOUT_CHOICE_KEY = 'push-logout-choice';
 
 /**
- * Avant la déconnexion : l'abonnement de cet appareil reste lié au compte, on
- * demande donc s'il faut le garder. Le choix peut être mémorisé sur l'appareil.
- * @returns {Promise<boolean>} false si la question est fermée sans réponse
- *   (la déconnexion est alors abandonnée)
+ * Runs before logging out: the subscription of this device stays linked to the
+ * account, so the user is asked whether to keep it. The choice can be
+ * remembered on the device.
+ * @returns {Promise<boolean>} false when the question is closed without an
+ *   answer (the logout is then cancelled)
  */
 export async function handlePushBeforeLogout() {
   const subscription = await getPushSubscription().catch(() => null);
@@ -146,9 +166,9 @@ export async function handlePushBeforeLogout() {
 }
 
 /**
- * À appeler à l'ouverture des pages connectées : renvoie au serveur
- * l'abonnement de ce navigateur s'il existe (renouvelé par le navigateur,
- * changement de compte...). Silencieux en cas d'échec.
+ * To call when a logged-in page opens: sends this browser's subscription, if
+ * any, back to the server (renewed by the browser, account change...). Silent
+ * on failure: it will be retried on the next page load.
  */
 export async function syncPushSubscription() {
   try {
@@ -156,6 +176,6 @@ export async function syncPushSubscription() {
     const subscription = await getPushSubscription();
     if (subscription) await sendSubscription(subscription);
   } catch {
-    // Pas bloquant : on réessaiera à la prochaine ouverture
+    return;
   }
 }

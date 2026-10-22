@@ -1,5 +1,5 @@
 import { apiCall } from '../utils/api.js';
-import { escapeHTML, showAlert } from '../utils/dom.js';
+import { escapeHtml, showAlert } from '../utils/dom.js';
 
 let currentStep = 1;
 let selectedEtab = null;
@@ -90,8 +90,8 @@ async function handlePrefilledLink() {
     prefilledDiv.className = 'prefilled-info';
     prefilledDiv.innerHTML = `
       <h3>Inscription pré-remplie</h3>
-      <p><strong>Établissement :</strong> ${escapeHTML(data.etablissement.nom)}</p>
-      <p><strong>Classe :</strong> ${escapeHTML(data.classe.nom)}</p>
+      <p><strong>Établissement :</strong> ${escapeHtml(data.etablissement.nom)}</p>
+      <p><strong>Classe :</strong> ${escapeHtml(data.classe.nom)}</p>
     `;
     step3Container.insertBefore(prefilledDiv, step3Container.querySelector('.form-group'));
   } catch {
@@ -249,9 +249,9 @@ async function searchEtablissements(query) {
     }
 
     resultsDiv.innerHTML = data.map(etab => `
-      <div class="autocomplete-item" data-id="${etab.id}" data-uai="${etab.uai}" data-nom="${escapeHTML(etab.nom)}" data-commune="${escapeHTML(etab.commune || '')}" data-cp="${etab.code_postal || ''}" data-lat="${etab.latitude || ''}" data-lng="${etab.longitude || ''}">
-        <div class="autocomplete-item-name">${escapeHTML(etab.nom)}</div>
-        <div class="autocomplete-item-details">${escapeHTML(etab.commune || '')} ${etab.code_postal ? '(' + etab.code_postal + ')' : ''}</div>
+      <div class="autocomplete-item" data-id="${etab.id}" data-uai="${etab.uai}" data-nom="${escapeHtml(etab.nom)}" data-commune="${escapeHtml(etab.commune || '')}" data-cp="${etab.code_postal || ''}" data-lat="${etab.latitude || ''}" data-lng="${etab.longitude || ''}">
+        <div class="autocomplete-item-name">${escapeHtml(etab.nom)}</div>
+        <div class="autocomplete-item-details">${escapeHtml(etab.commune || '')} ${etab.code_postal ? '(' + etab.code_postal + ')' : ''}</div>
       </div>
     `).join('');
 
@@ -329,10 +329,10 @@ async function loadClasses() {
   } else {
     document.getElementById('no-classes-message').style.display = 'none';
     classesList.innerHTML = data.map(classe => `
-      <div class="classe-item" data-id="${classe.id}" data-nom="${escapeHTML(classe.nom)}">
+      <div class="classe-item" data-id="${classe.id}" data-nom="${escapeHtml(classe.nom)}">
         <div>
-          <div class="classe-item-name">${escapeHTML(classe.nom)}</div>
-          <div class="classe-item-info">${classe.nb_eleves} élève(s)${classe.admin_username ? ' - Admin: ' + escapeHTML(classe.admin_username) : ''}</div>
+          <div class="classe-item-name">${escapeHtml(classe.nom)}</div>
+          <div class="classe-item-info">${classe.nb_eleves} élève(s)${classe.admin_username ? ' - Admin: ' + escapeHtml(classe.admin_username) : ''}</div>
         </div>
       </div>
     `).join('');
