@@ -1,26 +1,27 @@
 ## 🎯 Scope
 
-<!-- Sujet de la PR (sécurité, notifications, agenda, CI...) et problème résolu -->
+<!-- Topic of the PR (security, notifications, calendar, CI...) and the problem it solves -->
 
-## 💡 Idées traitées
+## 💡 Changes
 
-<!-- Ce qui change et pourquoi, idée par idée -->
+<!-- What changes and why, idea by idea -->
 
-## 🔁 Avant / après
+## 🔁 Before / after
 
-| | Avant | Après |
+| | Before | After |
 |---|---|---|
 |   |   |   |
 
 ## 🧱 Commits
 
-<!-- Format Conventional Commits : type(scope): description -->
+<!-- Conventional Commits format, in English: type(scope): description -->
 
 ## ✅ Tests
 
-- [ ] `npm test` passe
-- [ ] Testé manuellement :
+- [ ] `npm run lint` passes
+- [ ] `npm test` passes
+- [ ] Tested manually:
 
-## 🚀 Déploiement
+## 🚀 Deployment
 
-<!-- Variables d'environnement, migrations, actions manuelles... ou « rien à faire » -->
+<!-- Environment variables, migrations, manual steps... or "nothing to do" -->

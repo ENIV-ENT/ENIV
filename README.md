@@ -287,25 +287,7 @@ sequenceDiagram
 
 ## 🤝 Contribuer
 
-1. Créez une branche nommée selon le sujet : `feature/…`, `fix/…`, `securite/…`, `docs/…`, `ci/…`
-2. Faites des commits **petits et séparés**, au format [Conventional Commits](https://www.conventionalcommits.org/fr/) :
-
-   ```text
-   feat(devoirs): pièces jointes par glisser-déposer
-   fix(auth): 400 quand le mot de passe est absent
-   docs(readme): schéma d'architecture
-   ```
-
-   | Type | Usage |
-   |---|---|
-   | `feat` | nouvelle fonctionnalité |
-   | `fix` | correction de bug |
-   | `refactor` | réorganisation sans changement de comportement |
-   | `test` | ajout ou correction de tests |
-   | `docs` | documentation |
-   | `ci` / `chore` | outillage, CI, dépendances |
-
-3. Ouvrez une pull request qui explique le **pourquoi**, l'**avant / après** et **comment c'est testé**.
+Le guide de contribution, en anglais, est dans [CONTRIBUTING.md](CONTRIBUTING.md) : branches, Conventional Commits, pull requests, et conventions de nommage du code (code en anglais, interface en français, glossaire du domaine et liste des noms gelés).
 
 <div align="center">
 <br>
