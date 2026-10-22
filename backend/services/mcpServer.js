@@ -3,21 +3,25 @@ const path = require('path');
 const { z } = require('zod');
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const db = require('../models/dbHelper');
-const { notifyClasse } = require('./realtime');
-const { convertToPDF } = require('./fileConverter');
-const { extractTextFromPDF } = require('./quizGenerator');
-const { toDateString, snapshotDevoir, diffSnapshots, logDevoirAction } = require('./devoirLogger');
+const { notifyClass } = require('./realtime');
+const { convertToPdf } = require('./fileConverter');
+const { extractTextFromPdf } = require('./quizGenerator');
+const { toDateString, snapshotAssignment, diffSnapshots, logAssignmentAction } = require('./assignmentLogger');
 const push = require('./push');
 const pushMessages = require('./pushMessages');
-const { matiereDeLaClasse } = require('./appartenanceClasse');
+const { findClassSubject } = require('./classMembership');
 
 /**
- * Serveur MCP d'ENIV : expose les devoirs de la classe de l'utilisateur à un
- * assistant IA. Un serveur est créé par requête (mode sans état), pour un
- * utilisateur déjà authentifié par son jeton MCP.
+ * ENIV MCP server: exposes the assignments of the user's class to an AI
+ * assistant. One server is created per request (stateless mode), for a user
+ * already authenticated by their MCP token.
  *
- * Les modifications suivent les mêmes règles que l'API REST : journalisation
- * dans devoir_logs et notification temps réel de la classe.
+ * Changes follow the same rules as the REST API: history in devoir_logs and
+ * realtime notification of the class.
+ *
+ * Tool names, arguments, outputs and descriptions are a public contract in
+ * French, used by the assistants users connected: they must not change.
+ * @module
  */
 
 const UPLOADS_DIR = path.join(__dirname, '../uploads');
@@ -28,7 +32,7 @@ Les devoirs sont communs à toute la classe : en créer, modifier ou supprimer u
 Seul le statut « fait » est personnel à l'utilisateur.
 Les dates sont au format AAAA-MM-JJ. Pour créer un devoir, obtenir d'abord l'identifiant de la matière avec lister_matieres.`;
 
-const DEVOIR_SQL = `
+const ASSIGNMENT_SQL = `
   SELECT d.id, d.titre, d.description, d.date, d.matiere_id, m.nom AS matiere,
          u.username AS cree_par, d.created_at, COALESCE(ds.fait, 0) AS fait
   FROM devoirs d
@@ -36,8 +40,8 @@ const DEVOIR_SQL = `
   LEFT JOIN users u ON d.created_by = u.id
   LEFT JOIN devoir_statuts ds ON d.id = ds.devoir_id AND ds.user_id = ?`;
 
-// Devoir avec le nom de sa matière, pour les instantanés des logs (comme routes/devoirs.js)
-const DEVOIR_WITH_MATIERE_SQL = `
+/** Assignment with its subject name, for the log snapshots (as in routes/assignments.js). */
+const ASSIGNMENT_WITH_SUBJECT_SQL = `
   SELECT d.*, m.nom as matiere_nom
   FROM devoirs d
   LEFT JOIN matieres m ON d.matiere_id = m.id
@@ -46,7 +50,7 @@ const DEVOIR_WITH_MATIERE_SQL = `
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date attendue au format AAAA-MM-JJ');
 const idSchema = z.number().int().positive();
 
-function formatDevoir(row) {
+function formatAssignment(row) {
   return {
     id: row.id,
     titre: row.titre,
@@ -68,57 +72,61 @@ function fail(message) {
   return { content: [{ type: 'text', text: message }], isError: true };
 }
 
-// Date du jour en France (le conteneur est en UTC) : AAAA-MM-JJ
+/** Today's date in France (the container runs in UTC): YYYY-MM-DD. */
 function todayString() {
   return new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(new Date());
 }
 
+/**
+ * Creates the MCP server of a user. Every piece of data belongs to the user's
+ * class: without a class, no tool makes sense. logAssignmentAction expects an
+ * Express request, of which only req.user is read.
+ * @param {Object} user - row of the users table
+ */
 function createMcpServer(user) {
   const server = new McpServer(
     { name: 'eniv', title: 'ENIV — devoirs', version: '1.0.0' },
     { instructions: INSTRUCTIONS }
   );
 
-  const classeId = user.classe_id;
-  // logDevoirAction attend une requête Express : seul req.user est lu
+  const classId = user.classe_id;
   const logReq = { user };
 
-  const notify = (devoirId, method) => notifyClasse(classeId, {
+  const notify = (assignmentId, method) => notifyClass(classId, {
     type: 'update',
     resource: 'devoirs',
-    devoirId,
+    devoirId: assignmentId,
     method,
     at: Date.now()
   });
 
-  // Toutes les données sont celles de la classe : sans classe, aucun outil n'a de sens
-  const withClasse = (handler) => async (args) => {
-    if (!classeId) return fail("Ce compte n'est associé à aucune classe.");
+  const withClass = (handler) => async (args) => {
+    if (!classId) return fail("Ce compte n'est associé à aucune classe.");
     try {
       return await handler(args);
     } catch (error) {
-      console.error('Erreur outil MCP:', error);
+      console.error('MCP tool error:', error);
       return fail('Erreur interne du serveur ENIV.');
     }
   };
 
-  const getDevoir = async (id) => {
-    const row = await db.get(`${DEVOIR_SQL} WHERE d.id = ? AND d.classe_id = ?`, [user.id, id, classeId]);
-    return row ? formatDevoir(row) : null;
+  const getAssignment = async (id) => {
+    const row = await db.get(`${ASSIGNMENT_SQL} WHERE d.id = ? AND d.classe_id = ?`, [user.id, id, classId]);
+    return row ? formatAssignment(row) : null;
   };
 
-  const matiereExists = async (matiereId) => Boolean(await matiereDeLaClasse(matiereId, classeId));
+  const subjectExists = async (subjectId) => Boolean(await findClassSubject(subjectId, classId));
 
   server.registerTool('lister_matieres', {
     title: 'Lister les matières',
     description: 'Liste les matières de la classe avec leur identifiant.',
     annotations: { readOnlyHint: true }
-  }, withClasse(async () => {
-    const matieres = await db.all(
+  }, withClass(async () => {
+    const subjects = await db.all(
       'SELECT id, nom FROM matieres WHERE classe_id = ? ORDER BY nom',
-      [classeId]
+      [classId]
     );
-    return ok(matieres);
+    return ok(subjects);
   }));
 
   server.registerTool('lister_devoirs', {
@@ -134,24 +142,24 @@ function createMcpServer(user) {
       au: dateSchema.optional().describe('Date de rendu maximale (incluse)')
     },
     annotations: { readOnlyHint: true }
-  }, withClasse(async ({ statut, periode, matiere_id, du, au }) => {
+  }, withClass(async ({ statut: status, periode: period, matiere_id: subjectId, du: from, au: to }) => {
     const where = ['d.classe_id = ?'];
-    const params = [user.id, classeId];
+    const params = [user.id, classId];
     const today = todayString();
 
-    if (statut === 'a_faire') where.push('COALESCE(ds.fait, 0) = 0');
-    if (statut === 'fait') where.push('ds.fait = 1');
-    if (periode === 'a_venir') { where.push('(d.date IS NULL OR DATE(d.date) >= ?)'); params.push(today); }
-    if (periode === 'passes') { where.push('DATE(d.date) < ?'); params.push(today); }
-    if (matiere_id) { where.push('d.matiere_id = ?'); params.push(matiere_id); }
-    if (du) { where.push('DATE(d.date) >= ?'); params.push(du); }
-    if (au) { where.push('DATE(d.date) <= ?'); params.push(au); }
+    if (status === 'a_faire') where.push('COALESCE(ds.fait, 0) = 0');
+    if (status === 'fait') where.push('ds.fait = 1');
+    if (period === 'a_venir') { where.push('(d.date IS NULL OR DATE(d.date) >= ?)'); params.push(today); }
+    if (period === 'passes') { where.push('DATE(d.date) < ?'); params.push(today); }
+    if (subjectId) { where.push('d.matiere_id = ?'); params.push(subjectId); }
+    if (from) { where.push('DATE(d.date) >= ?'); params.push(from); }
+    if (to) { where.push('DATE(d.date) <= ?'); params.push(to); }
 
     const rows = await db.all(
-      `${DEVOIR_SQL} WHERE ${where.join(' AND ')} ORDER BY d.date IS NULL, d.date ASC, d.created_at DESC`,
+      `${ASSIGNMENT_SQL} WHERE ${where.join(' AND ')} ORDER BY d.date IS NULL, d.date ASC, d.created_at DESC`,
       params
     );
-    return ok({ aujourd_hui: today, nombre: rows.length, devoirs: rows.map(formatDevoir) });
+    return ok({ aujourd_hui: today, nombre: rows.length, devoirs: rows.map(formatAssignment) });
   }));
 
   server.registerTool('voir_devoir', {
@@ -159,11 +167,11 @@ function createMcpServer(user) {
     description: 'Détail d\'un devoir, avec la liste de ses documents joints (lisibles avec lire_document).',
     inputSchema: { id: idSchema.describe('Identifiant du devoir') },
     annotations: { readOnlyHint: true }
-  }, withClasse(async ({ id }) => {
-    const devoir = await getDevoir(id);
-    if (!devoir) return fail(`Devoir ${id} introuvable dans la classe.`);
+  }, withClass(async ({ id }) => {
+    const assignment = await getAssignment(id);
+    if (!assignment) return fail(`Devoir ${id} introuvable dans la classe.`);
 
-    const fichiers = await db.all(
+    const files = await db.all(
       `SELECT df.id, df.original_name AS nom, df.uploaded_at, u.username AS ajoute_par
        FROM devoir_fichiers df
        LEFT JOIN users u ON df.uploaded_by = u.id
@@ -171,13 +179,13 @@ function createMcpServer(user) {
        ORDER BY df.uploaded_at ASC`,
       [id]
     );
-    devoir.documents = fichiers.map(f => ({
+    assignment.documents = files.map(f => ({
       id: f.id,
       nom: f.nom,
       ajoute_par: f.ajoute_par,
       ajoute_le: toDateString(f.uploaded_at)
     }));
-    return ok(devoir);
+    return ok(assignment);
   }));
 
   server.registerTool('lire_document', {
@@ -185,33 +193,33 @@ function createMcpServer(user) {
     description: 'Extrait le texte d\'un document joint à un devoir (PDF, Word, PowerPoint, Excel).',
     inputSchema: { id: idSchema.describe('Identifiant du document (voir voir_devoir)') },
     annotations: { readOnlyHint: true }
-  }, withClasse(async ({ id }) => {
-    const fichier = await db.get(
+  }, withClass(async ({ id }) => {
+    const file = await db.get(
       `SELECT df.filename, df.original_name
        FROM devoir_fichiers df
        JOIN devoirs d ON df.devoir_id = d.id
        WHERE df.id = ? AND d.classe_id = ?`,
-      [id, classeId]
+      [id, classId]
     );
-    if (!fichier) return fail(`Document ${id} introuvable dans la classe.`);
+    if (!file) return fail(`Document ${id} introuvable dans la classe.`);
 
-    const filePath = path.join(UPLOADS_DIR, path.basename(fichier.filename));
-    if (!fs.existsSync(filePath)) return fail(`Le fichier « ${fichier.original_name} » n'est plus disponible sur le serveur.`);
+    const filePath = path.join(UPLOADS_DIR, path.basename(file.filename));
+    if (!fs.existsSync(filePath)) return fail(`Le fichier « ${file.original_name} » n'est plus disponible sur le serveur.`);
 
     let pdfPath;
     try {
-      pdfPath = await convertToPDF(filePath);
+      pdfPath = await convertToPdf(filePath);
     } catch (error) {
-      return fail(`Impossible de convertir « ${fichier.original_name} » en PDF : ${error.message}`);
+      return fail(`Impossible de convertir « ${file.original_name} » en PDF : ${error.message}`);
     }
 
-    const text = await extractTextFromPDF(pdfPath);
+    const text = await extractTextFromPdf(pdfPath);
     if (!text) {
-      return fail(`Aucun texte extractible dans « ${fichier.original_name} » (document scanné ou image ?).`);
+      return fail(`Aucun texte extractible dans « ${file.original_name} » (document scanné ou image ?).`);
     }
 
     const truncated = text.length > MAX_DOCUMENT_CHARS;
-    return ok(`# ${fichier.original_name}\n\n${truncated ? text.slice(0, MAX_DOCUMENT_CHARS) : text}`
+    return ok(`# ${file.original_name}\n\n${truncated ? text.slice(0, MAX_DOCUMENT_CHARS) : text}`
       + (truncated ? `\n\n[… texte tronqué à ${MAX_DOCUMENT_CHARS} caractères sur ${text.length}]` : ''));
   }));
 
@@ -223,17 +231,17 @@ function createMcpServer(user) {
       fait: z.boolean().default(true).describe('true : fait ; false : à faire')
     },
     annotations: { idempotentHint: true }
-  }, withClasse(async ({ id, fait }) => {
-    const devoir = await getDevoir(id);
-    if (!devoir) return fail(`Devoir ${id} introuvable dans la classe.`);
+  }, withClass(async ({ id, fait: done }) => {
+    const assignment = await getAssignment(id);
+    if (!assignment) return fail(`Devoir ${id} introuvable dans la classe.`);
 
     await db.run(
       `INSERT INTO devoir_statuts (devoir_id, user_id, fait)
        VALUES (?, ?, ?)
        ON DUPLICATE KEY UPDATE fait = VALUES(fait)`,
-      [id, user.id, fait ? 1 : 0]
+      [id, user.id, done ? 1 : 0]
     );
-    return ok(`« ${devoir.titre} » marqué comme ${fait ? 'fait' : 'à faire'}.`);
+    return ok(`« ${assignment.titre} » marqué comme ${done ? 'fait' : 'à faire'}.`);
   }));
 
   server.registerTool('creer_devoir', {
@@ -245,27 +253,27 @@ function createMcpServer(user) {
       pour_le: dateSchema.optional().describe('Date de rendu'),
       description: z.string().optional().describe('Consignes (Markdown accepté)')
     }
-  }, withClasse(async ({ titre, matiere_id, pour_le, description }) => {
-    if (!await matiereExists(matiere_id)) return fail(`Matière ${matiere_id} introuvable dans la classe.`);
+  }, withClass(async ({ titre: title, matiere_id: subjectId, pour_le: dueDate, description }) => {
+    if (!await subjectExists(subjectId)) return fail(`Matière ${subjectId} introuvable dans la classe.`);
 
     const result = await db.run(
       'INSERT INTO devoirs (titre, description, matiere_id, date, classe_id, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-      [titre, description || null, matiere_id, pour_le || null, classeId, user.id]
+      [title, description || null, subjectId, dueDate || null, classId, user.id]
     );
-    const devoirId = result.lastInsertRowid;
+    const assignmentId = result.lastInsertRowid;
 
-    const created = await db.get(DEVOIR_WITH_MATIERE_SQL, [devoirId, classeId]);
-    const snapshot = snapshotDevoir(created);
-    await logDevoirAction(logReq, {
-      devoirId,
+    const created = await db.get(ASSIGNMENT_WITH_SUBJECT_SQL, [assignmentId, classId]);
+    const snapshot = snapshotAssignment(created);
+    await logAssignmentAction(logReq, {
+      assignmentId,
       action: 'create',
       details: { titre: snapshot.titre, devoir: snapshot, via: 'mcp' }
     });
-    notify(devoirId, 'POST');
-    push.notifyClasseInBackground(classeId, 'nouveau_devoir',
-      pushMessages.nouveauDevoir({ id: devoirId, ...snapshot }), user.id);
+    notify(assignmentId, 'POST');
+    push.notifyClassInBackground(classId, 'nouveau_devoir',
+      pushMessages.newAssignment({ id: assignmentId, ...snapshot }), user.id);
 
-    return ok({ message: 'Devoir créé', devoir: await getDevoir(devoirId) });
+    return ok({ message: 'Devoir créé', devoir: await getAssignment(assignmentId) });
   }));
 
   server.registerTool('modifier_devoir', {
@@ -280,10 +288,10 @@ function createMcpServer(user) {
       description: z.string().nullable().optional()
     },
     annotations: { idempotentHint: true }
-  }, withClasse(async ({ id, ...changes }) => {
-    const old = await db.get(DEVOIR_WITH_MATIERE_SQL, [id, classeId]);
+  }, withClass(async ({ id, ...changes }) => {
+    const old = await db.get(ASSIGNMENT_WITH_SUBJECT_SQL, [id, classId]);
     if (!old) return fail(`Devoir ${id} introuvable dans la classe.`);
-    if (changes.matiere_id && !await matiereExists(changes.matiere_id)) {
+    if (changes.matiere_id && !await subjectExists(changes.matiere_id)) {
       return fail(`Matière ${changes.matiere_id} introuvable dans la classe.`);
     }
 
@@ -296,24 +304,24 @@ function createMcpServer(user) {
         pick('matiere_id', old.matiere_id),
         changes.pour_le !== undefined ? changes.pour_le : toDateString(old.date),
         id,
-        classeId
+        classId
       ]
     );
 
-    const updated = await db.get(DEVOIR_WITH_MATIERE_SQL, [id, classeId]);
-    const after = snapshotDevoir(updated);
-    const diff = diffSnapshots(snapshotDevoir(old), after);
+    const updated = await db.get(ASSIGNMENT_WITH_SUBJECT_SQL, [id, classId]);
+    const after = snapshotAssignment(updated);
+    const diff = diffSnapshots(snapshotAssignment(old), after);
     if (diff.length > 0) {
-      await logDevoirAction(logReq, {
-        devoirId: id,
+      await logAssignmentAction(logReq, {
+        assignmentId: id,
         action: 'update',
         details: { titre: after.titre, changes: diff, via: 'mcp' }
       });
       notify(id, 'PUT');
-      push.notifyDevoirModifieInBackground(classeId, { id, ...after }, diff, user.id);
+      push.notifyAssignmentUpdatedInBackground(classId, { id, ...after }, diff, user.id);
     }
 
-    return ok({ message: diff.length > 0 ? 'Devoir modifié' : 'Aucun changement', devoir: await getDevoir(id) });
+    return ok({ message: diff.length > 0 ? 'Devoir modifié' : 'Aucun changement', devoir: await getAssignment(id) });
   }));
 
   server.registerTool('supprimer_devoir', {
@@ -322,11 +330,11 @@ function createMcpServer(user) {
       + 'Demander confirmation à l\'utilisateur avant.',
     inputSchema: { id: idSchema.describe('Identifiant du devoir') },
     annotations: { destructiveHint: true }
-  }, withClasse(async ({ id }) => {
-    const devoir = await db.get(DEVOIR_WITH_MATIERE_SQL, [id, classeId]);
-    if (!devoir) return fail(`Devoir ${id} introuvable dans la classe.`);
+  }, withClass(async ({ id }) => {
+    const assignment = await db.get(ASSIGNMENT_WITH_SUBJECT_SQL, [id, classId]);
+    if (!assignment) return fail(`Devoir ${id} introuvable dans la classe.`);
 
-    const fichiers = await db.all(
+    const files = await db.all(
       `SELECT df.original_name, df.uploaded_at, u.username as uploaded_by_username
        FROM devoir_fichiers df
        LEFT JOIN users u ON df.uploaded_by = u.id
@@ -335,17 +343,17 @@ function createMcpServer(user) {
       [id]
     );
 
-    await db.run('DELETE FROM devoirs WHERE id = ? AND classe_id = ?', [id, classeId]);
+    await db.run('DELETE FROM devoirs WHERE id = ? AND classe_id = ?', [id, classId]);
 
-    const snapshot = snapshotDevoir(devoir);
-    await logDevoirAction(logReq, {
-      devoirId: id,
+    const snapshot = snapshotAssignment(assignment);
+    await logAssignmentAction(logReq, {
+      assignmentId: id,
       action: 'delete',
-      details: { titre: snapshot.titre, devoir: snapshot, fichiers, via: 'mcp' }
+      details: { titre: snapshot.titre, devoir: snapshot, fichiers: files, via: 'mcp' }
     });
     notify(id, 'DELETE');
 
-    return ok(`Devoir « ${devoir.titre} » supprimé.`);
+    return ok(`Devoir « ${assignment.titre} » supprimé.`);
   }));
 
   return server;

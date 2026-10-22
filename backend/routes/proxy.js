@@ -6,13 +6,20 @@ const router = express.Router();
 
 router.use(requireAuth);
 
-// Une image distante change rarement : le cache du navigateur évite de
-// redemander la même image au serveur à chaque ouverture d'un devoir
+/**
+ * A remote image rarely changes: the browser cache avoids asking the server for
+ * the same image each time an assignment is opened.
+ */
 const CACHE_MAX_AGE_SECONDS = 3600;
 
 /**
- * Sert une image distante en la récupérant côté serveur.
- * Le navigateur ne contacte que ce domaine, l'adresse IP de l'élève reste privée.
+ * Serves a remote image by fetching it on the server side.
+ * The browser only contacts this domain, so the student's IP address stays private.
+ *
+ * - The image is served from our domain: it must only be read as an image, and be
+ *   unable to load anything itself (nosniff, CSP default-src 'none').
+ * - Content-Length is only declarative: the received bytes are counted again so a
+ *   host cannot send an endless stream.
  */
 router.get('/image', async (req, res) => {
   const { url } = req.query;
@@ -29,7 +36,7 @@ router.get('/image', async (req, res) => {
       return res.status(error.status).json({ error: error.message });
     }
 
-    console.error('Proxy image:', error);
+    console.error('Image proxy:', error);
     return res.status(502).json({ error: "Impossible de récupérer l'image" });
   }
 
@@ -38,14 +45,10 @@ router.get('/image', async (req, res) => {
     res.setHeader('Content-Length', image.contentLength);
   }
   res.setHeader('Cache-Control', `private, max-age=${CACHE_MAX_AGE_SECONDS}`);
-  // L'image est servie depuis notre domaine : elle ne doit être interprétée
-  // que comme une image, et ne rien pouvoir charger elle-même
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Content-Security-Policy', "default-src 'none'");
   res.setHeader('Content-Disposition', 'inline');
 
-  // Content-Length est déclaratif : on recompte les octets reçus pour qu'un
-  // hébergeur ne puisse pas envoyer un flux sans fin
   let received = 0;
   image.stream.on('data', chunk => {
     received += chunk.length;

@@ -1,8 +1,6 @@
-// Migration: Créer la table pour lier les devoirs aux quiz
-
 module.exports = {
   up: async (pool) => {
-    console.log('Migration 004: Création de la table devoir_quiz');
+    console.log('Migration 004: create tables devoir_quiz and quiz_results');
 
     const connection = await pool.getConnection();
     try {
@@ -18,7 +16,7 @@ module.exports = {
           UNIQUE KEY unique_devoir_quiz (devoir_id)
         )
       `);
-      console.log('  ✓ Table devoir_quiz créée');
+      console.log('  ✓ Table devoir_quiz created');
 
       await connection.query(`
         CREATE TABLE IF NOT EXISTS quiz_results (
@@ -36,20 +34,20 @@ module.exports = {
           INDEX idx_user_quiz (user_id, devoir_quiz_id)
         )
       `);
-      console.log('  ✓ Table quiz_results créée');
+      console.log('  ✓ Table quiz_results created');
     } finally {
       connection.release();
     }
   },
 
   down: async (pool) => {
-    console.log('Migration 004 (rollback): Suppression des tables quiz');
+    console.log('Migration 004 (rollback): drop the quiz tables');
     const connection = await pool.getConnection();
     try {
       await connection.query('DROP TABLE IF EXISTS quiz_results');
-      console.log('  ✓ Table quiz_results supprimée');
+      console.log('  ✓ Table quiz_results dropped');
       await connection.query('DROP TABLE IF EXISTS devoir_quiz');
-      console.log('  ✓ Table devoir_quiz supprimée');
+      console.log('  ✓ Table devoir_quiz dropped');
     } finally {
       connection.release();
     }

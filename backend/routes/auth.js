@@ -9,11 +9,13 @@ const router = express.Router();
 
 const { JWT_SECRET } = require('../config/jwt');
 const JWT_EXPIRES_IN = '3650d';
-// Comparé quand l'identifiant est inconnu, pour que le temps de réponse ne
-// révèle pas quels comptes existent (même coût que les vrais hash).
+/**
+ * Compared when the username is unknown, so the response time does not reveal
+ * which accounts exist (same cost as the real hashes).
+ */
 const DUMMY_HASH = bcrypt.hashSync('compte-inexistant', 10);
 
-// Login
+/** Logs in with a username or an email. */
 router.post('/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body || {};
 
@@ -22,7 +24,6 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
 
   try {
-    // Rechercher l'utilisateur par username OU par email
     const user = await db.get(
       'SELECT * FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)',
       [username, username]
@@ -33,7 +34,6 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(401).json({ error: 'Identifiants invalides' });
     }
 
-    // Générer le JWT
     const token = jwt.sign(
       {
         userId: user.id,
@@ -55,12 +55,15 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
 });
 
-// Logout (côté serveur, rien à faire - le client supprime le token)
+/** Nothing to do on the server side: the client deletes the token. */
 router.post('/logout', (req, res) => {
   res.json({ success: true });
 });
 
-// Check token / Get user info from token
+/**
+ * Checks the token and returns the user info. A 401 without an "error" field makes
+ * checkAuth() (public/js/utils/api.js) log out and redirect.
+ */
 router.get('/me', async (req, res) => {
   let user;
   try {
@@ -71,7 +74,6 @@ router.get('/me', async (req, res) => {
   }
 
   if (!user) {
-    // 401 sans champ "error" : checkAuth() (public/js/utils/api.js) déconnecte et redirige
     return res.status(401).json({ authenticated: false });
   }
 
@@ -137,28 +139,25 @@ router.post('/change-password', requireAuth, async (req, res) => {
   }
 });
 
-// Update user information
 router.post('/update-info', requireAuth, async (req, res) => {
-  const { email, nom, prenom } = req.body || {};
+  const { email, nom: lastName, prenom: firstName } = req.body || {};
 
-  if (!email || !nom || !prenom) {
+  if (!email || !lastName || !firstName) {
     return res.status(400).json({ error: 'Tous les champs sont requis' });
   }
 
-  // Validation de l'email
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     return res.status(400).json({ error: 'Format d\'email invalide' });
   }
 
   try {
-    // Vérifier si l'email existe déjà pour un autre utilisateur
     const existingUser = await db.get('SELECT id FROM users WHERE email = ? AND id != ?', [email, req.session.userId]);
     if (existingUser) {
       return res.status(400).json({ error: 'Cet email est déjà utilisé' });
     }
 
-    await db.run('UPDATE users SET email = ?, nom = ?, prenom = ? WHERE id = ?', [email, nom, prenom, req.session.userId]);
+    await db.run('UPDATE users SET email = ?, nom = ?, prenom = ? WHERE id = ?', [email, lastName, firstName, req.session.userId]);
 
     res.json({ success: true, message: 'Informations mises à jour avec succès' });
   } catch (error) {
@@ -167,7 +166,6 @@ router.post('/update-info', requireAuth, async (req, res) => {
   }
 });
 
-// Get user information
 router.get('/user-info', requireAuth, async (req, res) => {
   try {
     const user = await db.get('SELECT email, nom, prenom FROM users WHERE id = ?', [req.session.userId]);
@@ -183,18 +181,19 @@ router.get('/user-info', requireAuth, async (req, res) => {
   }
 });
 
-// Jetons MCP (accès des assistants IA aux devoirs, voir routes/mcp.js)
-
-// Valide nom et expiration envoyés par la page des paramètres.
-// expires_at : date ISO (fin du jour choisi, heure locale du navigateur) ou null.
+/**
+ * Validates the MCP token name and expiry sent by the settings page (MCP tokens
+ * give AI assistants access to the assignments, see routes/mcp.js).
+ * expires_at: ISO date (end of the chosen day, browser local time) or null.
+ */
 function parseMcpTokenBody(body) {
-  const nom = typeof body.nom === 'string' ? body.nom.trim() : '';
-  if (!nom || nom.length > 100) {
+  const name = typeof body.nom === 'string' ? body.nom.trim() : '';
+  if (!name || name.length > 100) {
     return { error: 'Nom requis (100 caractères maximum)' };
   }
 
   if (body.expires_at === null || body.expires_at === undefined || body.expires_at === '') {
-    return { nom, expiresAt: null };
+    return { name, expiresAt: null };
   }
   const date = new Date(body.expires_at);
   if (Number.isNaN(date.getTime())) {
@@ -203,7 +202,7 @@ function parseMcpTokenBody(body) {
   if (date.getTime() <= Date.now()) {
     return { error: "La date d'expiration doit être dans le futur" };
   }
-  return { nom, expiresAt: date.toISOString().slice(0, 19).replace('T', ' ') };
+  return { name, expiresAt: date.toISOString().slice(0, 19).replace('T', ' ') };
 }
 
 router.get('/mcp-tokens', requireAuth, async (req, res) => {
@@ -216,7 +215,7 @@ router.get('/mcp-tokens', requireAuth, async (req, res) => {
   }
 });
 
-// Le jeton n'est renvoyé qu'ici, une seule fois
+/** The token is only sent back here, once. */
 router.post('/mcp-tokens', requireAuth, express.json(), async (req, res) => {
   const parsed = parseMcpTokenBody(req.body || {});
   if (parsed.error) {

@@ -1,11 +1,11 @@
-// Migration: Ajouter le champ premium à la table classes
-// Une classe premium débloque la génération de quiz (moteur gratuit Groq) pour
-// tous ses membres. Un utilisateur premium (users.premium) peut toujours
-// générer avec Claude, indépendamment de ce réglage de classe.
-
+/**
+ * Adds classes.premium. A premium class unlocks quiz generation (free Groq engine)
+ * for all its members. A premium user (users.premium) can always generate with
+ * Claude, regardless of this class setting.
+ */
 module.exports = {
   up: async (pool) => {
-    console.log('Migration 014: Ajout du champ premium à la table classes');
+    console.log('Migration 014: add premium to classes');
 
     const connection = await pool.getConnection();
     try {
@@ -14,9 +14,9 @@ module.exports = {
 
       if (!columns.includes('premium')) {
         await connection.query('ALTER TABLE classes ADD COLUMN premium BOOLEAN DEFAULT FALSE');
-        console.log('  ✓ Colonne premium ajoutée');
+        console.log('  ✓ Column premium added');
       } else {
-        console.log('  - Colonne premium déjà existante');
+        console.log('  - Column premium already exists');
       }
     } finally {
       connection.release();
@@ -24,11 +24,11 @@ module.exports = {
   },
 
   down: async (pool) => {
-    console.log('Migration 014 (rollback): Suppression du champ premium de classes');
+    console.log('Migration 014 (rollback): drop premium from classes');
     const connection = await pool.getConnection();
     try {
       await connection.query('ALTER TABLE classes DROP COLUMN premium');
-      console.log('  ✓ Colonne premium supprimée');
+      console.log('  ✓ Column premium dropped');
     } finally {
       connection.release();
     }

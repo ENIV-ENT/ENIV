@@ -15,8 +15,6 @@
     --border: #dee2e6;
     --surface: white;
     --text: #343a40;
-    /* Fonds d'état (survol, sélection, bonne/mauvaise réponse, explication) :
-       clairs par défaut, assombris en thème sombre pour garder le texte lisible */
     --hover-bg: #e9ecef;
     --selected-bg: #e3f2fd;
     --success-bg: #d4edda;
@@ -57,7 +55,6 @@ body {
     line-height: 1.6;
 }
 
-/* Header (le menu utilisateur de index.html est dans /css/header.css) */
 header {
     background: var(--surface);
     padding: 1rem 2rem;
@@ -485,7 +482,6 @@ header h1 {
     color: var(--danger-text);
 }
 
-/* Code blocks styling */
 pre {
     background-color: #2d2d2d;
     border-radius: 8px;
@@ -505,7 +501,6 @@ code {
     word-wrap: break-word;
 }
 
-/* Style pour les blocs de code dans les options */
 .option-text pre {
     margin: 0.5rem 0;
     font-size: 0.85em;
@@ -515,14 +510,12 @@ code {
     font-size: 0.85em;
 }
 
-/* Style pour les blocs de code dans les explications */
 .explanation-text pre,
 .example-text pre {
     background-color: #1e1e1e;
     margin: 1rem 0;
 }
 
-/* Style pour les blocs de code dans les questions */
 .question pre {
     margin: 1rem 0;
     background-color: #2d2d2d;

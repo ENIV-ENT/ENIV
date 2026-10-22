@@ -1,10 +1,14 @@
 import { apiCall, checkAuth } from '../utils/api.js';
 import { mountHeader, setHeaderUser } from '../components/header.js';
-import { showAlert, showConfirm, escapeHTML, toggleModal } from '../utils/dom.js';
+import { showAlert, showConfirm, escapeHtml, toggleModal } from '../utils/dom.js';
 import { isPushSupported, needsHomeScreenInstall, getPushSubscription, enablePush, disablePush, syncPushSubscription } from '../utils/push.js';
 
+/**
+ * The header and the event listeners come first, so that a slow request never
+ * leaves the page inert; the sections then load in parallel, so that a slow
+ * one does not delay the others.
+ */
 async function init() {
-  // En premier : un chargement qui traîne ne doit pas rendre la page inerte
   mountHeader({ page: 'settings' });
   setupEventListeners();
 
@@ -12,7 +16,6 @@ async function init() {
 
   setHeaderUser(auth);
 
-  // En parallèle : une section lente ne retarde pas les autres
   await Promise.all([loadUserInfo(), loadMcpTokens(), setupPush(), setupCalendar()]);
 }
 
@@ -21,8 +24,8 @@ async function loadUserInfo() {
 
   if (data && !data.error) {
     document.getElementById('email').value = data.email || '';
-    document.getElementById('nom').value = data.nom || '';
-    document.getElementById('prenom').value = data.prenom || '';
+    document.getElementById('last-name').value = data.nom || '';
+    document.getElementById('first-name').value = data.prenom || '';
   }
 }
 
@@ -37,17 +40,17 @@ async function handleUpdateInfo(e) {
   e.preventDefault();
 
   const email = document.getElementById('email').value;
-  const nom = document.getElementById('nom').value;
-  const prenom = document.getElementById('prenom').value;
+  const lastName = document.getElementById('last-name').value;
+  const firstName = document.getElementById('first-name').value;
 
-  if (!email || !nom || !prenom) {
+  if (!email || !lastName || !firstName) {
     await showAlert('Tous les champs sont requis', 'Erreur');
     return;
   }
 
   const data = await apiCall('/api/auth/update-info', {
     method: 'POST',
-    body: JSON.stringify({ email, nom, prenom }),
+    body: JSON.stringify({ email, nom: lastName, prenom: firstName }),
   });
 
   if (data.error) {
@@ -87,16 +90,19 @@ async function handleChangePassword(e) {
   }
 }
 
-// Notifications push : l'abonnement est propre à ce navigateur, les préférences
-// au compte (elles valent pour tous ses appareils).
+/**
+ * Push notifications: the subscription belongs to this browser, the
+ * preferences to the account (they apply to all its devices).
+ *
+ * Handlers are wired before anything loads (see init). For select lists, the
+ * last saved value is kept in dataset.saved to roll back on error. The inputs
+ * stay disabled until renderPushState enables them.
+ */
 async function setupPush() {
   const toggleBtn = document.getElementById('push-toggle-btn');
   const testBtn = document.getElementById('push-test-btn');
   const fieldset = document.getElementById('push-preferences');
 
-  // Gestionnaires d'abord, chargements ensuite (voir init)
-  // Cases à cocher et listes de choix (la dernière valeur enregistrée d'une
-  // liste est gardée dans dataset.saved pour revenir en arrière en cas d'erreur)
   fieldset.addEventListener('change', async (e) => {
     const input = e.target;
     const isCheckbox = input.type === 'checkbox';
@@ -133,7 +139,6 @@ async function setupPush() {
     if (device) handleRemovePushDevice(device);
   });
 
-  // Les cases restent désactivées tant que renderPushState ne les a pas activées
   const data = await apiCall('/api/push/preferences');
   if (!data.error) {
     for (const [key, value] of Object.entries(data.preferences)) {
@@ -149,8 +154,10 @@ async function setupPush() {
   await loadPushDevices();
 }
 
-// Appareils abonnés du compte : permet de retirer un appareil perdu. Celui-ci
-// se gère avec le bouton Activer/Désactiver, il n'a donc pas de bouton Retirer.
+/**
+ * Subscribed devices of the account, to remove a lost device. The current
+ * device is handled with the Enable/Disable button, so it has no Remove button.
+ */
 let pushDevices = [];
 
 async function sha256Hex(text) {
@@ -178,7 +185,7 @@ function renderPushDevices() {
     return `
       <li class="token-item">
         <div>
-          <div class="token-name">${escapeHTML(device.appareil)}${device.current ? '<span class="token-badge info">Cet appareil</span>' : ''}</div>
+          <div class="token-name">${escapeHtml(device.appareil)}${device.current ? '<span class="token-badge info">Cet appareil</span>' : ''}</div>
           <div class="token-meta">${meta.join(' · ')}</div>
         </div>
         ${device.current ? '' : `
@@ -237,7 +244,7 @@ async function renderPushState() {
   }
 }
 
-// Liens MCP : un jeton n'est affiché qu'une fois, à sa création ; la liste ne montre que nom et dates
+/** MCP links: a token is only shown once, when created; the list only shows names and dates. */
 let mcpTokens = [];
 let mcpEditingId = null;
 
@@ -248,7 +255,7 @@ function formatDateFr(value, withTime = false) {
     : date.toLocaleDateString('fr-FR');
 }
 
-// Valeur d'un <input type="date"> pour une date ISO, dans le fuseau du navigateur
+/** Value of an `<input type="date">` for an ISO date, in the browser's time zone. */
 function toDateInputValue(value) {
   const date = new Date(value);
   const pad = (n) => String(n).padStart(2, '0');
@@ -280,7 +287,7 @@ function renderMcpTokens() {
     return `
       <li class="token-item${token.expired ? ' expired' : ''}">
         <div>
-          <div class="token-name">${escapeHTML(token.nom)}${token.expired ? '<span class="token-badge">Expiré</span>' : ''}</div>
+          <div class="token-name">${escapeHtml(token.nom)}${token.expired ? '<span class="token-badge">Expiré</span>' : ''}</div>
           <div class="token-meta">${meta.join(' · ')}</div>
         </div>
         <div class="token-actions">
@@ -313,7 +320,7 @@ function openMcpForm(token) {
   mcpEditingId = token ? token.id : null;
   document.getElementById('mcp-form-title').textContent = token ? 'Modifier le lien' : 'Nouveau lien';
   document.getElementById('mcp-form-submit').textContent = token ? 'Enregistrer' : 'Créer';
-  document.getElementById('mcp-nom').value = token ? token.nom : '';
+  document.getElementById('mcp-name').value = token ? token.nom : '';
 
   const expiration = document.getElementById('mcp-expiration');
   expiration.value = token && token.expires_at ? toDateInputValue(token.expires_at) : '';
@@ -322,21 +329,20 @@ function openMcpForm(token) {
   expiration.min = toDateInputValue(tomorrow);
 
   toggleModal('mcp-form-modal', true);
-  document.getElementById('mcp-nom').focus();
+  document.getElementById('mcp-name').focus();
 }
 
 async function handleMcpFormSubmit(e) {
   e.preventDefault();
 
-  const nom = document.getElementById('mcp-nom').value.trim();
+  const name = document.getElementById('mcp-name').value.trim();
   const day = document.getElementById('mcp-expiration').value;
-  // Le lien reste valable toute la journée choisie
-  const expires_at = day ? new Date(`${day}T23:59:59`).toISOString() : null;
+  const expiresAt = day ? new Date(`${day}T23:59:59`).toISOString() : null;
 
   const editing = mcpEditingId !== null;
   const data = await apiCall(editing ? `/api/auth/mcp-tokens/${mcpEditingId}` : '/api/auth/mcp-tokens', {
     method: editing ? 'PUT' : 'POST',
-    body: JSON.stringify({ nom, expires_at }),
+    body: JSON.stringify({ nom: name, expires_at: expiresAt }),
   });
 
   if (data.error) {
@@ -356,7 +362,7 @@ function showMcpCreated(token) {
   toggleModal('mcp-created-modal', true);
 }
 
-// Le lien est effacé de la page : il ne peut plus être réaffiché
+/** The link is wiped from the page: it can never be shown again. */
 function closeMcpCreated() {
   document.getElementById('mcp-url').value = '';
   document.getElementById('mcp-cli').textContent = '';
@@ -390,8 +396,10 @@ async function handleRevokeMcpToken(token) {
   await loadMcpTokens();
 }
 
-// Agenda : lien d'abonnement iCal, relu par les applications d'agenda.
-// Contrairement aux liens MCP, il reste affichable : il ne donne qu'un accès en lecture.
+/**
+ * Calendar: iCal subscription link, read by calendar apps. Unlike MCP links, it
+ * can be shown again: it only gives read access.
+ */
 async function setupCalendar() {
   document.getElementById('calendar-create-btn').addEventListener('click', () => createCalendarLink());
   document.getElementById('calendar-regenerate-btn').addEventListener('click', async () => {

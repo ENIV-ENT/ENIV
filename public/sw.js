@@ -1,23 +1,28 @@
-// Service worker Eniv : rend l'app installable et consultable hors ligne.
-//
-// - Pages, CSS/JS et API : réseau d'abord. Si le réseau met plus de
-//   NETWORK_TIMEOUT_MS à répondre et qu'une copie existe, la copie est servie
-//   et le cache se met à jour en arrière-plan ; sans copie, on attend le
-//   réseau. Le cache n'est servi seul que si la requête échoue (hors ligne).
-//   (Pas de « cache d'abord » sur le JS : les ?v=<hash> ne sont ajoutés qu'au
-//   déploiement, un module périmé casserait la page en développement.)
-// - Images : cache d'abord, mise à jour en arrière-plan.
-// - API : uniquement les lectures listées dans API_ALLOWLIST. Le cache API
-//   ignore l'en-tête Authorization : il est vidé à chaque connexion/déconnexion
-//   (voir clearApiCache dans js/utils/api.js).
-//
-// Tout le reste (POST/PUT/DELETE, /api/fichiers, /api/proxy, WebSocket...) n'est
-// pas intercepté, y compris quand il est ouvert dans un onglet.
-
-const VERSION = 'v4';
+/**
+ * Eniv service worker: makes the app installable and readable offline.
+ *
+ * - Pages, CSS/JS and API: network first. When the network takes longer than
+ *   NETWORK_TIMEOUT_MS and a copy exists, the copy is served and the cache is
+ *   updated in the background; without a copy, the network is awaited. The
+ *   cache alone is only served when the request fails (offline). There is no
+ *   "cache first" for JS: the ?v=<hash> are only added at deployment, so a
+ *   stale module would break the page in development.
+ * - Images: cache first, updated in the background.
+ * - API: only the reads listed in API_ALLOWLIST. The API cache ignores the
+ *   Authorization header, so it is emptied on every login and logout (see
+ *   clearApiCache in js/utils/api.js). The server already keeps the last
+ *   timetable when the ICS source is down; this cache also covers a device
+ *   without network.
+ *
+ * Everything else (POST/PUT/DELETE, /api/fichiers, /api/proxy, WebSocket...) is
+ * not intercepted, even when opened in a tab.
+ *
+ * API_CACHE has a fixed name: it is shared with the page that empties it.
+ */
+const VERSION = 'v5';
 const PAGES_CACHE = `eniv-pages-${VERSION}`;
 const STATIC_CACHE = `eniv-static-${VERSION}`;
-const API_CACHE = 'eniv-api'; // nom fixe : partagé avec la page qui le vide
+const API_CACHE = 'eniv-api';
 const KNOWN_CACHES = [PAGES_CACHE, STATIC_CACHE, API_CACHE];
 
 const NETWORK_TIMEOUT_MS = 3000;
@@ -38,14 +43,11 @@ const API_ALLOWLIST = [
   '/api/devoirs',
   '/api/devoirs/settings/emploi-temps',
   '/api/admin/matieres',
-  // Le serveur garde déjà la dernière version si la source ICS tombe ; ce
-  // cache couvre en plus l'absence de réseau côté appareil
   '/api/emploi-temps',
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
-    // Un échec isolé ne doit pas empêcher l'installation du service worker.
     const pages = await caches.open(PAGES_CACHE);
     await Promise.allSettled(PRECACHE_PAGES.map((url) => cachePage(pages, url)));
     const statics = await caches.open(STATIC_CACHE);
@@ -86,11 +88,15 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// Réseau d'abord, sans jamais annuler la requête : au-delà du délai, une copie
-// en cache est servie si elle existe, et la réponse réseau met le cache à jour.
-// `store(response)` enregistre la réponse et renvoie celle à servir ;
-// `lookup()` cherche la copie en cache. Rejette seulement si le réseau échoue
-// et qu'il n'y a aucune copie.
+/**
+ * Network first, without ever cancelling the request: past the delay, a cached
+ * copy is served when it exists, and the network response updates the cache.
+ * @param {FetchEvent} event
+ * @param {Request} request
+ * @param {(response: Response) => Promise<Response>} store saves the response and returns the one to serve
+ * @param {() => Promise<Response|undefined>} lookup finds the cached copy
+ * @returns {Promise<Response>} Rejects only when the network fails and there is no copy.
+ */
 async function networkFirst(event, request, store, lookup) {
   const network = fetch(request).then(store);
   event.waitUntil(network.catch(() => {}));
@@ -114,10 +120,12 @@ async function networkFirst(event, request, store, lookup) {
   }
 }
 
-// Une réponse issue d'une redirection (/dashboard -> /dashboard/) est refusée
-// par le navigateur pour une navigation : on en range une copie « propre » sous
-// l'URL finale et on renvoie une vraie redirection, pour que la page s'ouvre à
-// la bonne adresse (quiz/index.html charge « quiz.js » en relatif).
+/**
+ * Precaches a page. The browser refuses a redirected response (/dashboard ->
+ * /dashboard/) for a navigation: a "clean" copy is stored under the final URL
+ * and a real redirect is returned, so that the page opens at the right address
+ * (quiz/index.html loads "quiz.js" with a relative path).
+ */
 async function cachePage(cache, url) {
   const response = await fetch(url);
   if (response.ok) await cache.put(response.url, await cleanResponse(response));
@@ -183,9 +191,11 @@ async function handleApi(event, request) {
   }
 }
 
-// Chaque déploiement change le ?v=<hash> des fichiers modifiés : on ne garde
-// que la dernière version reçue de chaque fichier, sinon le cache gonfle à
-// chaque mise en prod.
+/**
+ * Every deployment changes the ?v=<hash> of modified files: only the last
+ * version received of each file is kept, otherwise the cache grows with every
+ * release.
+ */
 async function handleCode(event, request) {
   const cache = await caches.open(STATIC_CACHE);
   const store = async (response) => {
@@ -214,11 +224,13 @@ async function handleImage(event, request) {
   return network;
 }
 
-// ============= NOTIFICATIONS PUSH =============
-// Le serveur (backend/services/push.js) envoie { title, body, url, tag }.
-
+/**
+ * Push notifications. The server (backend/services/push.js) sends
+ * `{ title, body, url, tag }`; a notification with the same tag replaces the
+ * previous one instead of piling up.
+ */
 self.addEventListener('push', (event) => {
-  let data = {};
+  let data;
   try {
     data = event.data ? event.data.json() : {};
   } catch {
@@ -230,14 +242,13 @@ self.addEventListener('push', (event) => {
     icon: '/images/icon-192.png',
     badge: '/images/icon-192.png',
     lang: 'fr',
-    // Même tag = la nouvelle notification remplace l'ancienne au lieu de s'empiler
     tag: data.tag,
     renotify: Boolean(data.tag),
     data: { url: data.url || '/dashboard/' },
   }));
 });
 
-// Au clic : réutiliser un onglet Eniv déjà ouvert plutôt que d'en ouvrir un nouveau
+/** On click, reuse an Eniv tab already open rather than opening a new one. */
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const target = new URL(event.notification.data?.url || '/dashboard/', self.location.origin).href;
@@ -254,15 +265,16 @@ self.addEventListener('notificationclick', (event) => {
   })());
 });
 
-// Le navigateur a renouvelé l'abonnement (rare) : prévenir le serveur
+/**
+ * The browser renewed the subscription (rare). The service worker does not have
+ * the login token: the page sends the new subscription to the server the next
+ * time it opens (syncPushSubscription in js/utils/push.js).
+ */
 self.addEventListener('pushsubscriptionchange', (event) => {
   event.waitUntil((async () => {
     const options = event.oldSubscription?.options;
     if (!options) return;
     const subscription = await self.registration.pushManager.subscribe(options);
-    // Le service worker n'a pas le jeton de connexion : c'est la page qui
-    // renverra ce nouvel abonnement au serveur à sa prochaine ouverture
-    // (syncPushSubscription dans js/utils/push.js).
     return subscription;
   })());
 });

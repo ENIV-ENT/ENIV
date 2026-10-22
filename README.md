@@ -235,7 +235,7 @@ sequenceDiagram
         GA->>VPS: SSH (clé restreinte à la seule commande « eniv »)
         VPS->>VPS: git pull --ff-only
         VPS->>VPS: docker compose build
-        VPS->>VPS: scripts/version-assets.js
+        VPS->>VPS: scripts/versionAssets.js
         Note over VPS: liens vers le CSS/JS suffixés par le hash du fichier visé
         VPS->>VPS: docker compose up -d
         Note over VPS: Healthcheck : l'API répond et accède à la base
@@ -245,7 +245,7 @@ sequenceDiagram
 
 - **Image** : `Dockerfile` (Node 26, dépendances de production uniquement, utilisateur non root).
 - **Production** : `compose.yml`, avec le port exposé sur `127.0.0.1` seulement. Caddy sert les pages statiques et relaie `/api`, `/ws` et `/vendor`. Les documents joints ne sont servis que par lien temporaire, réservé aux membres de la classe (`/api/fichiers/<jeton>`).
-- **Versions des assets** : n'ajoutez pas de `?v=` à la main dans les liens vers le CSS et le JS. Au déploiement, `deploy.sh` les calcule à partir du contenu de chaque fichier (`scripts/version-assets.js`) : seuls les fichiers modifiés, et ceux qui les importent, sont rechargés par les navigateurs. Si vous avez lancé le script en local, `node scripts/version-assets.js --retirer` enlève les versions avant de committer.
+- **Versions des assets** : n'ajoutez pas de `?v=` à la main dans les liens vers le CSS et le JS. Au déploiement, `deploy.sh` les calcule à partir du contenu de chaque fichier (`scripts/versionAssets.js`) : seuls les fichiers modifiés, et ceux qui les importent, sont rechargés par les navigateurs. Si vous avez lancé le script en local, `node scripts/versionAssets.js --strip` enlève les versions avant de committer.
 - **Secrets GitHub** : `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`, `DEPLOY_HOST`.
 
 ## 👥 Contributeurs
@@ -287,25 +287,7 @@ sequenceDiagram
 
 ## 🤝 Contribuer
 
-1. Créez une branche nommée selon le sujet : `feature/…`, `fix/…`, `securite/…`, `docs/…`, `ci/…`
-2. Faites des commits **petits et séparés**, au format [Conventional Commits](https://www.conventionalcommits.org/fr/) :
-
-   ```text
-   feat(devoirs): pièces jointes par glisser-déposer
-   fix(auth): 400 quand le mot de passe est absent
-   docs(readme): schéma d'architecture
-   ```
-
-   | Type | Usage |
-   |---|---|
-   | `feat` | nouvelle fonctionnalité |
-   | `fix` | correction de bug |
-   | `refactor` | réorganisation sans changement de comportement |
-   | `test` | ajout ou correction de tests |
-   | `docs` | documentation |
-   | `ci` / `chore` | outillage, CI, dépendances |
-
-3. Ouvrez une pull request qui explique le **pourquoi**, l'**avant / après** et **comment c'est testé**.
+Le guide de contribution, en anglais, est dans [CONTRIBUTING.md](CONTRIBUTING.md) : branches, Conventional Commits, pull requests, et conventions de nommage du code (code en anglais, interface en français, glossaire du domaine et liste des noms gelés).
 
 <div align="center">
 <br>

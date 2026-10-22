@@ -1,48 +1,55 @@
 const crypto = require('crypto');
 const webpush = require('web-push');
 const db = require('../models/dbHelper');
-const { devoirModifie } = require('./pushMessages');
+const { assignmentUpdated } = require('./pushMessages');
 
 /**
- * Notifications push (Web Push, protocole VAPID).
+ * Push notifications (Web Push, VAPID protocol).
  *
- * Fonctionne sur Chrome, Edge et Firefox (ordinateur et Android), et sur
- * iPhone/iPad (iOS 16.4+) quand Eniv est ajouté à l'écran d'accueil.
+ * Works on Chrome, Edge and Firefox (desktop and Android), and on iPhone/iPad
+ * (iOS 16.4+) when Eniv is added to the home screen.
  *
- * Les clés VAPID identifient le serveur auprès des services push des
- * navigateurs. Elles viennent de VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY, sinon
- * elles sont générées au premier besoin et conservées dans la table settings :
- * aucune configuration n'est nécessaire. Les changer invalide tous les
- * abonnements existants.
+ * The VAPID keys identify the server to the browsers' push services. They come
+ * from VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY; otherwise they are generated when
+ * first needed and kept in the settings table, so no setup is needed. Changing
+ * them invalidates every existing subscription.
+ * @module
  */
 
 const VAPID_SETTING_KEY = 'push_vapid_keys';
 const DEFAULT_SUBJECT = 'mailto:contact@eniv.fr';
 
-// Préférences par défaut d'un utilisateur qui n'a jamais rien réglé
+/** Preferences of a user who never changed anything. */
 const DEFAULT_PREFERENCES = { nouveau_devoir: true, devoir_modifie: true, rappel_veille: true, nouveau_commentaire: 'participe' };
 const BOOLEAN_PREFERENCES = ['nouveau_devoir', 'devoir_modifie', 'rappel_veille'];
 
-// Commentaires : tous ceux de la classe, seulement les discussions où l'élève
-// a déjà écrit, ou aucun
-const COMMENTAIRE_MODES = ['tous', 'participe', 'aucun'];
+/**
+ * Comments: all those of the class, only the threads the student already wrote
+ * in, or none.
+ */
+const COMMENT_MODES = ['tous', 'participe', 'aucun'];
 
-// Le serveur envoie un POST à l'endpoint : seuls les services push des
-// navigateurs sont acceptés, sinon un élève pourrait faire appeler une adresse
-// interne au VPS ou un site tiers.
+/**
+ * The server sends a POST to the endpoint: only the browsers' push services are
+ * accepted, otherwise a student could make the server call an address internal to
+ * the VPS or a third-party site.
+ */
 const PUSH_HOSTS = ['fcm.googleapis.com', 'updates.push.services.mozilla.com', 'web.push.apple.com'];
 const PUSH_HOST_SUFFIXES = ['.notify.windows.com'];
 const MAX_SUBSCRIPTIONS_PER_USER = 10;
 
-// Un service push qui ne répond pas ne doit pas retarder les autres envois
+/** A push service that does not answer must not delay the other sends. */
 const SEND_TIMEOUT_MS = 10000;
 
-// Une modification juste après la création (souvent une correction de
-// l'auteur) ne vaut pas une seconde notification
+/**
+ * A change right after the creation (often a fix by the author) is not worth a
+ * second notification.
+ */
 const MODIFICATION_GRACE_MINUTES = 5;
 
 let vapidPromise = null;
 
+/** INSERT IGNORE: if two requests generate keys at the same time, the first one wins. */
 async function loadVapidKeys() {
   if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
     return { publicKey: process.env.VAPID_PUBLIC_KEY, privateKey: process.env.VAPID_PRIVATE_KEY };
@@ -52,20 +59,20 @@ async function loadVapidKeys() {
   if (stored && stored.value) return JSON.parse(stored.value);
 
   const keys = webpush.generateVAPIDKeys();
-  // INSERT IGNORE : si deux requêtes génèrent en même temps, la première gagne
   await db.run('INSERT IGNORE INTO settings (`key`, value) VALUES (?, ?)', [VAPID_SETTING_KEY, JSON.stringify(keys)]);
   const saved = await db.get('SELECT value FROM settings WHERE `key` = ?', [VAPID_SETTING_KEY]);
-  console.log('Clés VAPID générées pour les notifications push');
+  console.log('VAPID keys generated for push notifications');
   return JSON.parse(saved.value);
 }
 
+/** Loads the keys once; a failure is retried on the next call. */
 async function getVapidKeys() {
   if (!vapidPromise) {
     vapidPromise = loadVapidKeys().then((keys) => {
       webpush.setVapidDetails(process.env.VAPID_SUBJECT || DEFAULT_SUBJECT, keys.publicKey, keys.privateKey);
       return keys;
     }).catch((error) => {
-      vapidPromise = null; // réessayer au prochain appel
+      vapidPromise = null;
       throw error;
     });
   }
@@ -80,10 +87,6 @@ function hashEndpoint(endpoint) {
   return crypto.createHash('sha256').update(endpoint).digest('hex');
 }
 
-/**
- * Valide l'objet PushSubscription envoyé par le navigateur.
- * @returns {{endpoint: string, p256dh: string, auth: string}|null}
- */
 function isPushServiceEndpoint(endpoint) {
   let url;
   try {
@@ -96,6 +99,10 @@ function isPushServiceEndpoint(endpoint) {
     || PUSH_HOST_SUFFIXES.some((suffix) => url.hostname.endsWith(suffix));
 }
 
+/**
+ * Validates the PushSubscription object sent by the browser.
+ * @returns {{endpoint: string, p256dh: string, auth: string}|null}
+ */
 function parseSubscription(body) {
   const sub = body && body.subscription;
   if (!sub || typeof sub.endpoint !== 'string' || !sub.keys) return null;
@@ -107,18 +114,19 @@ function parseSubscription(body) {
 }
 
 /**
- * @returns {Promise<boolean>} false si le compte a déjà trop d'appareils abonnés
+ * Saves a subscription. Sending again a subscription already saved for this
+ * account is always allowed. The same browser can switch accounts: the
+ * subscription follows the last logged-in one.
+ * @returns {Promise<boolean>} false if the account already has too many subscribed devices
  */
 async function saveSubscription(userId, subscription, userAgent) {
   const endpointHash = hashEndpoint(subscription.endpoint);
-  // Renvoyer un abonnement déjà enregistré pour ce compte reste toujours possible
   const others = await db.get(
     'SELECT COUNT(*) AS n FROM push_subscriptions WHERE user_id = ? AND endpoint_hash <> ?',
     [userId, endpointHash]
   );
   if (Number(others.n) >= MAX_SUBSCRIPTIONS_PER_USER) return false;
 
-  // Un même navigateur peut changer de compte : l'abonnement suit le dernier connecté
   await db.run(
     `INSERT INTO push_subscriptions (user_id, endpoint, endpoint_hash, p256dh, auth, user_agent)
      VALUES (?, ?, ?, ?, ?, ?)
@@ -130,8 +138,10 @@ async function saveSubscription(userId, subscription, userAgent) {
   return true;
 }
 
-// L'ordre compte : Edge, Opera et Samsung Internet se déclarent aussi Chrome,
-// Chrome se déclare Safari, et un iPhone se déclare « Mac OS X »
+/**
+ * The order matters: Edge, Opera and Samsung Internet also claim to be Chrome,
+ * Chrome claims to be Safari, and an iPhone claims to be "Mac OS X".
+ */
 const BROWSERS = [
   [/Edg(e|A|iOS)?\//, 'Edge'],
   [/OPR\/|Opera/, 'Opera'],
@@ -151,7 +161,7 @@ const SYSTEMS = [
 ];
 
 /**
- * Nom lisible d'un appareil à partir de son user-agent : « Chrome sur Android ».
+ * Readable name of a device from its user agent, in French: "Chrome sur Android".
  */
 function describeUserAgent(userAgent) {
   const find = (list) => (list.find(([pattern]) => pattern.test(userAgent || '')) || [])[1];
@@ -187,7 +197,7 @@ async function getPreferences(userId) {
   const row = await db.get('SELECT * FROM push_preferences WHERE user_id = ?', [userId]);
   if (!row) return { ...DEFAULT_PREFERENCES };
   const prefs = Object.fromEntries(BOOLEAN_PREFERENCES.map((key) => [key, Boolean(row[key])]));
-  prefs.nouveau_commentaire = COMMENTAIRE_MODES.includes(row.nouveau_commentaire)
+  prefs.nouveau_commentaire = COMMENT_MODES.includes(row.nouveau_commentaire)
     ? row.nouveau_commentaire
     : DEFAULT_PREFERENCES.nouveau_commentaire;
   return prefs;
@@ -198,7 +208,7 @@ async function setPreferences(userId, input) {
   for (const key of BOOLEAN_PREFERENCES) {
     if (typeof input[key] === 'boolean') prefs[key] = input[key];
   }
-  if (COMMENTAIRE_MODES.includes(input.nouveau_commentaire)) prefs.nouveau_commentaire = input.nouveau_commentaire;
+  if (COMMENT_MODES.includes(input.nouveau_commentaire)) prefs.nouveau_commentaire = input.nouveau_commentaire;
   await db.run(
     `INSERT INTO push_preferences (user_id, nouveau_devoir, devoir_modifie, rappel_veille, nouveau_commentaire)
      VALUES (?, ?, ?, ?, ?)
@@ -211,8 +221,8 @@ async function setPreferences(userId, input) {
 }
 
 /**
- * Envoie une notification à une liste d'abonnements. Les abonnements expirés
- * (le navigateur a révoqué l'autorisation : 404/410) sont supprimés.
+ * Sends a notification to a list of subscriptions. Expired subscriptions (the
+ * browser revoked the permission: 404/410) are deleted.
  * @returns {Promise<{sent: number, removed: number, failed: number}>}
  */
 async function sendToSubscriptions(subscriptions, payload) {
@@ -237,7 +247,7 @@ async function sendToSubscriptions(subscriptions, payload) {
         await db.run('DELETE FROM push_subscriptions WHERE id = ?', [sub.id]).catch(() => {});
       } else {
         stats.failed++;
-        console.error('Notification push échouée:', error.statusCode || '', error.body || error.message);
+        console.error('Push notification failed:', error.statusCode || '', error.body || error.message);
       }
     }
   }));
@@ -251,14 +261,14 @@ async function sendToUser(userId, payload) {
 }
 
 /**
- * Notifie tous les membres d'une classe ayant activé la préférence donnée.
- * @param {number} classeId
+ * Notifies every member of a class who enabled the given preference.
+ * @param {number} classId
  * @param {'nouveau_devoir'|'devoir_modifie'} preference
  * @param {Object} payload - { title, body, url, tag }
- * @param {number|null} excludeUserId - auteur de l'action, qui n'a pas besoin d'être prévenu
+ * @param {number|null} excludeUserId - author of the action, who does not need to be told
  */
-async function notifyClasse(classeId, preference, payload, excludeUserId = null) {
-  if (!BOOLEAN_PREFERENCES.includes(preference)) throw new Error(`Préférence inconnue : ${preference}`);
+async function notifyClass(classId, preference, payload, excludeUserId = null) {
+  if (!BOOLEAN_PREFERENCES.includes(preference)) throw new Error(`Unknown preference: ${preference}`);
 
   const subs = await db.all(
     `SELECT ps.*
@@ -266,21 +276,21 @@ async function notifyClasse(classeId, preference, payload, excludeUserId = null)
      JOIN users u ON u.id = ps.user_id
      LEFT JOIN push_preferences pp ON pp.user_id = u.id
      WHERE u.classe_id = ? AND u.id <> ? AND COALESCE(pp.${preference}, TRUE)`,
-    [classeId, excludeUserId || 0]
+    [classId, excludeUserId || 0]
   );
   return sendToSubscriptions(subs, payload);
 }
 
 /**
- * Prévient la classe d'un nouveau commentaire sur un devoir, selon la
- * préférence nouveau_commentaire de chacun. Le commentaire est déjà enregistré :
- * l'auteur est exclu, son message ne le fait donc pas compter comme participant.
- * @param {number} classeId
- * @param {number} devoirId
+ * Tells the class about a new comment on an assignment, according to everyone's
+ * nouveau_commentaire preference. The comment is already saved: the author is
+ * excluded, so their own message does not make them count as a participant.
+ * @param {number} classId
+ * @param {number} assignmentId
  * @param {Object} payload - { title, body, url, tag }
- * @param {number|null} excludeUserId - auteur du commentaire
+ * @param {number|null} excludeUserId - author of the comment
  */
-async function notifyCommentaire(classeId, devoirId, payload, excludeUserId = null) {
+async function notifyComment(classId, assignmentId, payload, excludeUserId = null) {
   const subs = await db.all(
     `SELECT ps.*
      FROM push_subscriptions ps
@@ -294,33 +304,33 @@ async function notifyCommentaire(classeId, devoirId, payload, excludeUserId = nu
          )
          ELSE FALSE
        END`,
-    [classeId, excludeUserId || 0, DEFAULT_PREFERENCES.nouveau_commentaire, devoirId]
+    [classId, excludeUserId || 0, DEFAULT_PREFERENCES.nouveau_commentaire, assignmentId]
   );
   return sendToSubscriptions(subs, payload);
 }
 
 /**
- * Prévient la classe qu'un devoir a changé, sauf s'il vient d'être créé : les
- * élèves ont déjà reçu « Nouveau devoir » quelques instants plus tôt.
- * @param {Object} devoir - instantané après modification, avec son id
- * @param {Array} changes - résultat de diffSnapshots
+ * Tells the class that an assignment changed, unless it was just created: the
+ * students already got "Nouveau devoir" a few moments before.
+ * @param {Object} assignment - snapshot after the change, with its id
+ * @param {Array} changes - result of diffSnapshots
  */
-async function notifyDevoirModifie(classeId, devoir, changes, excludeUserId = null) {
+async function notifyAssignmentUpdated(classId, assignment, changes, excludeUserId = null) {
   const row = await db.get(
     'SELECT created_at > NOW() - INTERVAL ? MINUTE AS recent FROM devoirs WHERE id = ?',
-    [MODIFICATION_GRACE_MINUTES, devoir.id]
+    [MODIFICATION_GRACE_MINUTES, assignment.id]
   );
   if (!row || Number(row.recent)) return null;
-  return notifyClasse(classeId, 'devoir_modifie', devoirModifie(devoir, changes), excludeUserId);
+  return notifyClass(classId, 'devoir_modifie', assignmentUpdated(assignment, changes), excludeUserId);
 }
 
 /**
- * Lance un envoi sans l'attendre : une notification ratée ne doit jamais
- * retarder ni casser la réponse HTTP.
+ * Starts a send without waiting for it: a failed notification must never delay
+ * or break the HTTP response.
  */
 function inBackground(send) {
   return (...args) => {
-    send(...args).catch((error) => console.error('Notification push de classe échouée:', error));
+    send(...args).catch((error) => console.error('Class push notification failed:', error));
   };
 }
 
@@ -336,10 +346,10 @@ module.exports = {
   getPreferences,
   setPreferences,
   sendToUser,
-  notifyClasse,
-  notifyClasseInBackground: inBackground(notifyClasse),
-  notifyCommentaire,
-  notifyCommentaireInBackground: inBackground(notifyCommentaire),
-  notifyDevoirModifie,
-  notifyDevoirModifieInBackground: inBackground(notifyDevoirModifie),
+  notifyClass,
+  notifyClassInBackground: inBackground(notifyClass),
+  notifyComment,
+  notifyCommentInBackground: inBackground(notifyComment),
+  notifyAssignmentUpdated,
+  notifyAssignmentUpdatedInBackground: inBackground(notifyAssignmentUpdated),
 };

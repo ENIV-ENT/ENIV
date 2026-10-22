@@ -9,34 +9,37 @@ const realtimeNotifier = require('./backend/middleware/realtimeNotifier');
 const app = express();
 const server = http.createServer(app);
 
-// Le conteneur n'écoute que sur 127.0.0.1 et Caddy est le seul relais : on fait
-// confiance à un saut de proxy pour lire la vraie IP (limites de débit).
+/**
+ * The container only listens on 127.0.0.1 and Caddy is the only relay: one proxy
+ * hop is trusted to read the real IP (rate limits).
+ *
+ * realtimeNotifier must be registered BEFORE the routers to wrap res.json; it reads
+ * req.user lazily (in res.json), so after requireAuth.
+ *
+ * The comments router is mounted before /api/devoirs, whose requireAuth would
+ * authenticate each request a second time. Attached files are only served through
+ * a temporary link (backend/services/fileLinks.js). Front-end libraries are served
+ * straight from node_modules.
+ */
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 realtime.init(server);
 
-// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Doit être enregistré AVANT les routeurs pour pouvoir envelopper res.json ;
-// il lit req.user paresseusement (dans res.json), donc après requireAuth.
 app.use(realtimeNotifier);
 
-// Initialiser la base de données
 require('./backend/models/database');
 
-// Initialiser le planificateur Discord
 const { initScheduler } = require('./backend/services/scheduler');
 initScheduler();
 
-// Routes
 app.use('/api/auth', require('./backend/routes/auth'));
 app.use('/api/superadmin', require('./backend/routes/superadmin'));
 app.use('/api/admin', require('./backend/routes/admin'));
-// Avant /api/devoirs, dont le requireAuth authentifierait chaque requête une seconde fois
-app.use('/api/devoirs/:devoirId/commentaires', require('./backend/routes/commentaires'));
-app.use('/api/devoirs', require('./backend/routes/devoirs'));
+app.use('/api/devoirs/:assignmentId/commentaires', require('./backend/routes/comments'));
+app.use('/api/devoirs', require('./backend/routes/assignments'));
 app.use('/api/invitations', require('./backend/routes/invitations'));
 app.use('/api/quiz', require('./backend/routes/quiz'));
 app.use('/api/registration', require('./backend/routes/registration'));
@@ -44,12 +47,10 @@ app.use('/api/proxy', require('./backend/routes/proxy'));
 app.use('/api/mcp', require('./backend/routes/mcp'));
 app.use('/api/push', require('./backend/routes/push'));
 app.use('/api/calendar', require('./backend/routes/calendar'));
-app.use('/api/emploi-temps', require('./backend/routes/emploiTemps'));
-// Documents joints : uniquement par lien temporaire (backend/services/fichierLinks.js)
-app.use('/api/fichiers', require('./backend/routes/fichiers'));
+app.use('/api/emploi-temps', require('./backend/routes/timetable'));
+app.use('/api/fichiers', require('./backend/routes/files'));
 
 app.use(express.static(path.join(__dirname, 'public')));
-// Bibliothèques front servies directement depuis node_modules
 app.use('/vendor/markdown-it', express.static(path.join(__dirname, 'node_modules/markdown-it/dist/browser')));
 
 app.get('/', (req, res) => {
@@ -98,7 +99,7 @@ app.get('/*splat', (req, res) => {
 
 const PORT = process.env.NODE_ENV === 'development' ? 3000 : 3650;
 server.listen(PORT, () => {
-  console.log(`Serveur démarré sur http://localhost:${PORT}`);
+  console.log(`Server started on http://localhost:${PORT}`);
   console.log(`Mode: ${process.env.NODE_ENV || 'production'}`);
 });
 

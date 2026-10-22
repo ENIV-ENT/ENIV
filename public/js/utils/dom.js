@@ -1,4 +1,4 @@
-export function escapeHTML(string) {
+export function escapeHtml(string) {
   const container = document.createElement('div');
   container.innerText = string;
   return container.innerHTML;
@@ -18,18 +18,22 @@ export function formatDate(dateString) {
   });
 }
 
+/**
+ * Formats a date for an `<input type="date">`. A bare `YYYY-MM-DD` string is
+ * returned as is; other date-only strings get a noon time so that the time zone
+ * cannot shift them to the previous day.
+ * @param {string|Date} dateString
+ * @returns {string} `YYYY-MM-DD`, or an empty string for a missing or invalid date.
+ */
 export function toInputDate(dateString) {
   if (!dateString) return '';
 
-  // Si la date est déjà au format YYYY-MM-DD, la retourner directement
   if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
     return dateString;
   }
 
-  // Parser la date
   let date;
   if (typeof dateString === 'string') {
-    // Ajouter l'heure pour éviter les problèmes de timezone
     if (dateString.includes('T') || dateString.includes(' ')) {
       date = new Date(dateString);
     } else {
@@ -39,9 +43,8 @@ export function toInputDate(dateString) {
     date = new Date(dateString);
   }
 
-  // Vérifier que la date est valide
   if (isNaN(date.getTime())) {
-    console.error('Date invalide:', dateString);
+    console.error('Invalid date:', dateString);
     return '';
   }
 
@@ -86,14 +89,13 @@ export function setupModalClose(modalId, closeButtonId) {
   }
 }
 
-// Système de modal pour les alertes et confirmations
 let alertModalElement = null;
 let confirmModalElement = null;
 
 function createAlertModal() {
   if (alertModalElement) return;
 
-  const modalHTML = `
+  const modalHtml = `
     <div id="global-alert-modal" class="modal">
       <div class="modal-content" style="max-width: 500px;">
         <div class="modal-header">
@@ -110,7 +112,7 @@ function createAlertModal() {
     </div>
   `;
 
-  document.body.insertAdjacentHTML('beforeend', modalHTML);
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
   alertModalElement = document.getElementById('global-alert-modal');
 
   document.getElementById('close-alert-modal').addEventListener('click', () => {
@@ -135,10 +137,16 @@ function createAlertModal() {
   });
 }
 
+/**
+ * Builds the shared confirmation dialog. "Annuler" is an answer (resolves
+ * `false`); the close button and a click outside close it without answering.
+ * The checkbox has inline styles because some pages give `width: 100%` to every
+ * input inside a modal.
+ */
 function createConfirmModal() {
   if (confirmModalElement) return;
 
-  const modalHTML = `
+  const modalHtml = `
     <div id="global-confirm-modal" class="modal">
       <div class="modal-content" style="max-width: 500px;">
         <div class="modal-header">
@@ -148,7 +156,6 @@ function createConfirmModal() {
         <div class="modal-body">
           <p id="confirm-modal-message" style="margin: 0; line-height: 1.6;"></p>
           <label id="confirm-modal-checkbox-row" style="align-items: center; gap: 10px; width: fit-content; margin-top: 16px; font-size: 0.95rem; cursor: pointer;">
-            <!-- Styles en ligne : certaines pages donnent width: 100% à tous les input des modales -->
             <input type="checkbox" id="confirm-modal-checkbox" style="width: 18px; height: 18px; margin: 0; padding: 0; flex-shrink: 0; accent-color: var(--primary); cursor: pointer;">
             <span id="confirm-modal-checkbox-label"></span>
           </label>
@@ -161,7 +168,7 @@ function createConfirmModal() {
     </div>
   `;
 
-  document.body.insertAdjacentHTML('beforeend', modalHTML);
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
   confirmModalElement = document.getElementById('global-confirm-modal');
 
   document.getElementById('close-confirm-modal').addEventListener('click', () => {
@@ -171,7 +178,6 @@ function createConfirmModal() {
     }
   });
 
-  // « Annuler » est une réponse ; la croix et le clic à côté ferment sans répondre
   document.getElementById('confirm-modal-cancel').addEventListener('click', () => {
     toggleModal('global-confirm-modal', false);
     if (confirmModalElement.resolveCallback) {
@@ -228,9 +234,10 @@ export function showAlert(message, title = 'Information') {
 }
 
 /**
- * Avec checkboxLabel, une case à cocher est affichée et la promesse renvoie
- * { confirmed, checked }, ou null si la fenêtre est fermée sans répondre.
- * Sans, elle renvoie un booléen.
+ * Asks for a confirmation.
+ * With `checkboxLabel`, a checkbox is shown and the promise resolves to
+ * `{ confirmed, checked }`, or `null` when the dialog is closed without an
+ * answer. Without it, the promise resolves to a boolean.
  */
 export function showConfirm(message, title = 'Confirmation', { confirmLabel = 'Confirmer', cancelLabel = 'Annuler', checkboxLabel = null } = {}) {
   createConfirmModal();
@@ -254,20 +261,20 @@ export function showConfirm(message, title = 'Confirmation', { confirmLabel = 'C
   });
 }
 
-// Calcule si le texte doit être blanc ou noir selon la luminosité de la couleur de fond
+/**
+ * Picks a readable text color (white or black) for a background color, from its
+ * perceived brightness.
+ * @param {string} hexColor - `#rrggbb`
+ * @returns {string}
+ */
 export function getContrastColor(hexColor) {
-  // Retirer le # si présent
   const hex = hexColor.replace('#', '');
 
-  // Convertir en RGB
   const r = parseInt(hex.substr(0, 2), 16);
   const g = parseInt(hex.substr(2, 2), 16);
   const b = parseInt(hex.substr(4, 2), 16);
 
-  // Calculer la luminosité selon la formule W3C
-  // https://www.w3.org/TR/WCAG20/#relativeluminancedef
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 
-  // Si la couleur est sombre (luminance < 0.5), utiliser du blanc, sinon du noir
   return luminance < 0.5 ? '#ffffff' : '#000000';
 }

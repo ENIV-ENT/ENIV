@@ -2,11 +2,11 @@ const crypto = require('crypto');
 const db = require('../models/dbHelper');
 
 /**
- * Jetons d'accès au serveur MCP (/api/mcp).
+ * Access tokens to the MCP server (/api/mcp).
  *
- * Un utilisateur peut avoir plusieurs jetons, chacun nommé et éventuellement
- * limité dans le temps. Le jeton n'est montré qu'une fois, à sa création :
- * seule son empreinte SHA-256 est stockée.
+ * A user can have several tokens, each named and possibly limited in time. The
+ * token is only shown once, when created: only its SHA-256 hash is stored.
+ * @module
  */
 
 const TOKEN_PREFIX = 'eniv_';
@@ -33,22 +33,22 @@ async function countTokens(userId) {
 
 /**
  * @param {number} userId
- * @param {{nom: string, expiresAt: string|null}} options - expiresAt : 'YYYY-MM-DD HH:MM:SS' UTC
+ * @param {{name: string, expiresAt: string|null}} options - expiresAt: 'YYYY-MM-DD HH:MM:SS' UTC
  * @returns {Promise<{id: number, token: string}>}
  */
-async function createToken(userId, { nom, expiresAt }) {
+async function createToken(userId, { name, expiresAt }) {
   const token = TOKEN_PREFIX + crypto.randomBytes(32).toString('base64url');
   const result = await db.run(
     'INSERT INTO mcp_tokens (user_id, nom, token_hash, expires_at) VALUES (?, ?, ?, ?)',
-    [userId, nom, hashToken(token), expiresAt]
+    [userId, name, hashToken(token), expiresAt]
   );
   return { id: result.lastInsertRowid, token };
 }
 
-async function updateToken(userId, id, { nom, expiresAt }) {
+async function updateToken(userId, id, { name, expiresAt }) {
   const result = await db.run(
     'UPDATE mcp_tokens SET nom = ?, expires_at = ? WHERE id = ? AND user_id = ?',
-    [nom, expiresAt, id, userId]
+    [name, expiresAt, id, userId]
   );
   return result.affectedRows > 0;
 }
@@ -59,7 +59,7 @@ async function revokeToken(userId, id) {
 }
 
 /**
- * Retrouve l'utilisateur propriétaire d'un jeton valide (connu et non expiré), ou null.
+ * Finds the user owning a valid token (known and not expired), or null.
  * @param {string} token
  * @returns {Promise<Object|null>}
  */
@@ -81,7 +81,7 @@ async function findUserByToken(token) {
     [row.token_id]
   ).catch(() => {});
 
-  const { token_id, ...user } = row;
+  const { token_id: tokenId, ...user } = row;
   return user;
 }
 

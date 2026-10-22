@@ -1,13 +1,22 @@
 import { getRealtimeId } from './realtime.js';
 
-// Séparé de api.js pour que les modules importés par api.js (push.js) puissent
-// appeler l'API sans créer de cycle d'imports : scripts/version-assets.js ne
-// sait pas versionner deux fichiers qui s'importent l'un l'autre.
+/**
+ * Calls the API with the stored token and returns the parsed JSON body.
+ *
+ * Kept apart from api.js so that modules imported by api.js (push.js) can call
+ * the API without an import cycle: scripts/versionAssets.js cannot version two
+ * files that import each other.
+ *
+ * The X-Realtime-Id header keeps the tab that made a change from receiving its
+ * own realtime notification and reloading the same data twice.
+ *
+ * @param {string} url
+ * @param {RequestInit} [options]
+ * @returns {Promise<object>} The response body, or `{ error }` on network failure.
+ */
 export async function apiCall(url, options = {}) {
   try {
     const token = localStorage.getItem('token');
-    // Évite que l'onglet à l'origine d'une modification reçoive sa propre
-    // notification temps réel, et donc qu'il recharge deux fois les mêmes données.
     const realtimeId = getRealtimeId();
 
     const response = await fetch(url, {

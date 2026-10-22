@@ -1,4 +1,4 @@
-# Production sur le VPS (le compose.yaml du dépôt reste l'environnement de test local).
+# Production on the VPS (the repository's compose.yaml stays the local test environment).
 services:
   eniv:
     build: .
@@ -9,14 +9,14 @@ services:
     environment:
       TZ: UTC
     ports:
-      # Caddy relaie /api, /ws et /vendor d'app.eniv.fr vers ce port
+      # Caddy forwards /api, /ws and /vendor of app.eniv.fr to this port
       - "127.0.0.1:3650:3650"
     volumes:
-      # fichiers déposés par les utilisateurs (Caddy sert /uploads directement depuis ce dossier)
+      # files uploaded by users (Caddy serves /uploads straight from this folder)
       - ./data/uploads:/app/backend/uploads
     networks: [db]
     healthcheck:
-      # route publique qui interroge la base
+      # public route that queries the database
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3650/api/registration/etablissements').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 30s
       timeout: 5s

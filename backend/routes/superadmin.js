@@ -5,14 +5,14 @@ const { requireSuperAdmin } = require('../middleware/auth');
 const router = express.Router();
 
 router.post('/classes', requireSuperAdmin, express.json(), async (req, res) => {
-  const { nom } = req.body || {};
+  const { nom: name } = req.body || {};
 
-  if (!nom) {
+  if (!name) {
     return res.status(400).json({ error: 'Nom de classe requis' });
   }
 
   try {
-    const result = await db.run('INSERT INTO classes (nom) VALUES (?)', [nom]);
+    const result = await db.run('INSERT INTO classes (nom) VALUES (?)', [name]);
     res.json({
       success: true,
       classeId: result.lastInsertRowid,
@@ -35,14 +35,14 @@ router.get('/classes', requireSuperAdmin, async (req, res) => {
 });
 
 router.put('/classes/:id', requireSuperAdmin, express.json(), async (req, res) => {
-  const { nom } = req.body || {};
+  const { nom: name } = req.body || {};
 
-  if (!nom) {
+  if (!name) {
     return res.status(400).json({ error: 'Nom de classe requis' });
   }
 
   try {
-    await db.run('UPDATE classes SET nom = ? WHERE id = ?', [nom, req.params.id]);
+    await db.run('UPDATE classes SET nom = ? WHERE id = ?', [name, req.params.id]);
     res.json({ success: true, message: 'Classe mise à jour' });
   } catch (error) {
     console.error('Error updating class:', error);
@@ -73,9 +73,9 @@ router.delete('/classes/:id', requireSuperAdmin, async (req, res) => {
 });
 
 router.post('/admins', requireSuperAdmin, express.json(), async (req, res) => {
-  const { username, password, classe_id } = req.body || {};
+  const { username, password, classe_id: classId } = req.body || {};
 
-  if (!username || !password || !classe_id) {
+  if (!username || !password || !classId) {
     return res.status(400).json({ error: 'Tous les champs sont requis' });
   }
 
@@ -83,7 +83,7 @@ router.post('/admins', requireSuperAdmin, express.json(), async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await db.run(
       'INSERT INTO users (username, password, role, classe_id) VALUES (?, ?, ?, ?)',
-      [username, hashedPassword, 'admin', classe_id]
+      [username, hashedPassword, 'admin', classId]
     );
 
     res.json({
@@ -119,9 +119,9 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
 });
 
 router.put('/admins/:id', requireSuperAdmin, express.json(), async (req, res) => {
-  const { username, password, classe_id } = req.body || {};
+  const { username, password, classe_id: classId } = req.body || {};
 
-  if (!username || !classe_id) {
+  if (!username || !classId) {
     return res.status(400).json({ error: 'Username et classe_id requis' });
   }
 
@@ -130,12 +130,12 @@ router.put('/admins/:id', requireSuperAdmin, express.json(), async (req, res) =>
       const hashedPassword = await bcrypt.hash(password, 10);
       await db.run(
         'UPDATE users SET username = ?, password = ?, classe_id = ? WHERE id = ? AND role = ?',
-        [username, hashedPassword, classe_id, req.params.id, 'admin']
+        [username, hashedPassword, classId, req.params.id, 'admin']
       );
     } else {
       await db.run(
         'UPDATE users SET username = ?, classe_id = ? WHERE id = ? AND role = ?',
-        [username, classe_id, req.params.id, 'admin']
+        [username, classId, req.params.id, 'admin']
       );
     }
     res.json({ success: true, message: 'Admin modifié avec succès' });
@@ -159,7 +159,6 @@ router.delete('/admins/:id', requireSuperAdmin, async (req, res) => {
   }
 });
 
-// --- Etablissement requests ---
 
 router.get('/etablissement-requests', requireSuperAdmin, async (req, res) => {
   const status = req.query.status || 'pending';
@@ -170,13 +169,13 @@ router.get('/etablissement-requests', requireSuperAdmin, async (req, res) => {
     );
     res.json({ requests });
   } catch (error) {
-    console.error('Error fetching etablissement requests:', error);
+    console.error('Error fetching school requests:', error);
     res.status(500).json({ error: 'Erreur lors de la récupération des demandes' });
   }
 });
 
 router.post('/etablissement-requests/:id/accept', requireSuperAdmin, express.json(), async (req, res) => {
-  const { nom, commune, code_postal } = req.body || {};
+  const { nom: name, commune: town, code_postal: postalCode } = req.body || {};
   const requestId = req.params.id;
 
   try {
@@ -185,13 +184,13 @@ router.post('/etablissement-requests/:id/accept', requireSuperAdmin, express.jso
       return res.status(404).json({ error: 'Demande introuvable ou déjà traitée' });
     }
 
-    const etabNom = nom || request.nom;
-    const etabCommune = commune || request.commune;
-    const etabCp = code_postal || request.code_postal;
+    const schoolName = name || request.nom;
+    const schoolTown = town || request.commune;
+    const schoolPostalCode = postalCode || request.code_postal;
 
     const result = await db.run(
       'INSERT INTO etablissements (nom, commune, code_postal) VALUES (?, ?, ?)',
-      [etabNom, etabCommune || null, etabCp || null]
+      [schoolName, schoolTown || null, schoolPostalCode || null]
     );
 
     await db.run('UPDATE etablissement_requests SET status = ? WHERE id = ?', ['accepted', requestId]);
@@ -202,7 +201,7 @@ router.post('/etablissement-requests/:id/accept', requireSuperAdmin, express.jso
       message: 'Établissement créé avec succès'
     });
   } catch (error) {
-    console.error('Error accepting etablissement request:', error);
+    console.error('Error accepting school request:', error);
     res.status(500).json({ error: 'Erreur lors de l\'acceptation de la demande' });
   }
 });
@@ -220,7 +219,7 @@ router.post('/etablissement-requests/:id/reject', requireSuperAdmin, async (req,
 
     res.json({ success: true, message: 'Demande refusée' });
   } catch (error) {
-    console.error('Error rejecting etablissement request:', error);
+    console.error('Error rejecting school request:', error);
     res.status(500).json({ error: 'Erreur lors du refus de la demande' });
   }
 });

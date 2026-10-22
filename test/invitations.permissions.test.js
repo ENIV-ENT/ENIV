@@ -42,14 +42,14 @@ const invite = (userId, body) => fetch(`${url}/create`, {
   body: JSON.stringify(body),
 });
 
-test('un élève ne peut pas créer d\'invitation, même vers une autre classe', async () => {
+test('a student cannot create an invitation, even to another class', async () => {
   fake.calls.length = 0;
   const res = await invite(1, { email: 'intrus@ex.fr', role: 'eleve', classe_id: 99 });
   assert.equal(res.status, 403);
   assert.ok(!fake.calls.some((c) => c.sql.startsWith('INSERT INTO invitations')));
 });
 
-test('un admin invite toujours dans sa propre classe', async () => {
+test('an admin always invites into their own class', async () => {
   fake.calls.length = 0;
   const res = await invite(2, { email: 'nouveau@ex.fr', role: 'eleve', classe_id: 99 });
   assert.equal(res.status, 200);
@@ -57,15 +57,14 @@ test('un admin invite toujours dans sa propre classe', async () => {
   assert.equal(insert.params[3], 4);
 });
 
-test('un élève ne peut pas lister les invitations', async () => {
+test('a student cannot list the invitations', async () => {
   const res = await fetch(`${url}/list`, { headers: { authorization: bearer(1) } });
   assert.equal(res.status, 403);
 });
 
-// Sans corps JSON, Express 5 laisse req.body à undefined
-test('une requête sans corps renvoie 400, pas 500', async () => {
-  const sansCorps = (path, headers = {}) => fetch(`${url}${path}`, { method: 'POST', headers });
-  assert.equal((await sansCorps('/create', { authorization: bearer(2) })).status, 400);
-  assert.equal((await sansCorps('/check-username')).status, 400);
-  assert.equal((await sansCorps('/complete')).status, 400);
+test('a request without a body (req.body undefined in Express 5) returns 400, not 500', async () => {
+  const withoutBody = (path, headers = {}) => fetch(`${url}${path}`, { method: 'POST', headers });
+  assert.equal((await withoutBody('/create', { authorization: bearer(2) })).status, 400);
+  assert.equal((await withoutBody('/check-username')).status, 400);
+  assert.equal((await withoutBody('/complete')).status, 400);
 });

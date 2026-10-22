@@ -1,56 +1,52 @@
 const express = require('express');
 const db = require('../models/dbHelper');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
-const { devoirDeLaClasse } = require('../services/appartenanceClasse');
+const { findClassAssignment } = require('../services/classMembership');
 const router = express.Router();
 
 router.use(requireAuth);
 
 /**
- * GET /api/quiz/:devoirId
- * Récupérer les questions d'un quiz pour un devoir donné
+ * GET /api/quiz/:assignmentId
+ * Questions of the quiz of an assignment of the user's class.
+ * The MariaDB JSON column comes already decoded from mysql2 (3.x).
  */
-router.get('/:devoirId', async (req, res) => {
+router.get('/:assignmentId', async (req, res) => {
   try {
-    const { devoirId } = req.params;
+    const { assignmentId } = req.params;
 
-    // Vérifier que l'utilisateur a accès à ce devoir
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(403).json({ error: 'Utilisateur non associé à une classe' });
     }
 
-    // Récupérer le devoir
-    const devoir = await db.get(
+    const assignment = await db.get(
       'SELECT d.*, dq.questions_json, dq.mode FROM devoirs d LEFT JOIN devoir_quiz dq ON d.id = dq.devoir_id WHERE d.id = ? AND d.classe_id = ?',
-      [devoirId, classeId]
+      [assignmentId, classId]
     );
 
-    if (!devoir) {
+    if (!assignment) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
-    // Si le devoir n'a pas de quiz associé
-    if (!devoir.questions_json) {
+    if (!assignment.questions_json) {
       return res.status(404).json({ error: 'Ce devoir n\'a pas de quiz associé' });
     }
 
-    // Parser le JSON des questions
     let questions = [];
     try {
-      // Colonne JSON de MariaDB : mysql2 (3.x) la renvoie déjà décodée
-      questions = typeof devoir.questions_json === 'string'
-        ? JSON.parse(devoir.questions_json)
-        : devoir.questions_json;
+      questions = typeof assignment.questions_json === 'string'
+        ? JSON.parse(assignment.questions_json)
+        : assignment.questions_json;
     } catch (e) {
-      console.error('Erreur parsing JSON:', e);
+      console.error('Invalid questions JSON:', e);
       return res.status(500).json({ error: 'Format de questions invalide' });
     }
 
     res.json({
-      titre: devoir.titre,
-      description: devoir.description,
-      mode: devoir.mode || 'both',
+      titre: assignment.titre,
+      description: assignment.description,
+      mode: assignment.mode || 'both',
       questions: questions
     });
   } catch (error) {
@@ -61,33 +57,30 @@ router.get('/:devoirId', async (req, res) => {
 
 /**
  * POST /api/quiz/results
- * Sauvegarder les résultats d'un quiz
+ * Saves the result of a quiz.
  */
 router.post('/results', express.json(), async (req, res) => {
   try {
-    const { devoirId, score, totalQuestions, correctAnswers, incorrectAnswers, mode } = req.body || {};
+    const { devoirId: assignmentId, score, totalQuestions, correctAnswers, incorrectAnswers, mode } = req.body || {};
 
-    if (!devoirId || score === undefined || !totalQuestions || !mode) {
+    if (!assignmentId || score === undefined || !totalQuestions || !mode) {
       return res.status(400).json({ error: 'Données manquantes' });
     }
 
-    // Vérifier que l'utilisateur a accès à ce devoir
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(403).json({ error: 'Utilisateur non associé à une classe' });
     }
 
-    // Récupérer le quiz
     const quiz = await db.get(
       'SELECT dq.id FROM devoir_quiz dq JOIN devoirs d ON dq.devoir_id = d.id WHERE d.id = ? AND d.classe_id = ?',
-      [devoirId, classeId]
+      [assignmentId, classId]
     );
 
     if (!quiz) {
       return res.status(404).json({ error: 'Quiz non trouvé' });
     }
 
-    // Sauvegarder le résultat
     await db.run(
       'INSERT INTO quiz_results (devoir_quiz_id, user_id, score, total_questions, correct_answers, incorrect_answers, mode) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [quiz.id, req.session.userId, score, totalQuestions, correctAnswers, incorrectAnswers, mode]
@@ -101,24 +94,22 @@ router.post('/results', express.json(), async (req, res) => {
 });
 
 /**
- * GET /api/quiz/:devoirId/results
- * Récupérer les résultats d'un quiz pour l'utilisateur connecté
+ * GET /api/quiz/:assignmentId/results
+ * Quiz results of the logged-in user.
  */
-router.get('/:devoirId/results', async (req, res) => {
+router.get('/:assignmentId/results', async (req, res) => {
   try {
-    const { devoirId } = req.params;
+    const { assignmentId } = req.params;
 
-    // Récupérer le quiz
     const quiz = await db.get(
       'SELECT dq.id FROM devoir_quiz dq WHERE dq.devoir_id = ?',
-      [devoirId]
+      [assignmentId]
     );
 
     if (!quiz) {
       return res.status(404).json({ error: 'Quiz non trouvé' });
     }
 
-    // Récupérer les résultats de l'utilisateur
     const results = await db.all(
       'SELECT * FROM quiz_results WHERE devoir_quiz_id = ? AND user_id = ? ORDER BY completed_at DESC',
       [quiz.id, req.session.userId]
@@ -133,47 +124,41 @@ router.get('/:devoirId/results', async (req, res) => {
 
 /**
  * POST /api/quiz/create
- * Créer un quiz pour un devoir (admin seulement)
+ * Creates or replaces the quiz of an assignment of the class (admin only).
  */
 router.post('/create', requireAdmin, express.json(), async (req, res) => {
   try {
-    const { devoirId, questions, mode } = req.body || {};
+    const { devoirId: assignmentId, questions, mode } = req.body || {};
 
-    if (!devoirId || !questions || !Array.isArray(questions)) {
+    if (!assignmentId || !questions || !Array.isArray(questions)) {
       return res.status(400).json({ error: 'Données manquantes ou invalides' });
     }
 
-    // Vérifier que l'utilisateur a accès à ce devoir
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(403).json({ error: 'Utilisateur non associé à une classe' });
     }
 
-    // Vérifier que le devoir existe et appartient à la même classe
-    const devoir = await devoirDeLaClasse(devoirId, classeId);
+    const assignment = await findClassAssignment(assignmentId, classId);
 
-    if (!devoir) {
+    if (!assignment) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
-    // Créer ou mettre à jour le quiz
     const questionsJson = JSON.stringify(questions);
     const modeValue = mode || 'both';
 
-    // Vérifier si un quiz existe déjà pour ce devoir
-    const existingQuiz = await db.get('SELECT id FROM devoir_quiz WHERE devoir_id = ?', [devoirId]);
+    const existingQuiz = await db.get('SELECT id FROM devoir_quiz WHERE devoir_id = ?', [assignmentId]);
 
     if (existingQuiz) {
-      // Mettre à jour
       await db.run(
         'UPDATE devoir_quiz SET questions_json = ?, mode = ? WHERE devoir_id = ?',
-        [questionsJson, modeValue, devoirId]
+        [questionsJson, modeValue, assignmentId]
       );
     } else {
-      // Créer
       await db.run(
         'INSERT INTO devoir_quiz (devoir_id, questions_json, mode) VALUES (?, ?, ?)',
-        [devoirId, questionsJson, modeValue]
+        [assignmentId, questionsJson, modeValue]
       );
     }
 
@@ -185,28 +170,25 @@ router.post('/create', requireAdmin, express.json(), async (req, res) => {
 });
 
 /**
- * DELETE /api/quiz/:devoirId
- * Supprimer un quiz (admin seulement)
+ * DELETE /api/quiz/:assignmentId
+ * Deletes the quiz of an assignment of the class (admin only).
  */
-router.delete('/:devoirId', requireAdmin, async (req, res) => {
+router.delete('/:assignmentId', requireAdmin, async (req, res) => {
   try {
-    const { devoirId } = req.params;
+    const { assignmentId } = req.params;
 
-    // Vérifier que l'utilisateur a accès à ce devoir
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(403).json({ error: 'Utilisateur non associé à une classe' });
     }
 
-    // Vérifier que le devoir existe et appartient à la même classe
-    const devoir = await devoirDeLaClasse(devoirId, classeId);
+    const assignment = await findClassAssignment(assignmentId, classId);
 
-    if (!devoir) {
+    if (!assignment) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
-    // Supprimer le quiz
-    await db.run('DELETE FROM devoir_quiz WHERE devoir_id = ?', [devoirId]);
+    await db.run('DELETE FROM devoir_quiz WHERE devoir_id = ?', [assignmentId]);
 
     res.json({ success: true, message: 'Quiz supprimé' });
   } catch (error) {

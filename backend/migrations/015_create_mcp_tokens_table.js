@@ -1,11 +1,11 @@
-// Migration: Créer la table des jetons MCP
-// Un jeton MCP permet à un assistant IA (Claude, ChatGPT...) d'accéder aux devoirs
-// d'un utilisateur via /api/mcp. Un seul jeton par utilisateur, révocable à tout
-// moment depuis les paramètres ; seule son empreinte SHA-256 est stockée.
-
+/**
+ * Creates the MCP token table. An MCP token lets an AI assistant (Claude,
+ * ChatGPT...) access a user's assignments through /api/mcp. It can be revoked at
+ * any time from the settings; only its SHA-256 hash is stored.
+ */
 module.exports = {
   up: async (pool) => {
-    console.log('Migration 015: Création de la table mcp_tokens');
+    console.log('Migration 015: create table mcp_tokens');
 
     const connection = await pool.getConnection();
     try {
@@ -19,18 +19,18 @@ module.exports = {
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
       `);
-      console.log('  ✓ Table mcp_tokens créée');
+      console.log('  ✓ Table mcp_tokens created');
     } finally {
       connection.release();
     }
   },
 
   down: async (pool) => {
-    console.log('Migration 015 (rollback): Suppression de la table mcp_tokens');
+    console.log('Migration 015 (rollback): drop table mcp_tokens');
     const connection = await pool.getConnection();
     try {
       await connection.query('DROP TABLE IF EXISTS mcp_tokens');
-      console.log('  ✓ Table mcp_tokens supprimée');
+      console.log('  ✓ Table mcp_tokens dropped');
     } finally {
       connection.release();
     }

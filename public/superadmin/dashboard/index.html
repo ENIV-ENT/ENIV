@@ -31,13 +31,13 @@
         <button class="tab-btn active" data-tab="classes">Classes</button>
         <button class="tab-btn" data-tab="admins">Administrateurs</button>
         <button class="tab-btn" data-tab="invitations">Invitations</button>
-        <button class="tab-btn" data-tab="etablissements">Établissements</button>
+        <button class="tab-btn" data-tab="schools">Établissements</button>
       </div>
 
       <div id="tab-classes" class="tab-content active">
         <div class="section-header">
           <h2>Gestion des classes</h2>
-          <button id="add-classe-btn" class="btn-primary">
+          <button id="add-class-btn" class="btn-primary">
             Ajouter une classe
           </button>
         </div>
@@ -63,62 +63,62 @@
 
         <div id="invitations-list" class="list"></div>
       </div>
-      <div id="tab-etablissements" class="tab-content">
+      <div id="tab-schools" class="tab-content">
         <div class="section-header">
           <h2>Demandes d'établissements</h2>
         </div>
 
-        <div id="etab-requests-list" class="list"></div>
+        <div id="school-requests-list" class="list"></div>
       </div>
     </div>
 
-    <div id="accept-etab-modal" class="modal">
+    <div id="accept-school-modal" class="modal">
       <div class="modal-content">
         <div class="modal-header">
           <h2>Accepter la demande</h2>
-          <button class="modal-close" id="close-accept-etab-modal">&times;</button>
+          <button class="modal-close" id="close-accept-school-modal">&times;</button>
         </div>
         <p style="color: var(--secondary); font-size: 0.9rem; margin: 0 0 1.5rem 0;">
           Vous pouvez modifier les informations avant de créer l'établissement.
         </p>
-        <form id="accept-etab-form">
-          <input type="hidden" id="accept-etab-id" />
+        <form id="accept-school-form">
+          <input type="hidden" id="accept-school-id" />
           <div class="form-group">
-            <label for="accept-etab-nom" class="form-label">Nom de l'établissement</label>
-            <input type="text" id="accept-etab-nom" required />
+            <label for="accept-school-name" class="form-label">Nom de l'établissement</label>
+            <input type="text" id="accept-school-name" required />
           </div>
           <div class="form-group">
-            <label for="accept-etab-commune" class="form-label">Commune</label>
-            <input type="text" id="accept-etab-commune" />
+            <label for="accept-school-city" class="form-label">Commune</label>
+            <input type="text" id="accept-school-city" />
           </div>
           <div class="form-group">
-            <label for="accept-etab-cp" class="form-label">Code postal</label>
-            <input type="text" id="accept-etab-cp" maxlength="10" />
+            <label for="accept-school-postcode" class="form-label">Code postal</label>
+            <input type="text" id="accept-school-postcode" maxlength="10" />
           </div>
           <div class="form-actions">
             <button type="submit" class="btn-primary">Créer l'établissement</button>
-            <button type="button" id="cancel-accept-etab-btn" class="btn-secondary">Annuler</button>
+            <button type="button" id="cancel-accept-school-btn" class="btn-secondary">Annuler</button>
           </div>
         </form>
       </div>
     </div>
 
-    <div id="add-classe-modal" class="modal">
+    <div id="add-class-modal" class="modal">
       <div class="modal-content">
         <div class="modal-header">
           <h2>Nouvelle classe</h2>
-          <button class="modal-close" id="close-add-classe-modal">
+          <button class="modal-close" id="close-add-class-modal">
             &times;
           </button>
         </div>
-        <form id="add-classe-form">
+        <form id="add-class-form">
           <div class="form-group">
-            <label for="add-classe-nom" class="form-label"
+            <label for="add-class-name" class="form-label"
               >Nom de la classe</label
             >
             <input
               type="text"
-              id="add-classe-nom"
+              id="add-class-name"
               placeholder="Ex: Terminale S1"
               required
             />
@@ -127,7 +127,7 @@
             <button type="submit" class="btn-primary">Créer</button>
             <button
               type="button"
-              id="cancel-add-classe-btn"
+              id="cancel-add-class-btn"
               class="btn-secondary"
             >
               Annuler
@@ -137,23 +137,23 @@
       </div>
     </div>
 
-    <div id="edit-classe-modal" class="modal">
+    <div id="edit-class-modal" class="modal">
       <div class="modal-content">
         <div class="modal-header">
           <h2>Modifier la classe</h2>
-          <button class="modal-close" id="close-edit-classe-modal">
+          <button class="modal-close" id="close-edit-class-modal">
             &times;
           </button>
         </div>
-        <form id="edit-classe-form">
-          <input type="hidden" id="edit-classe-id" />
+        <form id="edit-class-form">
+          <input type="hidden" id="edit-class-id" />
           <div class="form-group">
-            <label for="edit-classe-nom" class="form-label"
+            <label for="edit-class-name" class="form-label"
               >Nom de la classe</label
             >
             <input
               type="text"
-              id="edit-classe-nom"
+              id="edit-class-name"
               placeholder="Ex: Terminale S1"
               required
             />
@@ -162,7 +162,7 @@
             <button type="submit" class="btn-primary">Enregistrer</button>
             <button
               type="button"
-              id="cancel-edit-classe-btn"
+              id="cancel-edit-class-btn"
               class="btn-secondary"
             >
               Annuler
@@ -187,8 +187,8 @@
           <input type="email" id="add-admin-email" placeholder="email@exemple.com" required>
         </div>
         <div class="form-group">
-          <label for="add-admin-classe" class="form-label">Classe</label>
-          <select id="add-admin-classe" required>
+          <label for="add-admin-class" class="form-label">Classe</label>
+          <select id="add-admin-class" required>
             <option value="">Sélectionner une classe</option>
           </select>
         </div>
@@ -232,8 +232,8 @@
             />
           </div>
           <div class="form-group">
-            <label for="edit-admin-classe" class="form-label">Classe</label>
-            <select id="edit-admin-classe" required>
+            <label for="edit-admin-class" class="form-label">Classe</label>
+            <select id="edit-admin-class" required>
               <option value="">Sélectionner une classe</option>
             </select>
           </div>

@@ -1,11 +1,12 @@
-// Remplace backend/models/dbHelper par une base factice pour les tests
-// unitaires : le vrai module ouvre une connexion MySQL dès son chargement.
-//
-// À appeler AVANT de charger le module testé. Chaque requête est enregistrée
-// dans `calls`, et `handler(method, sql, params)` fournit la réponse.
-
 const path = require('path');
 
+/**
+ * Replaces backend/models/dbHelper with a fake database for unit tests: the real
+ * module opens a MySQL connection as soon as it is loaded.
+ *
+ * Call it BEFORE loading the tested module. Each query is recorded in `calls`,
+ * and `handler(method, sql, params)` provides the answer.
+ */
 function installFakeDb(handler = () => undefined) {
   const calls = [];
   const respond = (method) => async (sql, params = []) => {

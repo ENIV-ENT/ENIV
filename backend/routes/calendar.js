@@ -5,12 +5,12 @@ const { requireAuth } = require('../middleware/auth');
 const { buildCalendar } = require('../services/ical');
 const router = express.Router();
 
-// Devoirs exportés : ceux à rendre à partir d'il y a 60 jours
+/** Exported assignments: those due from 60 days ago on. */
 const HISTORY_DAYS = 60;
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 function generateToken() {
-  return crypto.randomBytes(32).toString('base64url'); // 43 caractères
+  return crypto.randomBytes(32).toString('base64url');
 }
 
 function baseUrl(req) {
@@ -27,13 +27,13 @@ function feedUrls(req, token) {
   };
 }
 
-// Lien d'abonnement de l'utilisateur connecté (null s'il n'en a pas)
+/** Subscription link of the logged-in user (url: null if there is none). */
 router.get('/link', requireAuth, (req, res) => {
   const token = req.user.calendar_token;
   res.json(token ? feedUrls(req, token) : { url: null });
 });
 
-// Crée le lien, ou le remplace : l'ancien cesse alors immédiatement de fonctionner
+/** Creates the link, or replaces it: the previous one stops working at once. */
 router.post('/link', requireAuth, async (req, res) => {
   try {
     const token = generateToken();
@@ -55,7 +55,7 @@ router.delete('/link', requireAuth, async (req, res) => {
   }
 });
 
-// Flux iCal, lu par les applications d'agenda sans connexion : le jeton fait office d'accès
+/** iCal feed, read by calendar apps without login: the token is the access. */
 router.get('/:token.ics', async (req, res) => {
   const { token } = req.params;
   if (!TOKEN_PATTERN.test(token)) {
@@ -74,7 +74,7 @@ router.get('/:token.ics', async (req, res) => {
       return res.status(404).type('text/plain').send('Agenda introuvable');
     }
 
-    const devoirs = user.classe_id
+    const assignments = user.classe_id
       ? await db.all(
         `SELECT d.id, d.titre, d.description, d.date, m.nom AS matiere_nom, COALESCE(ds.fait, 0) AS fait
          FROM devoirs d
@@ -88,8 +88,8 @@ router.get('/:token.ics', async (req, res) => {
       : [];
 
     const ics = buildCalendar({
-      nom: user.classe_nom ? `Eniv · ${user.classe_nom}` : 'Eniv',
-      devoirs,
+      name: user.classe_nom ? `Eniv · ${user.classe_nom}` : 'Eniv',
+      assignments,
       baseUrl: baseUrl(req),
     });
 

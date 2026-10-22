@@ -1,10 +1,10 @@
 import { apiCall, checkAuth, logout } from "../utils/api.js";
-import { escapeHTML, toggleModal, setupModalClose, showAlert, showConfirm } from "../utils/dom.js";
+import { escapeHtml, toggleModal, setupModalClose, showAlert, showConfirm } from "../utils/dom.js";
 
 let classes = [];
 let admins = [];
 let invitations = [];
-let etabRequests = [];
+let schoolRequests = [];
 
 async function init() {
   const auth = await checkAuth();
@@ -16,14 +16,14 @@ async function init() {
   document.getElementById("logout-btn").addEventListener("click", logout);
 
   setupTabs();
-  setupClasseModal();
+  setupClassModal();
   setupAdminModal();
-  setupEtabRequestModal();
+  setupSchoolRequestModal();
 
   await loadClasses();
   await loadAdmins();
   await loadInvitations();
-  await loadEtabRequests();
+  await loadSchoolRequests();
 }
 
 function setupTabs() {
@@ -43,41 +43,41 @@ function setupTabs() {
   });
 }
 
-function setupClasseModal() {
-  const addBtn = document.getElementById("add-classe-btn");
-  const addForm = document.getElementById("add-classe-form");
-  const editForm = document.getElementById("edit-classe-form");
+function setupClassModal() {
+  const addBtn = document.getElementById("add-class-btn");
+  const addForm = document.getElementById("add-class-form");
+  const editForm = document.getElementById("edit-class-form");
 
   addBtn.addEventListener("click", () => {
-    toggleModal("add-classe-modal", true);
+    toggleModal("add-class-modal", true);
   });
 
-  setupModalClose("add-classe-modal", "close-add-classe-modal");
-  setupModalClose("edit-classe-modal", "close-edit-classe-modal");
+  setupModalClose("add-class-modal", "close-add-class-modal");
+  setupModalClose("edit-class-modal", "close-edit-class-modal");
 
   document
-    .getElementById("cancel-add-classe-btn")
+    .getElementById("cancel-add-class-btn")
     .addEventListener("click", () => {
-      toggleModal("add-classe-modal", false);
+      toggleModal("add-class-modal", false);
     });
 
   document
-    .getElementById("cancel-edit-classe-btn")
+    .getElementById("cancel-edit-class-btn")
     .addEventListener("click", () => {
-      toggleModal("edit-classe-modal", false);
+      toggleModal("edit-class-modal", false);
     });
 
   addForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const nom = document.getElementById("add-classe-nom").value;
+    const name = document.getElementById("add-class-name").value;
 
     const data = await apiCall("/api/superadmin/classes", {
       method: "POST",
-      body: JSON.stringify({ nom }),
+      body: JSON.stringify({ nom: name }),
     });
 
     if (data.success) {
-      toggleModal("add-classe-modal", false);
+      toggleModal("add-class-modal", false);
       addForm.reset();
       await loadClasses();
     } else if (data.error) {
@@ -87,16 +87,16 @@ function setupClasseModal() {
 
   editForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const id = document.getElementById("edit-classe-id").value;
-    const nom = document.getElementById("edit-classe-nom").value;
+    const id = document.getElementById("edit-class-id").value;
+    const name = document.getElementById("edit-class-name").value;
 
     const data = await apiCall(`/api/superadmin/classes/${id}`, {
       method: "PUT",
-      body: JSON.stringify({ nom }),
+      body: JSON.stringify({ nom: name }),
     });
 
     if (data.success) {
-      toggleModal("edit-classe-modal", false);
+      toggleModal("edit-class-modal", false);
       await loadClasses();
       await loadAdmins();
     } else if (data.error) {
@@ -111,7 +111,7 @@ function setupAdminModal() {
   const editForm = document.getElementById("edit-admin-form");
 
   addBtn.addEventListener("click", () => {
-    populateClasseSelects();
+    populateClassSelects();
     toggleModal("add-admin-modal", true);
   });
 
@@ -133,11 +133,11 @@ function setupAdminModal() {
   addForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const email = document.getElementById('add-admin-email').value;
-    const classe_id = document.getElementById('add-admin-classe').value;
+    const classId = document.getElementById('add-admin-class').value;
 
     const data = await apiCall('/api/invitations/create', {
       method: 'POST',
-      body: JSON.stringify({ email, role: 'admin', classe_id }),
+      body: JSON.stringify({ email, role: 'admin', classe_id: classId }),
     });
 
     if (data.success) {
@@ -156,9 +156,9 @@ function setupAdminModal() {
     const id = document.getElementById("edit-admin-id").value;
     const username = document.getElementById("edit-admin-username").value;
     const password = document.getElementById("edit-admin-password").value;
-    const classe_id = document.getElementById("edit-admin-classe").value;
+    const classId = document.getElementById("edit-admin-class").value;
 
-    const body = { username, classe_id };
+    const body = { username, classe_id: classId };
     if (password) {
       body.password = password;
     }
@@ -177,19 +177,19 @@ function setupAdminModal() {
   });
 }
 
-function populateClasseSelects() {
-  const addSelect = document.getElementById("add-admin-classe");
-  const editSelect = document.getElementById("edit-admin-classe");
+function populateClassSelects() {
+  const addSelect = document.getElementById("add-admin-class");
+  const editSelect = document.getElementById("edit-admin-class");
 
   [addSelect, editSelect].forEach((select) => {
     while (select.children.length > 1) {
       select.removeChild(select.lastChild);
     }
 
-    classes.forEach((classe) => {
+    classes.forEach((schoolClass) => {
       const option = document.createElement("option");
-      option.value = classe.id;
-      option.textContent = classe.nom;
+      option.value = schoolClass.id;
+      option.textContent = schoolClass.nom;
       select.appendChild(option);
     });
   });
@@ -212,49 +212,49 @@ function renderClasses() {
     return;
   }
 
-  classes.forEach((classe) => {
+  classes.forEach((schoolClass) => {
     const item = document.createElement("div");
     item.className = "list-item";
     item.innerHTML = `
       <div class="list-item-info">
-        <h3>${escapeHTML(classe.nom)}</h3>
+        <h3>${escapeHtml(schoolClass.nom)}</h3>
         <label class="checkbox-container">
-          <input type="checkbox" class="premium-classe-checkbox" data-id="${
-            classe.id
-          }" ${classe.premium ? "checked" : ""}>
+          <input type="checkbox" class="premium-class-checkbox" data-id="${
+            schoolClass.id
+          }" ${schoolClass.premium ? "checked" : ""}>
           QCM autorisés (génération gratuite)
         </label>
       </div>
       <div class="list-item-actions">
-        <button class="btn-secondary edit-classe-btn" data-id="${
-          classe.id
+        <button class="btn-secondary edit-class-btn" data-id="${
+          schoolClass.id
         }">Modifier</button>
-        <button class="btn-danger delete-classe-btn" data-id="${
-          classe.id
+        <button class="btn-danger delete-class-btn" data-id="${
+          schoolClass.id
         }">Supprimer</button>
       </div>
     `;
     container.appendChild(item);
   });
 
-  document.querySelectorAll(".edit-classe-btn").forEach((btn) => {
+  document.querySelectorAll(".edit-class-btn").forEach((btn) => {
     btn.addEventListener("click", () =>
-      openEditClasseModal(parseInt(btn.dataset.id))
+      openEditClassModal(parseInt(btn.dataset.id))
     );
   });
 
-  document.querySelectorAll(".delete-classe-btn").forEach((btn) => {
-    btn.addEventListener("click", () => deleteClasse(parseInt(btn.dataset.id)));
+  document.querySelectorAll(".delete-class-btn").forEach((btn) => {
+    btn.addEventListener("click", () => deleteClass(parseInt(btn.dataset.id)));
   });
 
-  document.querySelectorAll(".premium-classe-checkbox").forEach((checkbox) => {
+  document.querySelectorAll(".premium-class-checkbox").forEach((checkbox) => {
     checkbox.addEventListener("change", () =>
-      toggleClassePremium(parseInt(checkbox.dataset.id), checkbox.checked, checkbox)
+      toggleClassPremium(parseInt(checkbox.dataset.id), checkbox.checked, checkbox)
     );
   });
 }
 
-async function toggleClassePremium(id, premium, checkbox) {
+async function toggleClassPremium(id, premium, checkbox) {
   const data = await apiCall(`/api/superadmin/classes/${id}/premium`, {
     method: "PUT",
     body: JSON.stringify({ premium }),
@@ -266,20 +266,20 @@ async function toggleClassePremium(id, premium, checkbox) {
     return;
   }
 
-  const classe = classes.find((c) => c.id === id);
-  if (classe) classe.premium = premium;
+  const schoolClass = classes.find((c) => c.id === id);
+  if (schoolClass) schoolClass.premium = premium;
 }
 
-function openEditClasseModal(id) {
-  const classe = classes.find((c) => c.id === id);
-  if (!classe) return;
+function openEditClassModal(id) {
+  const schoolClass = classes.find((c) => c.id === id);
+  if (!schoolClass) return;
 
-  document.getElementById("edit-classe-id").value = classe.id;
-  document.getElementById("edit-classe-nom").value = classe.nom;
-  toggleModal("edit-classe-modal", true);
+  document.getElementById("edit-class-id").value = schoolClass.id;
+  document.getElementById("edit-class-name").value = schoolClass.nom;
+  toggleModal("edit-class-modal", true);
 }
 
-async function deleteClasse(id) {
+async function deleteClass(id) {
   const confirmed = await showConfirm('Êtes-vous sûr de vouloir supprimer cette classe ? Tous les utilisateurs, matières et devoirs associés seront également supprimés.', 'Confirmation');
   if (!confirmed) {
     return;
@@ -317,8 +317,8 @@ function renderAdmins() {
     item.className = "list-item";
     item.innerHTML = `
       <div class="list-item-info">
-      <h3>${escapeHTML(admin.username)}</h3>
-      <p>${escapeHTML(admin.classe_nom || "Aucune classe")}</p>
+      <h3>${escapeHtml(admin.username)}</h3>
+      <p>${escapeHtml(admin.classe_nom || "Aucune classe")}</p>
       </div>
       <div class="list-item-actions">
       <button class="btn btn-secondary edit-admin-btn" data-id="${
@@ -347,11 +347,11 @@ function openEditAdminModal(id) {
   const admin = admins.find((a) => a.id === id);
   if (!admin) return;
 
-  populateClasseSelects();
+  populateClassSelects();
   document.getElementById("edit-admin-id").value = admin.id;
   document.getElementById("edit-admin-username").value = admin.username;
   document.getElementById("edit-admin-password").value = "";
-  document.getElementById("edit-admin-classe").value = admin.classe_id || "";
+  document.getElementById("edit-admin-class").value = admin.classe_id || "";
   toggleModal("edit-admin-modal", true);
 }
 
@@ -396,8 +396,8 @@ function renderInvitations() {
 
     item.innerHTML = `
       <div class="list-item-info">
-        <h3>${escapeHTML(invitation.email)}</h3>
-        <p>Classe: ${escapeHTML(invitation.classe_nom || 'Aucune')}</p>
+        <h3>${escapeHtml(invitation.email)}</h3>
+        <p>Classe: ${escapeHtml(invitation.classe_nom || 'Aucune')}</p>
         <p style="font-size: 0.8rem; color: var(--secondary);">
           Envoyée le ${createdDate} - Expire le ${expiresDate}
         </p>
@@ -448,59 +448,57 @@ async function deleteInvitation(id) {
   }
 }
 
-// --- Etablissement requests ---
+function setupSchoolRequestModal() {
+  const acceptForm = document.getElementById("accept-school-form");
 
-function setupEtabRequestModal() {
-  const acceptForm = document.getElementById("accept-etab-form");
-
-  setupModalClose("accept-etab-modal", "close-accept-etab-modal");
+  setupModalClose("accept-school-modal", "close-accept-school-modal");
 
   document
-    .getElementById("cancel-accept-etab-btn")
+    .getElementById("cancel-accept-school-btn")
     .addEventListener("click", () => {
-      toggleModal("accept-etab-modal", false);
+      toggleModal("accept-school-modal", false);
     });
 
   acceptForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const id = document.getElementById("accept-etab-id").value;
-    const nom = document.getElementById("accept-etab-nom").value;
-    const commune = document.getElementById("accept-etab-commune").value;
-    const code_postal = document.getElementById("accept-etab-cp").value;
+    const id = document.getElementById("accept-school-id").value;
+    const name = document.getElementById("accept-school-name").value;
+    const city = document.getElementById("accept-school-city").value;
+    const postcode = document.getElementById("accept-school-postcode").value;
 
     const data = await apiCall(`/api/superadmin/etablissement-requests/${id}/accept`, {
       method: "POST",
-      body: JSON.stringify({ nom, commune, code_postal }),
+      body: JSON.stringify({ nom: name, commune: city, code_postal: postcode }),
     });
 
     if (data.success) {
-      toggleModal("accept-etab-modal", false);
+      toggleModal("accept-school-modal", false);
       await showAlert("Établissement créé avec succès", "Succès");
-      await loadEtabRequests();
+      await loadSchoolRequests();
     } else if (data.error) {
       await showAlert(data.error, "Erreur");
     }
   });
 }
 
-async function loadEtabRequests() {
+async function loadSchoolRequests() {
   const data = await apiCall("/api/superadmin/etablissement-requests");
   if (data.requests) {
-    etabRequests = data.requests;
-    renderEtabRequests();
+    schoolRequests = data.requests;
+    renderSchoolRequests();
   }
 }
 
-function renderEtabRequests() {
-  const container = document.getElementById("etab-requests-list");
+function renderSchoolRequests() {
+  const container = document.getElementById("school-requests-list");
   container.innerHTML = "";
 
-  if (etabRequests.length === 0) {
+  if (schoolRequests.length === 0) {
     container.innerHTML = "<p>Aucune demande en attente.</p>";
     return;
   }
 
-  etabRequests.forEach((request) => {
+  schoolRequests.forEach((request) => {
     const item = document.createElement("div");
     item.className = "list-item";
 
@@ -508,41 +506,41 @@ function renderEtabRequests() {
 
     item.innerHTML = `
       <div class="list-item-info">
-        <h3>${escapeHTML(request.nom)}</h3>
-        <p>${escapeHTML(request.commune || "")} ${request.code_postal ? "(" + escapeHTML(request.code_postal) + ")" : ""}</p>
+        <h3>${escapeHtml(request.nom)}</h3>
+        <p>${escapeHtml(request.commune || "")} ${request.code_postal ? "(" + escapeHtml(request.code_postal) + ")" : ""}</p>
         <p style="font-size: 0.85rem; color: var(--secondary);">
-          Demandeur : ${escapeHTML(request.email_demandeur || "")} - ${createdDate}
+          Demandeur : ${escapeHtml(request.email_demandeur || "")} - ${createdDate}
         </p>
       </div>
       <div class="list-item-actions">
-        <button class="btn-primary accept-etab-btn" data-id="${request.id}">Accepter</button>
-        <button class="btn-danger reject-etab-btn" data-id="${request.id}">Refuser</button>
+        <button class="btn-primary accept-school-btn" data-id="${request.id}">Accepter</button>
+        <button class="btn-danger reject-school-btn" data-id="${request.id}">Refuser</button>
       </div>
     `;
     container.appendChild(item);
   });
 
-  document.querySelectorAll(".accept-etab-btn").forEach((btn) => {
-    btn.addEventListener("click", () => openAcceptEtabModal(parseInt(btn.dataset.id)));
+  document.querySelectorAll(".accept-school-btn").forEach((btn) => {
+    btn.addEventListener("click", () => openAcceptSchoolModal(parseInt(btn.dataset.id)));
   });
 
-  document.querySelectorAll(".reject-etab-btn").forEach((btn) => {
-    btn.addEventListener("click", () => rejectEtabRequest(parseInt(btn.dataset.id)));
+  document.querySelectorAll(".reject-school-btn").forEach((btn) => {
+    btn.addEventListener("click", () => rejectSchoolRequest(parseInt(btn.dataset.id)));
   });
 }
 
-function openAcceptEtabModal(id) {
-  const request = etabRequests.find((r) => r.id === id);
+function openAcceptSchoolModal(id) {
+  const request = schoolRequests.find((r) => r.id === id);
   if (!request) return;
 
-  document.getElementById("accept-etab-id").value = request.id;
-  document.getElementById("accept-etab-nom").value = request.nom;
-  document.getElementById("accept-etab-commune").value = request.commune || "";
-  document.getElementById("accept-etab-cp").value = request.code_postal || "";
-  toggleModal("accept-etab-modal", true);
+  document.getElementById("accept-school-id").value = request.id;
+  document.getElementById("accept-school-name").value = request.nom;
+  document.getElementById("accept-school-city").value = request.commune || "";
+  document.getElementById("accept-school-postcode").value = request.code_postal || "";
+  toggleModal("accept-school-modal", true);
 }
 
-async function rejectEtabRequest(id) {
+async function rejectSchoolRequest(id) {
   const confirmed = await showConfirm("Êtes-vous sûr de vouloir refuser cette demande ?", "Confirmation");
   if (!confirmed) return;
 
@@ -551,7 +549,7 @@ async function rejectEtabRequest(id) {
   });
 
   if (data.success) {
-    await loadEtabRequests();
+    await loadSchoolRequests();
   } else if (data.error) {
     await showAlert(data.error, "Erreur");
   }

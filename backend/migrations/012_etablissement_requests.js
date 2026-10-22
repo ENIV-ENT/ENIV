@@ -1,6 +1,6 @@
 module.exports = {
   up: async (pool) => {
-    console.log('Migration 012: Creation de la table etablissement_requests');
+    console.log('Migration 012: create table etablissement_requests');
     const connection = await pool.getConnection();
     try {
       await connection.query(`
@@ -14,18 +14,18 @@ module.exports = {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
-      console.log('  + Table etablissement_requests creee');
+      console.log('  + Table etablissement_requests created');
     } finally {
       connection.release();
     }
   },
 
   down: async (pool) => {
-    console.log('Migration 012 (rollback): Suppression de la table etablissement_requests');
+    console.log('Migration 012 (rollback): drop table etablissement_requests');
     const connection = await pool.getConnection();
     try {
       await connection.query('DROP TABLE IF EXISTS etablissement_requests');
-      console.log('  - Table etablissement_requests supprimee');
+      console.log('  - Table etablissement_requests dropped');
     } finally {
       connection.release();
     }

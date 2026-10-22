@@ -1,15 +1,16 @@
 /**
- * Génération d'un agenda iCalendar (RFC 5545) à partir des devoirs.
+ * Builds an iCalendar feed (RFC 5545) from the assignments.
  *
- * Chaque devoir daté devient un événement « journée entière » le jour où il
- * est à rendre. Les applications d'agenda (Google Agenda, Calendrier iOS,
- * Outlook...) s'abonnent à l'URL et la relisent régulièrement.
+ * Each dated assignment becomes an all-day event on its due date. Calendar apps
+ * (Google Calendar, iOS Calendar, Outlook...) subscribe to the URL and read it
+ * again regularly. Events are transparent so they do not show as "busy".
+ * @module
  */
 
 const PRODID = '-//Eniv//Devoirs//FR';
 const MAX_LINE_OCTETS = 75;
 
-/** Échappe un texte selon la RFC 5545 (§ 3.3.11). */
+/** Escapes a text as in RFC 5545 (§ 3.3.11). */
 function escapeText(value) {
   return String(value ?? '')
     .replace(/\\/g, '\\\\')
@@ -19,8 +20,8 @@ function escapeText(value) {
 }
 
 /**
- * Replie une ligne trop longue (75 octets max, suite précédée d'une espace),
- * sans couper un caractère UTF-8 en deux.
+ * Folds a line that is too long (75 octets max, continuation preceded by a
+ * space), without splitting a UTF-8 character.
  */
 function foldLine(line) {
   if (Buffer.byteLength(line) <= MAX_LINE_OCTETS) return line;
@@ -43,7 +44,7 @@ function foldLine(line) {
   return parts.join('\r\n ');
 }
 
-/** « 2026-10-20 » ou Date -> « 20261020 » (jour UTC, comme stocké en base) */
+/** "2026-10-20" or Date -> "20261020" (UTC day, as stored in the database) */
 function toIcsDate(value) {
   const iso = value instanceof Date ? value.toISOString() : String(value);
   const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -63,14 +64,15 @@ function toIcsTimestamp(value) {
 }
 
 /**
+ * The refresh interval suggested to the apps is only indicative.
  * @param {Object} options
- * @param {string} options.nom - Nom de l'agenda (ex. « Eniv · Terminale 3 »)
- * @param {Array} options.devoirs - lignes { id, titre, description, date, matiere_nom, fait, created_at }
- * @param {string} options.baseUrl - origine de l'app, pour le lien vers chaque devoir
+ * @param {string} options.name - calendar name (e.g. "Eniv · Terminale 3")
+ * @param {Array} options.assignments - rows { id, titre, description, date, matiere_nom, fait, created_at }
+ * @param {string} options.baseUrl - origin of the app, for the link to each assignment
  * @param {Date} [options.now]
- * @returns {string} contenu text/calendar
+ * @returns {string} text/calendar content
  */
-function buildCalendar({ nom, devoirs, baseUrl, now = new Date() }) {
+function buildCalendar({ name, assignments, baseUrl, now = new Date() }) {
   const stamp = toIcsTimestamp(now);
   const lines = [
     'BEGIN:VCALENDAR',
@@ -78,32 +80,31 @@ function buildCalendar({ nom, devoirs, baseUrl, now = new Date() }) {
     `PRODID:${PRODID}`,
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    `X-WR-CALNAME:${escapeText(nom)}`,
+    `X-WR-CALNAME:${escapeText(name)}`,
     'X-WR-TIMEZONE:Europe/Paris',
-    // Fréquence de rafraîchissement suggérée aux applications (indicative)
     'REFRESH-INTERVAL;VALUE=DURATION:PT1H',
     'X-PUBLISHED-TTL:PT1H',
   ];
 
-  for (const devoir of devoirs) {
-    const start = toIcsDate(devoir.date);
+  for (const assignment of assignments) {
+    const start = toIcsDate(assignment.date);
     if (!start) continue;
 
-    const url = `${baseUrl}/dashboard/?devoir=${devoir.id}`;
-    const prefix = devoir.fait ? '✅ ' : '';
-    const matiere = devoir.matiere_nom ? `${devoir.matiere_nom} · ` : '';
-    const description = [devoir.description, url].filter(Boolean).join('\n\n');
+    const url = `${baseUrl}/dashboard/?devoir=${assignment.id}`;
+    const prefix = assignment.fait ? '✅ ' : '';
+    const subject = assignment.matiere_nom ? `${assignment.matiere_nom} · ` : '';
+    const description = [assignment.description, url].filter(Boolean).join('\n\n');
 
     lines.push(
       'BEGIN:VEVENT',
-      `UID:devoir-${devoir.id}@eniv.fr`,
+      `UID:devoir-${assignment.id}@eniv.fr`,
       `DTSTAMP:${stamp}`,
       `DTSTART;VALUE=DATE:${start}`,
       `DTEND;VALUE=DATE:${nextDay(start)}`,
-      `SUMMARY:${escapeText(`${prefix}${matiere}${devoir.titre}`)}`,
+      `SUMMARY:${escapeText(`${prefix}${subject}${assignment.titre}`)}`,
       `DESCRIPTION:${escapeText(description)}`,
       `URL:${url}`,
-      'TRANSP:TRANSPARENT', // n'apparaît pas comme « occupé »
+      'TRANSP:TRANSPARENT',
       'END:VEVENT'
     );
   }

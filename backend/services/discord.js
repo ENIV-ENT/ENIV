@@ -1,16 +1,16 @@
 const db = require('../models/dbHelper');
 
 /**
- * Envoie un embed Discord via webhook
- * @param {string} webhookUrl - URL du webhook Discord
- * @param {Array} embeds - Array d'objets embed à envoyer
- * @param {string} username - Nom d'utilisateur du webhook
- * @param {string} avatarUrl - URL de l'avatar du webhook
- * @returns {Promise<boolean>} - True si l'envoi a réussi
+ * Sends Discord embeds through a webhook.
+ * @param {string} webhookUrl
+ * @param {Array} embeds
+ * @param {string} username - name shown for the webhook
+ * @param {string} avatarUrl - avatar shown for the webhook
+ * @returns {Promise<boolean>} true if the message was sent
  */
 async function sendDiscordEmbeds(webhookUrl, embeds, username = null, avatarUrl = null) {
   if (!webhookUrl) {
-    console.log('Pas de webhook Discord configuré');
+    console.log('No Discord webhook configured');
     return false;
   }
 
@@ -37,33 +37,37 @@ async function sendDiscordEmbeds(webhookUrl, embeds, username = null, avatarUrl 
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Erreur Discord webhook:', response.status, errorText);
+      console.error('Discord webhook error:', response.status, errorText);
       return false;
     }
 
-    console.log('Message Discord envoyé avec succès');
+    console.log('Discord message sent');
     return true;
   } catch (error) {
-    console.error('Erreur lors de l\'envoi du message Discord:', error);
+    console.error('Failed to send the Discord message:', error);
     return false;
   }
 }
 
-function groupDevoirsParClasse(devoirs) {
-  const devoirsParClasse = {};
-  devoirs.forEach(devoir => {
-    if (!devoirsParClasse[devoir.classe_id]) {
-      devoirsParClasse[devoir.classe_id] = {
-        classe_nom: devoir.classe_nom,
-        devoirs: []
+/**
+ * @param {Array<{classe_id: number, classe_nom: string}>} assignments
+ * @returns {Object<number, {name: string, assignments: Array}>}
+ */
+function groupAssignmentsByClass(assignments) {
+  const byClass = {};
+  assignments.forEach(assignment => {
+    if (!byClass[assignment.classe_id]) {
+      byClass[assignment.classe_id] = {
+        name: assignment.classe_nom,
+        assignments: []
       };
     }
-    devoirsParClasse[devoir.classe_id].devoirs.push(devoir);
+    byClass[assignment.classe_id].assignments.push(assignment);
   });
-  return devoirsParClasse;
+  return byClass;
 }
 
-function formatDateFr(date) {
+function formatFrenchDate(date) {
   return date.toLocaleDateString('fr-FR', {
     weekday: 'long',
     year: 'numeric',
@@ -72,28 +76,25 @@ function formatDateFr(date) {
   });
 }
 
-
-// Formater les dates en YYYY-MM-DD (local)
+/** Formats a date as YYYY-MM-DD, in local time. */
 function formatDateString(date) {
-  const annee = date.getFullYear();
-  const mois = String(date.getMonth() + 1).padStart(2, '0');
-  const jour = String(date.getDate()).padStart(2, '0');
-  return `${annee}-${mois}-${jour}`;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**
- * Récupère tous les devoirs pour le lendemain, groupés par classe
- * @returns {Promise<Object>} - Devoirs groupés par classe
+ * Gets every assignment due tomorrow, grouped by class.
+ * @returns {Promise<Object>}
  */
-async function getDevoirsPourDemain() {
+async function getAssignmentsForTomorrow() {
   try {
-    // Calculer la date de demain au format YYYY-MM-DD (local)
-    const demain = new Date();
-    demain.setDate(demain.getDate() + 1);
-    const dateDemain = formatDateString(demain);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowDate = formatDateString(tomorrow);
 
-    // Récupérer tous les devoirs pour demain avec les informations de matière et classe
-    const devoirs = await db.all(
+    const assignments = await db.all(
       `SELECT
         d.id,
         d.titre,
@@ -108,73 +109,73 @@ async function getDevoirsPourDemain() {
       JOIN classes c ON d.classe_id = c.id
       WHERE d.date = ?
       ORDER BY d.classe_id, m.nom`,
-      [dateDemain]
+      [tomorrowDate]
     );
 
-    return groupDevoirsParClasse(devoirs);
+    return groupAssignmentsByClass(assignments);
   } catch (error) {
-    console.error('Erreur lors de la récupération des devoirs:', error);
+    console.error('Failed to get the assignments:', error);
     return {};
   }
 }
 
+function webhookUsername(schoolClass) {
+  return `ENT - ${schoolClass.name}`;
+}
+
+function webhookAvatarUrl() {
+  return process.env.BASE_URL ? `${process.env.BASE_URL}/images/logo.png` : null;
+}
+
 /**
- * Envoie un récapitulatif quotidien des devoirs pour toutes les classes
+ * Sends the daily summary of tomorrow's assignments to every class that has a
+ * Discord webhook.
  */
-async function envoyerRecapitulatifQuotidien() {
-  console.log('Envoi du récapitulatif quotidien des devoirs...');
+async function sendDailySummary() {
+  console.log('Sending the daily assignment summary...');
 
-  const devoirsParClasse = await getDevoirsPourDemain();
+  const byClass = await getAssignmentsForTomorrow();
 
-  if (Object.keys(devoirsParClasse).length === 0) {
-    console.log('Aucun devoir pour demain');
+  if (Object.keys(byClass).length === 0) {
+    console.log('No assignments for tomorrow');
     return;
   }
 
-  // Pour chaque classe, envoyer un message Discord si un webhook est configuré
-  for (const [classeId, classeData] of Object.entries(devoirsParClasse)) {
+  for (const [classId, schoolClass] of Object.entries(byClass)) {
     try {
-      // Récupérer le webhook de la classe
-      const key = `discord_webhook_${classeId}`;
+      const key = `discord_webhook_${classId}`;
       const setting = await db.get('SELECT value FROM settings WHERE `key` = ?', [key]);
 
       if (!setting || !setting.value) {
-        console.log(`Pas de webhook configuré pour la classe ${classeData.classe_nom}`);
+        console.log(`No webhook configured for class ${schoolClass.name}`);
         continue;
       }
 
-      // Créer l'embed
-      const embed = creerEmbedRecapitulatif(classeData);
+      const embed = createSummaryEmbed(schoolClass);
+      await sendDiscordEmbeds(setting.value, [embed], webhookUsername(schoolClass), webhookAvatarUrl());
 
-      // Envoyer le message avec le nom de la classe et le logo
-      const username = `ENT - ${classeData.classe_nom}`;
-      const avatarUrl = process.env.BASE_URL ? `${process.env.BASE_URL}/images/logo.png` : null;
-      await sendDiscordEmbeds(setting.value, [embed], username, avatarUrl);
-
-      console.log(`Récapitulatif envoyé pour la classe ${classeData.classe_nom}`);
+      console.log(`Summary sent for class ${schoolClass.name}`);
     } catch (error) {
-      console.error(`Erreur lors de l'envoi pour la classe ${classeId}:`, error);
+      console.error(`Failed to send for class ${classId}:`, error);
     }
   }
 }
 
-async function getDevoirsPourSemaineProchaine() {
+/** Gets the assignments of next week (Monday to Sunday), grouped by class. */
+async function getAssignmentsForNextWeek() {
   try {
-    // Calculer la date de début et de fin de la semaine prochaine (lundi à dimanche)
-    const aujourdHui = new Date();
-    const jourDeLaSemaine = aujourdHui.getDay(); // 0 (dimanche) à 6 (samedi)
-    const joursJusquaLundiProchain = (8 - jourDeLaSemaine) % 7;
-    const lundiProchain = new Date(aujourdHui);
-    lundiProchain.setDate(aujourdHui.getDate() + joursJusquaLundiProchain);
-    const dimancheProchain = new Date(lundiProchain);
-    dimancheProchain.setDate(lundiProchain.getDate() + 6);
+    const today = new Date();
+    const weekDay = today.getDay();
+    const daysUntilNextMonday = (8 - weekDay) % 7;
+    const nextMonday = new Date(today);
+    nextMonday.setDate(today.getDate() + daysUntilNextMonday);
+    const nextSunday = new Date(nextMonday);
+    nextSunday.setDate(nextMonday.getDate() + 6);
 
+    const startDate = formatDateString(nextMonday);
+    const endDate = formatDateString(nextSunday);
 
-    const dateDebut = formatDateString(lundiProchain);
-    const dateFin = formatDateString(dimancheProchain);
-
-    // Récupérer tous les devoirs pour la semaine prochaine avec les informations de matière et classe
-    const devoirs = await db.all(
+    const assignments = await db.all(
       `SELECT
         d.id,
         d.titre,
@@ -189,32 +190,33 @@ async function getDevoirsPourSemaineProchaine() {
       JOIN classes c ON d.classe_id = c.id
       WHERE d.date BETWEEN ? AND ?
       ORDER BY d.classe_id, m.nom, d.date`,
-      [dateDebut, dateFin]
+      [startDate, endDate]
     );
 
-    return groupDevoirsParClasse(devoirs);
+    return groupAssignmentsByClass(assignments);
   } catch (error) {
-    console.error('Erreur lors de la récupération des devoirs pour la semaine prochaine:', error);
+    console.error('Failed to get the assignments of next week:', error);
     return {};
   }
 }
 
-async function envoyerRecapitulatifHebdomadaire() {
-  console.log('Envoi du récapitulatif hebdomadaire des devoirs...');
+/** Sends the weekly summary of next week's assignments, one embed per day. */
+async function sendWeeklySummary() {
+  console.log('Sending the weekly assignment summary...');
 
-  const devoirsParClasse = await getDevoirsPourSemaineProchaine();
-  if (Object.keys(devoirsParClasse).length === 0) {
-    console.log('Aucun devoir pour la semaine prochaine');
+  const byClass = await getAssignmentsForNextWeek();
+  if (Object.keys(byClass).length === 0) {
+    console.log('No assignments for next week');
     return;
   }
 
-  for (const [classeId, classeData] of Object.entries(devoirsParClasse)) {
+  for (const [classId, schoolClass] of Object.entries(byClass)) {
     try {
-      const key = `discord_webhook_${classeId}`;
+      const key = `discord_webhook_${classId}`;
       const setting = await db.get('SELECT value FROM settings WHERE `key` = ?', [key]);
 
       if (!setting || !setting.value) {
-        console.log(`Pas de webhook configuré pour la classe ${classeData.classe_nom}`);
+        console.log(`No webhook configured for class ${schoolClass.name}`);
         continue;
       }
 
@@ -224,26 +226,26 @@ async function envoyerRecapitulatifHebdomadaire() {
         color: 0x4A90E2,
       }
 
-      const devoirsParJour = {};
-      classeData.devoirs.forEach(devoir => {
-        const dateKey = formatDateString(devoir.date);
-        if (!devoirsParJour[dateKey]) {
-          devoirsParJour[dateKey] = [];
+      const byDay = {};
+      schoolClass.assignments.forEach(assignment => {
+        const dateKey = formatDateString(assignment.date);
+        if (!byDay[dateKey]) {
+          byDay[dateKey] = [];
         }
-        devoirsParJour[dateKey].push(devoir);
+        byDay[dateKey].push(assignment);
       });
 
-      const daysEmbeds = Object.entries(devoirsParJour)
+      const daysEmbeds = Object.entries(byDay)
         .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
-        .map(([date, devoirs]) => {
-          const fields = devoirs.map(devoir => ({
-            name: `${devoir.matiere_nom}`,
-            value: `**${devoir.titre}**\n${devoir.description ?? ""}`,
+        .map(([date, assignments]) => {
+          const fields = assignments.map(assignment => ({
+            name: `${assignment.matiere_nom}`,
+            value: `**${assignment.titre}**\n${assignment.description ?? ""}`,
             inline: false
           }));
 
           return {
-            title: `🗓️ Devoirs pour le ${formatDateFr(new Date(date))}`,
+            title: `🗓️ Devoirs pour le ${formatFrenchDate(new Date(date))}`,
             description: "",
             color: 0x4A90E2,
             fields: fields,
@@ -253,67 +255,65 @@ async function envoyerRecapitulatifHebdomadaire() {
       const embeds = [embedStart, ...daysEmbeds];
       embeds[embeds.length - 1].timestamp = new Date().toISOString();
 
-      const username = `ENT - ${classeData.classe_nom}`;
-      const avatarUrl = process.env.BASE_URL ? `${process.env.BASE_URL}/images/logo.png` : null;
-      await sendDiscordEmbeds(setting.value, embeds, username, avatarUrl);
+      await sendDiscordEmbeds(setting.value, embeds, webhookUsername(schoolClass), webhookAvatarUrl());
 
-      console.log(`Récapitulatif hebdomadaire envoyé pour la classe ${classeData.classe_nom}`);
+      console.log(`Weekly summary sent for class ${schoolClass.name}`);
     } catch (error) {
-      console.error(`Erreur lors de l'envoi du récapitulatif hebdomadaire pour la classe ${classeId}:`, error);
+      console.error(`Failed to send the weekly summary for class ${classId}:`, error);
     }
   }
 }
 
 /**
- * Crée un embed Discord pour le récapitulatif des devoirs
- * @param {Object} classeData - Données de la classe et ses devoirs
- * @returns {Object} - Embed Discord
+ * Creates the Discord embed of the daily summary.
+ * @param {{name: string, assignments: Array}} schoolClass
+ * @returns {Object}
  */
-function creerEmbedRecapitulatif(classeData) {
-  const demain = new Date();
-  demain.setDate(demain.getDate() + 1);
+function createSummaryEmbed(schoolClass) {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const dateFormatee = formatDateFr(demain);
+  const formattedDate = formatFrenchDate(tomorrow);
 
-  const fields = classeData.devoirs.map(devoir => ({
-    name: `${devoir.matiere_nom}`,
-    value: `**${devoir.titre}**\n${devoir.description ?? ""}`,
+  const fields = schoolClass.assignments.map(assignment => ({
+    name: `${assignment.matiere_nom}`,
+    value: `**${assignment.titre}**\n${assignment.description ?? ""}`,
     inline: false
   }));
 
   return {
-    title: `📚 Devoirs pour ${dateFormatee}`,
+    title: `📚 Devoirs pour ${formattedDate}`,
     description: "",
-    color: 0x4A90E2, // Bleu
+    color: 0x4A90E2,
     fields: fields,
     footer: {
-      text: `ENT - ${classeData.devoirs.length} devoir${classeData.devoirs.length > 1 ? 's' : ''} à faire`
+      text: `ENT - ${schoolClass.assignments.length} devoir${schoolClass.assignments.length > 1 ? 's' : ''} à faire`
     },
     timestamp: new Date().toISOString()
   };
 }
 
 /**
- * Récupère le webhook Discord pour une classe donnée
- * @param {number} classeId - ID de la classe
- * @returns {Promise<string|null>} - URL du webhook ou null
+ * Gets the Discord webhook of a class.
+ * @param {number} classId
+ * @returns {Promise<string|null>}
  */
-async function getWebhookForClasse(classeId) {
+async function getClassWebhook(classId) {
   try {
-    const key = `discord_webhook_${classeId}`;
+    const key = `discord_webhook_${classId}`;
     const setting = await db.get('SELECT value FROM settings WHERE `key` = ?', [key]);
     return setting ? setting.value : null;
   } catch (error) {
-    console.error('Erreur lors de la récupération du webhook:', error);
+    console.error('Failed to get the webhook:', error);
     return null;
   }
 }
 
 module.exports = {
   sendDiscordEmbeds,
-  envoyerRecapitulatifQuotidien,
-  envoyerRecapitulatifHebdomadaire,
-  getDevoirsPourDemain,
-  creerEmbedRecapitulatif,
-  getWebhookForClasse
+  sendDailySummary,
+  sendWeeklySummary,
+  getAssignmentsForTomorrow,
+  createSummaryEmbed,
+  getClassWebhook
 };

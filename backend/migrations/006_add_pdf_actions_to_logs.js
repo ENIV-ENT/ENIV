@@ -1,32 +1,28 @@
-// Migration: Ajouter les actions upload_pdf et delete_pdf à la table devoir_logs
-
 module.exports = {
   up: async (pool) => {
-    console.log('Migration 006: Ajout des actions PDF aux logs');
+    console.log('Migration 006: add the PDF actions to devoir_logs');
 
     const connection = await pool.getConnection();
     try {
-      // Modifier l'ENUM pour ajouter les nouvelles actions
       await connection.query(`
         ALTER TABLE devoir_logs
         MODIFY COLUMN action ENUM('create', 'update', 'delete', 'upload_pdf', 'delete_pdf') NOT NULL
       `);
-      console.log('  ✓ Actions upload_pdf et delete_pdf ajoutées');
+      console.log('  ✓ Actions upload_pdf and delete_pdf added');
     } finally {
       connection.release();
     }
   },
 
   down: async (pool) => {
-    console.log('Migration 006 (rollback): Suppression des actions PDF des logs');
+    console.log('Migration 006 (rollback): remove the PDF actions from devoir_logs');
     const connection = await pool.getConnection();
     try {
-      // Remettre l'ENUM d'origine
       await connection.query(`
         ALTER TABLE devoir_logs
         MODIFY COLUMN action ENUM('create', 'update', 'delete') NOT NULL
       `);
-      console.log('  ✓ Actions upload_pdf et delete_pdf supprimées');
+      console.log('  ✓ Actions upload_pdf and delete_pdf removed');
     } finally {
       connection.release();
     }

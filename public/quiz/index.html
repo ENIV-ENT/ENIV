@@ -10,7 +10,6 @@
     <link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
     <meta name="theme-color" content="#4a90e2">
     <script src="/js/pwa.js" defer></script>
-    <!-- Doit rester synchrone et avant les styles : applique le thème avant le premier rendu -->
     <script src="/js/theme-init.js"></script>
     <link rel="stylesheet" href="/css/header.css">
     <link rel="stylesheet" href="style.css">
@@ -21,14 +20,13 @@
         <div class="loading-logo">Eniv</div>
         <div class="loading-spinner-bar"></div>
     </div>
-    <!-- Rempli par /js/components/header.js -->
     <header id="app-header"></header>
 
     <div class="container">
         <div class="header">
             <h1>🎓 Quiz</h1>
-            <p id="quizTitle">Chargement...</p>
-            <p id="resumeNotice" class="resume-notice" style="display: none;">Quiz repris là où vous l'aviez laissé.</p>
+            <p id="quiz-title">Chargement...</p>
+            <p id="resume-notice" class="resume-notice" style="display: none;">Quiz repris là où vous l'aviez laissé.</p>
         </div>
 
         <div class="stats">
@@ -46,7 +44,7 @@
             </div>
         </div>
 
-        <div class="mode-selector" id="modeSelector" style="display: none;">
+        <div class="mode-selector" id="mode-selector" style="display: none;">
             <h3 class="mode-title">Choisissez votre mode de quiz</h3>
             <div class="mode-buttons">
                 <button class="mode-btn" onclick="startQuiz('choice')">📝 Choix multiples</button>
@@ -54,50 +52,50 @@
             </div>
         </div>
 
-        <div class="progress-bar" id="progressBar" style="display: none;">
-            <div class="progress-fill" id="progressFill"></div>
+        <div class="progress-bar" id="progress-bar" style="display: none;">
+            <div class="progress-fill" id="progress-fill"></div>
         </div>
 
-        <div class="quiz-card" id="quizCard" style="display: none;">
-            <div class="question-number" id="questionNumber"></div>
+        <div class="quiz-card" id="quiz-card" style="display: none;">
+            <div class="question-number" id="question-number"></div>
             <div class="question" id="question"></div>
 
             <div class="options" id="options" style="display: none;"></div>
 
-            <div class="oral-response" id="oralResponse" style="display: none;">
-                <button class="btn btn-primary" id="showAnswerBtn" onclick="showAnswer()">Voir la réponse</button>
-                <div class="self-evaluation" id="selfEvaluation" style="display: none;">
+            <div class="oral-response" id="oral-response" style="display: none;">
+                <button class="btn btn-primary" id="show-answer-btn" onclick="showAnswer()">Voir la réponse</button>
+                <div class="self-evaluation" id="self-evaluation" style="display: none;">
                     <p>Avez-vous donné la bonne réponse ?</p>
                     <div class="eval-buttons">
                         <button class="btn btn-success" onclick="evaluateAnswer(true)">✓ Oui</button>
                         <button class="btn btn-danger" onclick="evaluateAnswer(false)">✗ Non</button>
                     </div>
                 </div>
-                <div class="correct-answer" id="correctAnswer" style="display: none;"></div>
+                <div class="correct-answer" id="correct-answer" style="display: none;"></div>
             </div>
 
             <div class="explanation" id="explanation">
                 <div class="explanation-title">💡 Explication</div>
-                <div class="explanation-text" id="explanationText"></div>
+                <div class="explanation-text" id="explanation-text"></div>
                 <div class="example" id="example">
                     <div class="example-title">📝 Exemple concret</div>
-                    <div class="example-text" id="exampleText"></div>
+                    <div class="example-text" id="example-text"></div>
                 </div>
             </div>
             <div class="buttons">
-                <button class="btn btn-secondary" onclick="previousQuestion()" id="prevBtn">Précédent</button>
-                <button class="btn btn-primary" id="validateBtn" onclick="validateAnswer()" style="display: none;">Valider</button>
-                <button class="btn btn-primary" id="nextBtn" onclick="nextQuestion()" style="display: none;">Suivant</button>
+                <button class="btn btn-secondary" onclick="previousQuestion()" id="prev-btn">Précédent</button>
+                <button class="btn btn-primary" id="validate-btn" onclick="validateAnswer()" style="display: none;">Valider</button>
+                <button class="btn btn-primary" id="next-btn" onclick="nextQuestion()" style="display: none;">Suivant</button>
             </div>
             <div class="quit-quiz">
                 <button type="button" class="btn-quit" onclick="abandonQuiz()">Abandonner le quiz</button>
             </div>
         </div>
 
-        <div class="result-card" id="resultCard">
+        <div class="result-card" id="result-card">
             <div class="result-title">🎉 Quiz Terminé !</div>
-            <div class="result-score" id="finalScore"></div>
-            <div class="result-message" id="resultMessage"></div>
+            <div class="result-score" id="final-score"></div>
+            <div class="result-message" id="result-message"></div>
             <button class="btn btn-primary" onclick="restartQuiz()">Recommencer</button>
             <button class="btn btn-secondary" onclick="goBack()">Retour au dashboard</button>
         </div>

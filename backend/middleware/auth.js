@@ -4,7 +4,12 @@ const db = require("../models/dbHelper");
 const { JWT_SECRET } = require('../config/jwt');
 const LAST_LOGIN_THROTTLE_MS = 5 * 60 * 1000;
 
-// Helper pour extraire et vérifier le token
+/**
+ * Reads the Bearer token of the request and returns the matching user, or null.
+ * Also refreshes users.last_login_at, at most every LAST_LOGIN_THROTTLE_MS.
+ * @param {import('express').Request} req
+ * @returns {Promise<Object|null>}
+ */
 const verifyToken = async (req) => {
   const authHeader = req.headers.authorization;
 
@@ -17,7 +22,7 @@ const verifyToken = async (req) => {
 
   try {
     tokenPayload = jwt.verify(token, JWT_SECRET);
-  } catch (error) {
+  } catch {
     return null;
   }
 
@@ -37,6 +42,12 @@ const verifyToken = async (req) => {
   return user;
 };
 
+/**
+ * Builds a middleware that requires an authenticated user matching `predicate`.
+ * It sets req.user, and req.session as a stub kept for older route code.
+ * @param {(user: Object) => boolean} predicate
+ * @param {string} errorMessage - sent with the 403 response
+ */
 function authChecker(predicate, errorMessage) {
   return async (req, res, next) => {
     const user = await verifyToken(req);
@@ -49,14 +60,11 @@ function authChecker(predicate, errorMessage) {
       return res.status(403).json({error: errorMessage});
     }
 
-    // Attacher les infos user à req pour les utiliser dans les routes
     req.user = user;
-    // Créer un objet session compatible avec le code existant
     req.session = {
       userId: user.id,
       username: user.username,
       role: user.role,
-      // Ajouter les méthodes stub pour éviter les erreurs
       touch: () => {
       },
       regenerate: (cb) => cb && cb(),
@@ -70,8 +78,8 @@ function authChecker(predicate, errorMessage) {
 
 const requireAuth = authChecker(() => true, "Non authentifié");
 const requireAdmin = authChecker((user) => user.role === "admin", "Accès refusé - Admin requis");
-const requireEleve = authChecker((user) => user.role === "eleve", "Accès refusé - Élève requis");
+const requireStudent = authChecker((user) => user.role === "eleve", "Accès refusé - Élève requis");
 const requireSuperAdmin = authChecker((user) => user.role === "superadmin", "Accès refusé - SuperAdmin requis");
 const requireAdminOrSuperAdmin = authChecker((user) => user.role === "admin" || user.role === "superadmin", "Accès refusé");
 
-module.exports = {verifyToken, requireAuth, requireAdmin, requireEleve, requireSuperAdmin, requireAdminOrSuperAdmin};
+module.exports = {verifyToken, requireAuth, requireAdmin, requireStudent, requireSuperAdmin, requireAdminOrSuperAdmin};

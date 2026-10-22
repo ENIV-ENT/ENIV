@@ -1,6 +1,6 @@
 module.exports = {
   up: async (pool) => {
-    console.log('Migration 013: Ajout du champ last_login_at à la table users');
+    console.log('Migration 013: add last_login_at to users');
 
     const connection = await pool.getConnection();
     try {
@@ -9,9 +9,9 @@ module.exports = {
 
       if (!columns.includes('last_login_at')) {
         await connection.query('ALTER TABLE users ADD COLUMN last_login_at TIMESTAMP NULL');
-        console.log('  ✓ Colonne last_login_at ajoutée');
+        console.log('  ✓ Column last_login_at added');
       } else {
-        console.log('  - Colonne last_login_at déjà existante');
+        console.log('  - Column last_login_at already exists');
       }
     } finally {
       connection.release();
@@ -19,11 +19,11 @@ module.exports = {
   },
 
   down: async (pool) => {
-    console.log('Migration 013 (rollback): Suppression du champ last_login_at');
+    console.log('Migration 013 (rollback): drop last_login_at');
     const connection = await pool.getConnection();
     try {
       await connection.query('ALTER TABLE users DROP COLUMN last_login_at');
-      console.log('  ✓ Colonne last_login_at supprimée');
+      console.log('  ✓ Column last_login_at dropped');
     } finally {
       connection.release();
     }

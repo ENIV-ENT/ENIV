@@ -4,24 +4,23 @@ const path = require('path');
 const fs = require('fs');
 const db = require('../models/dbHelper');
 const { requireAuth } = require('../middleware/auth');
-const { convertToPDF } = require('../services/fileConverter');
-const { check_before_upload } = require('../services/fileCleanup');
-const { snapshotDevoir, diffSnapshots, logDevoirAction } = require('../services/devoirLogger');
+const { convertToPdf } = require('../services/fileConverter');
+const { checkBeforeUpload } = require('../services/fileCleanup');
+const { snapshotAssignment, diffSnapshots, logAssignmentAction } = require('../services/assignmentLogger');
 const push = require('../services/push');
 const pushMessages = require('../services/pushMessages');
-const { creerJeton } = require('../services/fichierLinks');
-const { matiereDeLaClasse, devoirDeLaClasse } = require('../services/appartenanceClasse');
-const { getSource } = require('../services/emploiTemps');
+const { createFileToken } = require('../services/fileLinks');
+const { findClassSubject, findClassAssignment } = require('../services/classMembership');
+const { getSource } = require('../services/timetable');
 const router = express.Router();
 
-// Devoir avec le nom de sa matière, utilisé pour construire les instantanés des logs
-const DEVOIR_WITH_MATIERE_SQL = `
+/** Assignment with its subject name, used to build the log snapshots. */
+const ASSIGNMENT_WITH_SUBJECT_SQL = `
   SELECT d.*, m.nom as matiere_nom
   FROM devoirs d
   LEFT JOIN matieres m ON d.matiere_id = m.id
   WHERE d.id = ? AND d.classe_id = ?`;
 
-// Configuration de multer pour l'upload de fichiers PDF
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = path.join(__dirname, '../uploads');
@@ -36,78 +35,81 @@ const storage = multer.diskStorage({
   }
 });
 
+/** PDF, Word, PowerPoint and Excel files. */
+const ALLOWED_MIME_TYPES = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel'
+];
+
+/**
+ * multer reads the file name as latin1 while browsers send it as UTF-8: it is
+ * fixed here, before any use (storage, database, logs).
+ */
 const fileFilter = (req, file, cb) => {
-  // multer lit le nom en latin1 alors que les navigateurs l'envoient en UTF-8 :
-  // on le corrige ici, avant tout usage (stockage, base, journaux)
   file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
 
-  // Accepter PDF, DOCX, PPTX
-  const allowedMimeTypes = [
-    'application/pdf',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-    'application/msword', // .doc
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
-    'application/vnd.ms-powerpoint', // .ppt
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-    'application/vnd.ms-excel' // .xls
-  ];
-  
-  if (allowedMimeTypes.includes(file.mimetype)) {
+  if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
     cb(null, true);
   } else {
     cb(new Error('Seuls les fichiers PDF, DOCX, PPTX, XLSX sont autorisés'), false);
   }
 };
 
+/** Files up to 50 MB. */
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 50 * 1024 * 1024 // Limite de 50 Mo
+    fileSize: 50 * 1024 * 1024
   }
 });
 
 router.use(requireAuth);
 
+/** Creates an assignment; the log holds its full state as saved. */
 router.post('/', express.json(), async (req, res) => {
-  const { titre, description, matiere_id, date } = req.body || {};
+  const { titre: title, description, matiere_id: subjectId, date } = req.body || {};
 
-  if (!titre || !matiere_id) {
+  if (!title || !subjectId) {
     return res.status(400).json({ error: 'Titre et matière requis' });
   }
 
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
-    if (!await matiereDeLaClasse(matiere_id, classeId)) {
+    if (!await findClassSubject(subjectId, classId)) {
       return res.status(400).json({ error: 'Matière inconnue' });
     }
 
     const result = await db.run(
       'INSERT INTO devoirs (titre, description, matiere_id, date, classe_id, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-      [titre, description || null, matiere_id, date || null, classeId, req.session.userId]
+      [title, description || null, subjectId, date || null, classId, req.session.userId]
     );
 
-    const devoirId = result.lastInsertRowid;
+    const assignmentId = result.lastInsertRowid;
 
-    // Journaliser la création avec l'état complet du devoir tel qu'enregistré
-    const created = await db.get(DEVOIR_WITH_MATIERE_SQL, [devoirId, classeId]);
-    const snapshot = snapshotDevoir(created || { titre, description, matiere_id, date });
-    await logDevoirAction(req, {
-      devoirId,
+    const created = await db.get(ASSIGNMENT_WITH_SUBJECT_SQL, [assignmentId, classId]);
+    const snapshot = snapshotAssignment(created || { titre: title, description, matiere_id: subjectId, date });
+    await logAssignmentAction(req, {
+      assignmentId,
       action: 'create',
       details: { titre: snapshot.titre, devoir: snapshot }
     });
 
-    push.notifyClasseInBackground(classeId, 'nouveau_devoir',
-      pushMessages.nouveauDevoir({ id: devoirId, ...snapshot }), req.user.id);
+    push.notifyClassInBackground(classId, 'nouveau_devoir',
+      pushMessages.newAssignment({ id: assignmentId, ...snapshot }), req.user.id);
 
     res.json({
       success: true,
-      devoirId,
+      devoirId: assignmentId,
       message: 'Devoir créé avec succès'
     });
   } catch (error) {
@@ -118,12 +120,12 @@ router.post('/', express.json(), async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.json([]);
     }
 
-    const devoirs = await db.all(
+    const assignments = await db.all(
       `SELECT
         d.*,
         m.nom as matiere_nom,
@@ -136,10 +138,10 @@ router.get('/', async (req, res) => {
       LEFT JOIN devoir_statuts ds ON d.id = ds.devoir_id AND ds.user_id = ?
       WHERE d.classe_id = ?
       ORDER BY COALESCE(ds.fait, 0) ASC, d.date ASC, d.created_at DESC`,
-      [req.session.userId, classeId]
+      [req.session.userId, classId]
     );
 
-    res.json(devoirs);
+    res.json(assignments);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erreur lors de la récupération des devoirs' });
@@ -148,12 +150,12 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
-    const devoir = await db.get(
+    const assignment = await db.get(
       `SELECT
         d.*,
         m.nom as matiere_nom,
@@ -164,62 +166,63 @@ router.get('/:id', async (req, res) => {
       LEFT JOIN users u ON d.created_by = u.id
       LEFT JOIN devoir_statuts ds ON d.id = ds.devoir_id AND ds.user_id = ?
       WHERE d.id = ? AND d.classe_id = ?`,
-      [req.session.userId, req.params.id, classeId]
+      [req.session.userId, req.params.id, classId]
     );
 
-    if (!devoir) {
+    if (!assignment) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
-    res.json(devoir);
-  } catch (error) {
+    res.json(assignment);
+  } catch {
     res.status(500).json({ error: 'Erreur lors de la récupération du devoir' });
   }
 });
 
+/**
+ * Updates an assignment. It is read again after the update rather than trusting
+ * the request body, so what is actually stored is compared, without false changes
+ * caused by the format. Only an actual change is logged and notified.
+ */
 router.put('/:id', express.json(), async (req, res) => {
-  const { titre, description, matiere_id, date } = req.body || {};
+  const { titre: title, description, matiere_id: subjectId, date } = req.body || {};
 
-  if (!titre || !matiere_id) {
+  if (!title || !subjectId) {
     return res.status(400).json({ error: 'Titre et matière requis' });
   }
 
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
-    // Récupérer l'état avant modification pour le log
-    const oldDevoir = await db.get(DEVOIR_WITH_MATIERE_SQL, [req.params.id, classeId]);
-    if (!oldDevoir) {
+    const oldAssignment = await db.get(ASSIGNMENT_WITH_SUBJECT_SQL, [req.params.id, classId]);
+    if (!oldAssignment) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
-    if (!await matiereDeLaClasse(matiere_id, classeId)) {
+    if (!await findClassSubject(subjectId, classId)) {
       return res.status(400).json({ error: 'Matière inconnue' });
     }
 
     await db.run(
       'UPDATE devoirs SET titre = ?, description = ?, matiere_id = ?, date = ? WHERE id = ? AND classe_id = ?',
-      [titre, description || null, matiere_id, date || null, req.params.id, classeId]
+      [title, description || null, subjectId, date || null, req.params.id, classId]
     );
 
-    // Relire le devoir plutôt que de se fier au corps de la requête : on compare
-    // ainsi ce qui est réellement stocké, sans fausse modification due au format
-    const newDevoir = await db.get(DEVOIR_WITH_MATIERE_SQL, [req.params.id, classeId]);
-    const after = snapshotDevoir(newDevoir || {});
-    const changes = diffSnapshots(snapshotDevoir(oldDevoir), after);
+    const newAssignment = await db.get(ASSIGNMENT_WITH_SUBJECT_SQL, [req.params.id, classId]);
+    const after = snapshotAssignment(newAssignment || {});
+    const changes = diffSnapshots(snapshotAssignment(oldAssignment), after);
 
-    // Journaliser uniquement si quelque chose a effectivement changé
     if (changes.length > 0) {
-      await logDevoirAction(req, {
-        devoirId: req.params.id,
+      await logAssignmentAction(req, {
+        assignmentId: req.params.id,
         action: 'update',
         details: { titre: after.titre, changes }
       });
 
-      push.notifyDevoirModifieInBackground(classeId, { id: Number(req.params.id), ...after }, changes, req.user.id);
+      push.notifyAssignmentUpdatedInBackground(classId, { id: Number(req.params.id), ...after }, changes, req.user.id);
     }
 
     res.json({ success: true, message: 'Devoir mis à jour' });
@@ -229,21 +232,23 @@ router.put('/:id', express.json(), async (req, res) => {
   }
 });
 
+/**
+ * Deletes an assignment. Its attached files go with it: they are listed before the
+ * deletion, and the log holds the full state of the lost assignment.
+ */
 router.delete('/:id', async (req, res) => {
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
-    // Récupérer le devoir avant de le supprimer pour le log
-    const devoir = await db.get(DEVOIR_WITH_MATIERE_SQL, [req.params.id, classeId]);
-    if (!devoir) {
+    const assignment = await db.get(ASSIGNMENT_WITH_SUBJECT_SQL, [req.params.id, classId]);
+    if (!assignment) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
-    // Les documents joints partent avec le devoir : les lister avant la suppression
-    const fichiers = await db.all(
+    const files = await db.all(
       `SELECT df.original_name, df.uploaded_at, u.username as uploaded_by_username
        FROM devoir_fichiers df
        LEFT JOIN users u ON df.uploaded_by = u.id
@@ -252,29 +257,28 @@ router.delete('/:id', async (req, res) => {
       [req.params.id]
     );
 
-    await db.run('DELETE FROM devoirs WHERE id = ? AND classe_id = ?', [req.params.id, classeId]);
+    await db.run('DELETE FROM devoirs WHERE id = ? AND classe_id = ?', [req.params.id, classId]);
 
-    // Journaliser la suppression avec l'état complet du devoir perdu
-    const snapshot = snapshotDevoir(devoir);
-    await logDevoirAction(req, {
-      devoirId: req.params.id,
+    const snapshot = snapshotAssignment(assignment);
+    await logAssignmentAction(req, {
+      assignmentId: req.params.id,
       action: 'delete',
-      details: { titre: snapshot.titre, devoir: snapshot, fichiers }
+      details: { titre: snapshot.titre, devoir: snapshot, fichiers: files }
     });
 
     res.json({ success: true, message: 'Devoir supprimé' });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Erreur lors de la suppression du devoir' });
   }
 });
 
+/** Personal done status; a student can only check the assignments of their own class. */
 router.post('/:id/statut', express.json(), async (req, res) => {
-  const { fait } = req.body || {};
+  const { fait: done } = req.body || {};
 
   try {
-    // Un élève ne peut cocher que les devoirs de sa propre classe
-    const devoir = await devoirDeLaClasse(req.params.id, req.user.classe_id);
-    if (!devoir) {
+    const assignment = await findClassAssignment(req.params.id, req.user.classe_id);
+    if (!assignment) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
@@ -282,7 +286,7 @@ router.post('/:id/statut', express.json(), async (req, res) => {
       `INSERT INTO devoir_statuts (devoir_id, user_id, fait)
        VALUES (?, ?, ?)
        ON DUPLICATE KEY UPDATE fait = VALUES(fait)`,
-      [req.params.id, req.session.userId, fait ? 1 : 0]
+      [req.params.id, req.session.userId, done ? 1 : 0]
     );
 
     res.json({ success: true, message: 'Statut mis à jour' });
@@ -292,74 +296,72 @@ router.post('/:id/statut', express.json(), async (req, res) => {
   }
 });
 
+/**
+ * Timetable link of the class. ics: the timetable is shown in Eniv
+ * (/emploi-du-temps) rather than opening the link in a new tab.
+ */
 router.get('/settings/emploi-temps', async (req, res) => {
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.json({ lien: null, ics: false });
     }
 
-    const key = `emploi_temps_lien_${classeId}`;
+    const key = `emploi_temps_lien_${classId}`;
     const [setting, ics] = await Promise.all([
-      db.get('SELECT value FROM settings WHERE `key` = ? AND classe_id = ?', [key, classeId]),
-      getSource(classeId)
+      db.get('SELECT value FROM settings WHERE `key` = ? AND classe_id = ?', [key, classId]),
+      getSource(classId)
     ]);
-    // ics : l'emploi du temps s'affiche dans Eniv (/emploi-du-temps) plutôt
-    // que d'ouvrir le lien dans un nouvel onglet
     res.json({ lien: setting ? setting.value : null, ics: Boolean(ics) });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Erreur lors de la récupération' });
   }
 });
 
-// Upload d'un PDF pour un devoir
+/**
+ * Uploads a file for an assignment. The uploaded file is deleted when the request
+ * is refused or fails. The storage limit is checked first (cleaning up or refusing).
+ */
 router.post('/:id/upload', upload.single('pdf'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'Aucun fichier fourni' });
     }
 
-    const classeId = req.user.classe_id;
-    if (!classeId) {
-      // Supprimer le fichier uploadé
+    const classId = req.user.classe_id;
+    if (!classId) {
       fs.unlinkSync(req.file.path);
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
-    // Vérifier que le devoir existe et appartient à la même classe
-    const devoir = await devoirDeLaClasse(req.params.id, classeId);
+    const assignment = await findClassAssignment(req.params.id, classId);
 
-    if (!devoir) {
-      // Supprimer le fichier uploadé
+    if (!assignment) {
       fs.unlinkSync(req.file.path);
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
-    // Vérifier la limite de stockage (nettoie si nécessaire ou refuse)
-    const storageCheck = await check_before_upload(req.file.size);
-    
+    const storageCheck = await checkBeforeUpload(req.file.size);
+
     if (!storageCheck.allowed) {
-      // Supprimer le fichier uploadé
       fs.unlinkSync(req.file.path);
       return res.status(507).json({ error: storageCheck.error });
     }
-    
+
     if (storageCheck.cleaned) {
-      console.log(`📦 Nettoyage effectué: ${storageCheck.cleaned.count} fichiers supprimés`);
+      console.log(`📦 Cleanup done: ${storageCheck.cleaned.count} files deleted`);
     }
 
-    // Enregistrer le fichier dans la base de données avec l'utilisateur qui l'a uploadé
     await db.run(
       'INSERT INTO devoir_fichiers (devoir_id, filename, original_name, uploaded_by) VALUES (?, ?, ?, ?)',
       [req.params.id, req.file.filename, req.file.originalname, req.session.userId]
     );
 
-    // Journaliser l'ajout du document avec ses caractéristiques
-    await logDevoirAction(req, {
-      devoirId: req.params.id,
+    await logAssignmentAction(req, {
+      assignmentId: req.params.id,
       action: 'upload_pdf',
       details: {
-        titre: devoir.titre,
+        titre: assignment.titre,
         fichier: {
           original_name: req.file.originalname,
           stored_name: req.file.filename,
@@ -380,7 +382,6 @@ router.post('/:id/upload', upload.single('pdf'), async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    // Supprimer le fichier en cas d'erreur
     if (req.file) {
       fs.unlinkSync(req.file.path);
     }
@@ -388,23 +389,21 @@ router.post('/:id/upload', upload.single('pdf'), async (req, res) => {
   }
 });
 
-// Récupérer les fichiers d'un devoir
+/** Files of an assignment, with the user who uploaded each one. */
 router.get('/:id/fichiers', async (req, res) => {
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.json([]);
     }
 
-    // Vérifier que le devoir existe et appartient à la même classe
-    const devoir = await devoirDeLaClasse(req.params.id, classeId);
+    const assignment = await findClassAssignment(req.params.id, classId);
 
-    if (!devoir) {
+    if (!assignment) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
-    // Récupérer les fichiers avec les informations de l'utilisateur qui les a uploadés
-    const fichiers = await db.all(
+    const files = await db.all(
       `SELECT
         df.id,
         df.filename,
@@ -419,75 +418,72 @@ router.get('/:id/fichiers', async (req, res) => {
       [req.params.id]
     );
 
-    res.json(fichiers);
+    res.json(files);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erreur lors de la récupération des fichiers' });
   }
 });
 
-// Lien temporaire vers un document joint, réservé aux membres de la classe du devoir
-router.get('/fichiers/:fichierId/lien', async (req, res) => {
+/** Temporary link to an attached file, only for members of the assignment's class. */
+router.get('/fichiers/:fileId/lien', async (req, res) => {
   try {
-    const fichier = await db.get(
+    const file = await db.get(
       `SELECT df.id
        FROM devoir_fichiers df
        JOIN devoirs d ON df.devoir_id = d.id
        WHERE df.id = ? AND d.classe_id = ?`,
-      [req.params.fichierId, req.user.classe_id]
+      [req.params.fileId, req.user.classe_id]
     );
 
-    if (!fichier) {
+    if (!file) {
       return res.status(404).json({ error: 'Fichier non trouvé' });
     }
 
-    res.json({ url: `/api/fichiers/${creerJeton(fichier.id)}` });
+    res.json({ url: `/api/fichiers/${createFileToken(file.id)}` });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erreur lors de l\'ouverture du fichier' });
   }
 });
 
-// Servir un fichier en PDF (avec conversion automatique si nécessaire)
-router.get('/fichiers/:fichierId/pdf', async (req, res) => {
+/** Serves a file as PDF, converting it when needed (DOCX, PPTX...). */
+router.get('/fichiers/:fileId/pdf', async (req, res) => {
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
 
-    // Récupérer le fichier avec vérification de la classe
-    const fichier = await db.get(
+    const file = await db.get(
       `SELECT df.*, d.classe_id
        FROM devoir_fichiers df
        JOIN devoirs d ON df.devoir_id = d.id
        WHERE df.id = ? AND d.classe_id = ?`,
-      [req.params.fichierId, classeId]
+      [req.params.fileId, classId]
     );
 
-    if (!fichier) {
+    if (!file) {
       return res.status(404).json({ error: 'Fichier non trouvé' });
     }
 
     const uploadsDir = path.join(__dirname, '../uploads');
-    let filePath = path.join(uploadsDir, fichier.filename);
+    let filePath = path.join(uploadsDir, file.filename);
 
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Fichier physique non trouvé' });
     }
 
-    // Convertir en PDF si nécessaire (DOCX, PPTX, etc.)
     try {
-      filePath = await convertToPDF(filePath);
+      filePath = await convertToPdf(filePath);
     } catch (error) {
-      console.error('Erreur conversion PDF:', error);
+      console.error('PDF conversion failed:', error);
       return res.status(500).json({ error: 'Erreur lors de la conversion en PDF' });
     }
 
-    // Envoyer le fichier PDF
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${fichier.original_name}.pdf"`);
-    
+    res.setHeader('Content-Disposition', `inline; filename="${file.original_name}.pdf"`);
+
     const fileStream = fs.createReadStream(filePath);
     fileStream.pipe(res);
   } catch (error) {
@@ -496,54 +492,50 @@ router.get('/fichiers/:fichierId/pdf', async (req, res) => {
   }
 });
 
-// Supprimer un fichier
-router.delete('/fichiers/:fichierId', async (req, res) => {
+/**
+ * Deletes a file. Anyone can delete any file of their class, with no owner check.
+ * The log keeps its size and its original uploader.
+ */
+router.delete('/fichiers/:fileId', async (req, res) => {
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
-    // Récupérer le fichier avec vérification de la classe
-    const fichier = await db.get(
+    const file = await db.get(
       `SELECT df.*, d.classe_id, d.titre as devoir_titre, u.username as uploaded_by_username
        FROM devoir_fichiers df
        JOIN devoirs d ON df.devoir_id = d.id
        LEFT JOIN users u ON df.uploaded_by = u.id
        WHERE df.id = ? AND d.classe_id = ?`,
-      [req.params.fichierId, classeId]
+      [req.params.fileId, classId]
     );
 
-    if (!fichier) {
+    if (!file) {
       return res.status(404).json({ error: 'Fichier non trouvé' });
     }
 
-    // Tout le monde peut supprimer tous les fichiers de sa classe
-    // Pas de vérification de propriétaire nécessaire
-
-    // Supprimer le fichier du système de fichiers, en relevant sa taille pour le log
-    const filePath = path.join(__dirname, '../uploads', fichier.filename);
+    const filePath = path.join(__dirname, '../uploads', file.filename);
     let fileSize = null;
     if (fs.existsSync(filePath)) {
       fileSize = fs.statSync(filePath).size;
       fs.unlinkSync(filePath);
     }
 
-    // Supprimer l'enregistrement de la base de données
-    await db.run('DELETE FROM devoir_fichiers WHERE id = ?', [req.params.fichierId]);
+    await db.run('DELETE FROM devoir_fichiers WHERE id = ?', [req.params.fileId]);
 
-    // Journaliser la suppression du document, y compris son auteur d'origine
-    await logDevoirAction(req, {
-      devoirId: fichier.devoir_id,
+    await logAssignmentAction(req, {
+      assignmentId: file.devoir_id,
       action: 'delete_pdf',
       details: {
-        titre: fichier.devoir_titre,
+        titre: file.devoir_titre,
         fichier: {
-          original_name: fichier.original_name,
-          stored_name: fichier.filename,
+          original_name: file.original_name,
+          stored_name: file.filename,
           size: fileSize,
-          uploaded_at: fichier.uploaded_at,
-          uploaded_by_username: fichier.uploaded_by_username
+          uploaded_at: file.uploaded_at,
+          uploaded_by_username: file.uploaded_by_username
         }
       }
     });
@@ -555,35 +547,34 @@ router.delete('/fichiers/:fichierId', async (req, res) => {
   }
 });
 
-// Vérifier le statut d'un quiz pour un devoir
+/** Quiz status of an assignment: documents, existing quiz, generation in progress. */
 router.get('/:id/quiz-status', async (req, res) => {
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
-    const devoir = await db.get(
+    const assignment = await db.get(
       `SELECT d.id, c.premium as classe_premium
        FROM devoirs d
        LEFT JOIN classes c ON d.classe_id = c.id
        WHERE d.id = ? AND d.classe_id = ?`,
-      [req.params.id, classeId]
+      [req.params.id, classId]
     );
 
-    if (!devoir) {
+    if (!assignment) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
-    const quizEnabled = !!req.user.premium || !!devoir.classe_premium;
+    const quizEnabled = !!req.user.premium || !!assignment.classe_premium;
 
-    // Vérifier s'il y a des fichiers
-    const fichiers = await db.all(
+    const files = await db.all(
       'SELECT id FROM devoir_fichiers WHERE devoir_id = ?',
       [req.params.id]
     );
 
-    if (fichiers.length === 0) {
+    if (files.length === 0) {
       return res.json({
         hasDocuments: false,
         hasQuiz: false,
@@ -592,13 +583,11 @@ router.get('/:id/quiz-status', async (req, res) => {
       });
     }
 
-    // Vérifier si un quiz existe
     const quiz = await db.get(
       'SELECT id FROM devoir_quiz WHERE devoir_id = ?',
       [req.params.id]
     );
 
-    // Vérifier si une génération est en cours
     const generation = await db.get(
       'SELECT status FROM devoir_quiz_generation WHERE devoir_id = ?',
       [req.params.id]
@@ -616,42 +605,43 @@ router.get('/:id/quiz-status', async (req, res) => {
   }
 });
 
-// Générer un quiz avec l'IA
+/**
+ * Starts the AI quiz generation of an assignment in the background. A previous
+ * finished generation record is replaced; one in progress blocks a new one.
+ */
 router.post('/:id/generate-quiz', express.json(), async (req, res) => {
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
-    const devoir = await db.get(
+    const assignment = await db.get(
       `SELECT d.*, m.nom as matiere_nom, c.premium as classe_premium
        FROM devoirs d
        LEFT JOIN matieres m ON d.matiere_id = m.id
        LEFT JOIN classes c ON d.classe_id = c.id
        WHERE d.id = ? AND d.classe_id = ?`,
-      [req.params.id, classeId]
+      [req.params.id, classId]
     );
 
-    if (!devoir) {
+    if (!assignment) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
-    if (!req.user.premium && !devoir.classe_premium) {
+    if (!req.user.premium && !assignment.classe_premium) {
       return res.status(403).json({ error: 'La génération de quiz n\'est pas activée pour votre classe' });
     }
 
-    // Vérifier s'il y a des documents
-    const fichiers = await db.all(
+    const files = await db.all(
       'SELECT id FROM devoir_fichiers WHERE devoir_id = ?',
       [req.params.id]
     );
 
-    if (fichiers.length === 0) {
+    if (files.length === 0) {
       return res.status(400).json({ error: 'Ce devoir n\'a pas de documents' });
     }
 
-    // Vérifier si un quiz existe déjà
     const existingQuiz = await db.get(
       'SELECT id FROM devoir_quiz WHERE devoir_id = ?',
       [req.params.id]
@@ -661,19 +651,17 @@ router.post('/:id/generate-quiz', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'Un quiz existe déjà pour ce devoir' });
     }
 
-    // Vérifier si une génération est en cours
     const existingGeneration = await db.get(
       'SELECT status FROM devoir_quiz_generation WHERE devoir_id = ?',
       [req.params.id]
     );
 
     if (existingGeneration && existingGeneration.status === 'pending') {
-      return res.status(400).json({ 
-        error: 'Une génération est déjà en cours pour ce devoir' 
+      return res.status(400).json({
+        error: 'Une génération est déjà en cours pour ce devoir'
       });
     }
 
-    // Supprimer l'ancienne génération si elle existe
     if (existingGeneration) {
       await db.run(
         'DELETE FROM devoir_quiz_generation WHERE devoir_id = ?',
@@ -681,18 +669,15 @@ router.post('/:id/generate-quiz', express.json(), async (req, res) => {
       );
     }
 
-    // Créer un enregistrement de génération
     await db.run(
       'INSERT INTO devoir_quiz_generation (devoir_id, user_id, status) VALUES (?, ?, ?)',
       [req.params.id, req.user.id, 'pending']
     );
 
-    // Lancer la génération en arrière-plan
     generateQuizInBackground(
       req.params.id,
-      devoir,
-      req.user,
-      fichiers
+      assignment,
+      req.user
     );
 
     res.json({
@@ -705,55 +690,53 @@ router.post('/:id/generate-quiz', express.json(), async (req, res) => {
   }
 });
 
-async function generateQuizInBackground(devoirId, devoir, user, fichiersIds) {
+/**
+ * Generates the quiz, saves it, updates the generation status and emails the user.
+ * On failure, the (French) error message is stored in devoir_quiz_generation.
+ */
+async function generateQuizInBackground(assignmentId, assignment, user) {
   try {
-    // S'assurer que dotenv est chargé
     require('dotenv').config();
-    
-    const { generateQuizWithAI } = require('../services/quizGenerator');
-    
-    // Récupérer les informations complètes des fichiers
-    const fichiers = await db.all(
+
+    const { generateQuizWithAi } = require('../services/quizGenerator');
+
+    const files = await db.all(
       'SELECT filename, original_name FROM devoir_fichiers WHERE devoir_id = ?',
-      [devoirId]
-    );
-    
-    const questions = await generateQuizWithAI(
-      devoir,
-      user.premium,
-      fichiers
+      [assignmentId]
     );
 
-    // Sauvegarder le quiz
+    const questions = await generateQuizWithAi(
+      assignment,
+      user.premium,
+      files
+    );
+
     await db.run(
       'INSERT INTO devoir_quiz (devoir_id, questions_json, mode) VALUES (?, ?, ?)',
-      [devoirId, JSON.stringify(questions), 'both']
+      [assignmentId, JSON.stringify(questions), 'both']
     );
 
-    // Mettre à jour le statut de génération
     await db.run(
       'UPDATE devoir_quiz_generation SET status = ?, completed_at = CURRENT_TIMESTAMP WHERE devoir_id = ?',
-      ['completed', devoirId]
+      ['completed', assignmentId]
     );
 
-    // Envoyer un email
     if (user.email) {
       const { sendQuizReadyEmail } = require('../services/email');
       await sendQuizReadyEmail(
         user.email,
-        devoir.titre,
-        devoirId
+        assignment.titre,
+        assignmentId
       );
     }
 
-    console.log(`Quiz généré avec succès pour le devoir ${devoirId}`);
+    console.log(`Quiz generated for assignment ${assignmentId}`);
   } catch (error) {
-    console.error(`Erreur lors de la génération du quiz pour le devoir ${devoirId}:`, error);
+    console.error(`Quiz generation failed for assignment ${assignmentId}:`, error);
 
-    // Mettre à jour le statut de génération
     await db.run(
       'UPDATE devoir_quiz_generation SET status = ?, error_message = ?, completed_at = CURRENT_TIMESTAMP WHERE devoir_id = ?',
-      ['failed', error.message, devoirId]
+      ['failed', error.message, assignmentId]
     );
   }
 }

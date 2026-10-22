@@ -1,12 +1,9 @@
-// Migration: Créer la table devoir_quiz_generation pour tracker les générations de quiz
-
 module.exports = {
   up: async (pool) => {
-    console.log('Migration 008: Création de la table devoir_quiz_generation');
+    console.log('Migration 008: create table devoir_quiz_generation');
 
     const connection = await pool.getConnection();
     try {
-      // Créer la table devoir_quiz_generation
       await connection.query(`
         CREATE TABLE IF NOT EXISTS devoir_quiz_generation (
           id INT AUTO_INCREMENT PRIMARY KEY,
@@ -21,18 +18,18 @@ module.exports = {
           UNIQUE KEY unique_devoir_generation (devoir_id)
         )
       `);
-      console.log('  ✓ Table devoir_quiz_generation créée');
+      console.log('  ✓ Table devoir_quiz_generation created');
     } finally {
       connection.release();
     }
   },
 
   down: async (pool) => {
-    console.log('Migration 008 (rollback): Suppression de la table devoir_quiz_generation');
+    console.log('Migration 008 (rollback): drop table devoir_quiz_generation');
     const connection = await pool.getConnection();
     try {
       await connection.query('DROP TABLE IF EXISTS devoir_quiz_generation');
-      console.log('  ✓ Table devoir_quiz_generation supprimée');
+      console.log('  ✓ Table devoir_quiz_generation dropped');
     } finally {
       connection.release();
     }

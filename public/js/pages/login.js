@@ -2,10 +2,9 @@ import { apiCall, checkAuth, clearApiCache } from "../utils/api.js";
 
 const loginForm = document.getElementById("login-form");
 const loginError = document.getElementById("login-error");
-const boiteNomUtilisateur = document.getElementById("username");
-const boiteMotDePasse = document.getElementById("password");
+const usernameInput = document.getElementById("username");
+const passwordInput = document.getElementById("password");
 
-// Elements pour la modal mot de passe oublié
 const forgotPasswordLink = document.getElementById("forgot-password-link");
 const forgotPasswordModal = document.getElementById("forgot-password-modal");
 const closeModal = document.querySelector(".close");
@@ -15,8 +14,8 @@ async function init() {
 
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const username = boiteNomUtilisateur.value;
-    const password = boiteMotDePasse.value;
+    const username = usernameInput.value;
+    const password = passwordInput.value;
 
     const data = await apiCall("/api/auth/login", {
       method: "POST",
@@ -25,18 +24,17 @@ async function init() {
 
     if (username === "" || password === "") {
       loginError.textContent = "Veuillez remplir tous les champs.";
-      boiteMotDePasse.style.borderColor = "red";
-      boiteNomUtilisateur.style.borderColor = "red";
+      passwordInput.style.borderColor = "red";
+      usernameInput.style.borderColor = "red";
       return;
     }
 
     if (data.error) {
       loginError.textContent = data.error;
-      boiteMotDePasse.style.borderColor = "red";
-      boiteNomUtilisateur.style.borderColor = "red";
+      passwordInput.style.borderColor = "red";
+      usernameInput.style.borderColor = "red";
     } else {
       loginError.textContent = "";
-      // Stocker le token JWT dans localStorage
       if (data.token) {
         localStorage.setItem('token', data.token);
       }
@@ -52,22 +50,20 @@ async function init() {
     }
   });
 
-  // Permettre la soumission du formulaire avec la touche Entrée dans les champs
-  boiteNomUtilisateur.addEventListener("keydown", function (e) {
+  usernameInput.addEventListener("keydown", function (e) {
     if (e.key === "Enter") {
       e.preventDefault();
       loginForm.requestSubmit();
     }
   });
 
-  boiteMotDePasse.addEventListener("keydown", function (e) {
+  passwordInput.addEventListener("keydown", function (e) {
     if (e.key === "Enter") {
       e.preventDefault();
       loginForm.requestSubmit();
     }
   });
 
-  // Gestion de la modal mot de passe oublié
   forgotPasswordLink.addEventListener("click", (e) => {
     e.preventDefault();
     forgotPasswordModal.style.display = "block";

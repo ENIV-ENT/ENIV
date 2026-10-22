@@ -1,15 +1,21 @@
-// Applique le theme enregistre avant le premier rendu, pour eviter un flash de theme clair.
-// Ce script doit rester synchrone (ni defer, ni module) et etre place en tout debut de <head>,
-// avant les feuilles de style : c'est la seule facon de poser la classe sur <html> avant la
-// premiere peinture. Les pages ne peuvent pas s'en charger elles-memes, leurs scripts sont
-// des modules (donc differes) et n'appliquent le theme qu'apres l'appel d'authentification.
+/**
+ * Applies the saved theme before the first render, to avoid a flash of the
+ * light theme.
+ *
+ * This script must stay synchronous (neither defer nor module) and sit at the
+ * very start of <head>, before the stylesheets: it is the only way to set the
+ * class on <html> before the first paint. Pages cannot do it themselves, since
+ * their scripts are modules (thus deferred) and only apply the theme after the
+ * authentication call. When localStorage is unavailable (private mode, blocked
+ * cookies), the light theme stays.
+ */
 (function () {
-  var savedTheme = null;
+  var savedTheme;
 
   try {
     savedTheme = localStorage.getItem('theme');
-  } catch (e) {
-    // localStorage indisponible (mode prive, cookies bloques) : on reste sur le theme clair.
+  } catch {
+    return;
   }
 
   if (savedTheme === 'dark') {

@@ -6,9 +6,7 @@ const { exec } = require('child_process');
 
 const libreConvert = promisify(libre.convert);
 
-/**
- * Vérifie si LibreOffice est installé sur le système
- */
+/** Checks whether LibreOffice is installed on the system. */
 async function isLibreOfficeInstalled() {
   return new Promise((resolve) => {
     exec('which libreoffice', (error) => {
@@ -17,78 +15,69 @@ async function isLibreOfficeInstalled() {
   });
 }
 
-/**
- * Vérifie si un fichier nécessite une conversion
- */
+/** Whether a file needs a conversion to PDF (Word, PowerPoint, Excel). */
 function needsConversion(filename) {
   const ext = path.extname(filename).toLowerCase();
   return ['.docx', '.doc', '.pptx', '.ppt', '.xlsx', '.xls'].includes(ext);
 }
 
 /**
- * Convertit un fichier DOCX/PPTX en PDF
- * @param {string} inputPath - Chemin du fichier source
- * @returns {Promise<string>} - Chemin du fichier PDF généré
+ * Converts an office file to PDF with LibreOffice, next to the source file.
+ * A PDF already converted is reused. The thrown messages are in French: the MCP
+ * server shows them to the user.
+ * @param {string} inputPath
+ * @returns {Promise<string>} path of the PDF file
  */
-async function convertToPDF(inputPath) {
+async function convertToPdf(inputPath) {
   try {
     const ext = path.extname(inputPath).toLowerCase();
-    
-    // Vérifier si la conversion est nécessaire
+
     if (!needsConversion(path.basename(inputPath))) {
-      console.log(`✓ Fichier "${path.basename(inputPath)}" déjà en PDF, pas de conversion nécessaire`);
+      console.log(`✓ "${path.basename(inputPath)}" is already a PDF, no conversion needed`);
       return inputPath;
     }
 
-    // Vérifier si LibreOffice est installé
     const libreInstalled = await isLibreOfficeInstalled();
     if (!libreInstalled) {
       throw new Error('LibreOffice n\'est pas installé sur ce serveur. Seuls les fichiers PDF sont supportés pour le moment.');
     }
 
-    console.log(`🔄 Conversion de "${path.basename(inputPath)}" en PDF...`);
+    console.log(`🔄 Converting "${path.basename(inputPath)}" to PDF...`);
 
-    // Vérifier si le PDF existe déjà
     const baseName = path.basename(inputPath, ext);
     const outputPath = path.join(path.dirname(inputPath), `${baseName}.pdf`);
-    
+
     if (fs.existsSync(outputPath)) {
-      console.log(`✓ PDF déjà converti : "${path.basename(outputPath)}"`);
+      console.log(`✓ PDF already converted: "${path.basename(outputPath)}"`);
       return outputPath;
     }
 
-    // Lire le fichier source
-    const docxBuffer = fs.readFileSync(inputPath);
-
-    // Convertir en PDF
-    const pdfBuffer = await libreConvert(docxBuffer, '.pdf', undefined);
-
-    // Sauvegarder le PDF
+    const sourceBuffer = fs.readFileSync(inputPath);
+    const pdfBuffer = await libreConvert(sourceBuffer, '.pdf', undefined);
     fs.writeFileSync(outputPath, pdfBuffer);
 
-    console.log(`✅ Conversion réussie : "${path.basename(outputPath)}"`);
+    console.log(`✅ Conversion done: "${path.basename(outputPath)}"`);
     return outputPath;
   } catch (error) {
-    console.error(`❌ Erreur lors de la conversion de "${path.basename(inputPath)}":`, error.message);
-    throw new Error(`Impossible de convertir le fichier en PDF: ${error.message}`);
+    console.error(`❌ Conversion of "${path.basename(inputPath)}" failed:`, error.message);
+    throw new Error(`Impossible de convertir le fichier en PDF: ${error.message}`, { cause: error });
   }
 }
 
 /**
- * Convertit plusieurs fichiers en PDF si nécessaire
- * @param {Array<string>} filePaths - Tableau des chemins de fichiers
- * @returns {Promise<Array<string>>} - Tableau des chemins des fichiers PDF
+ * Converts several files to PDF when needed. A file that fails is skipped.
+ * @param {Array<string>} filePaths
+ * @returns {Promise<Array<string>>} paths of the PDF files
  */
-async function convertMultipleToPDF(filePaths) {
+async function convertMultipleToPdf(filePaths) {
   const convertedPaths = [];
 
   for (const filePath of filePaths) {
     try {
-      const pdfPath = await convertToPDF(filePath);
+      const pdfPath = await convertToPdf(filePath);
       convertedPaths.push(pdfPath);
-    } catch (error) {
-      console.error(`⚠️ Impossible de convertir "${path.basename(filePath)}", ignoré`);
-      // On continue avec les autres fichiers
+    } catch {
+      console.error(`⚠️ Cannot convert "${path.basename(filePath)}", skipped`);
     }
   }
 
@@ -96,8 +85,8 @@ async function convertMultipleToPDF(filePaths) {
 }
 
 module.exports = {
-  convertToPDF,
-  convertMultipleToPDF,
+  convertToPdf,
+  convertMultipleToPdf,
   needsConversion,
   isLibreOfficeInstalled
 };

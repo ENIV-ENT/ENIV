@@ -13,7 +13,7 @@ const fake = installFakeDb((method, sql, params) => {
   return undefined;
 });
 
-const router = require('../backend/routes/devoirs');
+const router = require('../backend/routes/assignments');
 let server;
 let url;
 
@@ -25,20 +25,20 @@ before(() => {
 });
 after(() => server.close());
 
-const modifier = (body) => fetch(`${url}/1`, {
+const update = (body) => fetch(`${url}/1`, {
   method: 'PUT',
   headers: { 'content-type': 'application/json', authorization: `Bearer ${jwt.sign({ userId: 1 }, JWT_SECRET)}` },
   body: body === undefined ? undefined : JSON.stringify(body),
 });
 
-for (const [cas, body] of [
-  ['sans titre', { matiere_id: 3 }],
-  ['sans matière', { titre: 'Exercice 3' }],
-  ['sans corps', undefined],
+for (const [scenario, body] of [
+  ['without a title', { matiere_id: 3 }],
+  ['without a subject', { titre: 'Exercice 3' }],
+  ['without a body', undefined],
 ]) {
-  test(`modifier un devoir ${cas} : 400 sans requête sur les devoirs`, async () => {
+  test(`updating an assignment ${scenario}: 400 without an assignment query`, async () => {
     fake.calls.length = 0;
-    const res = await modifier(body);
+    const res = await update(body);
     assert.equal(res.status, 400);
     assert.equal((await res.json()).error, 'Titre et matière requis');
     assert.ok(!fake.calls.some((c) => c.sql.includes('devoirs') || c.sql.includes('matieres')));

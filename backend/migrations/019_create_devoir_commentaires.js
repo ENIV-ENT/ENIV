@@ -1,11 +1,10 @@
-// Migration: Commentaires sous les devoirs
-// Les élèves d'une classe peuvent poser une question ou préciser un devoir
-// (« c'est l'exercice 3 ou 4 ? »). Un commentaire disparaît avec son devoir ou
-// avec le compte de son auteur.
-
+/**
+ * Creates the comments under assignments. A comment disappears with its assignment
+ * or with its author's account.
+ */
 module.exports = {
   up: async (pool) => {
-    console.log('Migration 019: Création de la table devoir_commentaires');
+    console.log('Migration 019: create table devoir_commentaires');
 
     const connection = await pool.getConnection();
     try {
@@ -21,14 +20,14 @@ module.exports = {
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
       `);
-      console.log('  ✓ Table devoir_commentaires créée');
+      console.log('  ✓ Table devoir_commentaires created');
     } finally {
       connection.release();
     }
   },
 
   down: async (pool) => {
-    console.log('Migration 019 (rollback): Suppression de la table devoir_commentaires');
+    console.log('Migration 019 (rollback): drop table devoir_commentaires');
     const connection = await pool.getConnection();
     try {
       await connection.query('DROP TABLE IF EXISTS devoir_commentaires');

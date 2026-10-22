@@ -1,51 +1,55 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const db = require('../models/dbHelper');
-const { sendJoinRequestEmail, sendEtablissementRequestEmail } = require('../services/email');
+const { sendJoinRequestEmail, sendSchoolRequestEmail } = require('../services/email');
 const { signupLimiter, lookupLimiter } = require('../middleware/rateLimit');
 const router = express.Router();
 
 const SEARCH_LIMIT = 10;
 const API_LIMIT = 20;
 
-async function searchCachedEtablissements(query) {
+async function searchCachedSchools(query) {
   return db.all(
     'SELECT * FROM etablissements WHERE nom LIKE ? OR commune LIKE ? OR uai LIKE ? LIMIT ?',
     [`%${query}%`, `%${query}%`, `%${query}%`, SEARCH_LIMIT]
   );
 }
 
-async function cacheEtablissementSup(record) {
+/**
+ * Caches a higher education school returned by the data.gouv API, ignoring cache
+ * write errors, and returns it in the shape of the etablissements table.
+ */
+async function cacheHigherEducationSchool(record) {
   const uai = record.uai;
-  const nom = record.implantation_lib || record.uo_lib;
-  const commune = record.com_nom;
-  const codePostal = record.code_postal_uai;
+  const name = record.implantation_lib || record.uo_lib;
+  const town = record.com_nom;
+  const postalCode = record.code_postal_uai;
   const latitude = record.coordonnees ? record.coordonnees.lat : null;
   const longitude = record.coordonnees ? record.coordonnees.lon : null;
 
-  if (!uai || !nom) return null;
+  if (!uai || !name) return null;
 
   await db.run(
     `INSERT INTO etablissements (uai, nom, commune, code_postal, latitude, longitude)
      VALUES (?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE nom = VALUES(nom), commune = VALUES(commune), code_postal = VALUES(code_postal), latitude = VALUES(latitude), longitude = VALUES(longitude)`,
-    [uai, nom, commune, codePostal, latitude, longitude]
-  ).catch(() => { /* ignore cache write errors */ });
+    [uai, name, town, postalCode, latitude, longitude]
+  ).catch(() => {});
 
-  const etab = await db.get('SELECT id FROM etablissements WHERE uai = ?', [uai]);
+  const school = await db.get('SELECT id FROM etablissements WHERE uai = ?', [uai]);
 
   return {
-    id: etab ? etab.id : null,
+    id: school ? school.id : null,
     uai,
-    nom,
-    commune,
-    code_postal: codePostal,
+    nom: name,
+    commune: town,
+    code_postal: postalCode,
     latitude,
     longitude
   };
 }
 
-// Recherche d'etablissements via l'API Education Nationale
+/** Searches schools through the French higher education API, with the cache as fallback. */
 router.get('/etablissements', async (req, res) => {
   const { q } = req.query;
 
@@ -61,23 +65,23 @@ router.get('/etablissements', async (req, res) => {
     const data = await response.json();
 
     if (!data.results || data.results.length === 0) {
-      return res.json(await searchCachedEtablissements(q));
+      return res.json(await searchCachedSchools(q));
     }
 
-    const results = await Promise.all(data.results.map(cacheEtablissementSup));
+    const results = await Promise.all(data.results.map(cacheHigherEducationSchool));
     return res.json(results.filter(Boolean));
   } catch (error) {
-    console.error('Erreur recherche etablissements:', error);
-    const cached = await searchCachedEtablissements(q).catch(() => []);
+    console.error('School search failed:', error);
+    const cached = await searchCachedSchools(q).catch(() => []);
     return res.json(cached);
   }
 });
 
-// Lister les classes d'un etablissement
+/** Lists the classes of a school. */
 router.get('/classes', async (req, res) => {
-  const { etablissement_id } = req.query;
+  const { etablissement_id: schoolId } = req.query;
 
-  if (!etablissement_id) {
+  if (!schoolId) {
     return res.json([]);
   }
 
@@ -89,53 +93,54 @@ router.get('/classes', async (req, res) => {
        FROM classes c
        WHERE c.etablissement_id = ?
        ORDER BY c.nom`,
-      [etablissement_id]
+      [schoolId]
     );
     res.json(classes);
   } catch (error) {
-    console.error('Erreur listing classes:', error);
+    console.error('Error listing classes:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
-async function notifyClassAdmin(classeId, prenom, nom) {
+async function notifyClassAdmins(classId, firstName, lastName) {
   const admins = await db.all(
     'SELECT email FROM users WHERE role = ? AND classe_id = ? AND email IS NOT NULL',
-    ['admin', classeId]
+    ['admin', classId]
   );
 
   if (!admins.length) return;
 
-  const classeInfo = await db.get('SELECT nom FROM classes WHERE id = ?', [classeId]);
+  const schoolClass = await db.get('SELECT nom FROM classes WHERE id = ?', [classId]);
 
   await Promise.all(
-    admins.map(admin => sendJoinRequestEmail(admin.email, `${prenom} ${nom}`, classeInfo.nom))
+    admins.map(admin => sendJoinRequestEmail(admin.email, `${firstName} ${lastName}`, schoolClass.nom))
   );
 }
 
+/** Creates a student account with a join request to an existing class of the school. */
 async function createUserWithJoinRequest(fields) {
-  const { username, hashedPassword, email, nom, prenom, classe_id, etablissement_id } = fields;
+  const { username, hashedPassword, email, lastName, firstName, classId, schoolId } = fields;
 
-  const classe = await db.get(
+  const schoolClass = await db.get(
     'SELECT id FROM classes WHERE id = ? AND etablissement_id = ?',
-    [classe_id, etablissement_id]
+    [classId, schoolId]
   );
-  if (!classe) {
+  if (!schoolClass) {
     return { status: 400, body: { error: 'Classe introuvable' } };
   }
 
   const result = await db.run(
     'INSERT INTO users (username, password, email, nom, prenom, role) VALUES (?, ?, ?, ?, ?, ?)',
-    [username, hashedPassword, email || null, nom, prenom, 'eleve']
+    [username, hashedPassword, email || null, lastName, firstName, 'eleve']
   );
 
   await db.run(
     'INSERT INTO join_requests (user_id, classe_id) VALUES (?, ?)',
-    [result.lastInsertRowid, classe_id]
+    [result.lastInsertRowid, classId]
   );
 
-  await notifyClassAdmin(classe_id, prenom, nom).catch(err => {
-    console.error('Erreur envoi email notification:', err);
+  await notifyClassAdmins(classId, firstName, lastName).catch(err => {
+    console.error('Failed to send the notification email:', err);
   });
 
   return {
@@ -148,22 +153,23 @@ async function createUserWithJoinRequest(fields) {
   };
 }
 
-async function createUserWithNewClasse(fields) {
-  const { username, hashedPassword, email, nom, prenom, classe_nom, etablissement_id } = fields;
+/** Creates an admin account with a new class in the school. */
+async function createUserWithNewClass(fields) {
+  const { username, hashedPassword, email, lastName, firstName, className, schoolId } = fields;
 
   const result = await db.run(
     'INSERT INTO users (username, password, email, nom, prenom, role) VALUES (?, ?, ?, ?, ?, ?)',
-    [username, hashedPassword, email || null, nom, prenom, 'admin']
+    [username, hashedPassword, email || null, lastName, firstName, 'admin']
   );
 
   const userId = result.lastInsertRowid;
 
-  const classeResult = await db.run(
+  const classResult = await db.run(
     'INSERT INTO classes (nom, etablissement_id) VALUES (?, ?)',
-    [classe_nom, etablissement_id]
+    [className, schoolId]
   );
 
-  await db.run('UPDATE users SET classe_id = ? WHERE id = ?', [classeResult.lastInsertRowid, userId]);
+  await db.run('UPDATE users SET classe_id = ? WHERE id = ?', [classResult.lastInsertRowid, userId]);
 
   return {
     status: 200,
@@ -175,11 +181,14 @@ async function createUserWithNewClasse(fields) {
   };
 }
 
-// Inscription d'un nouvel utilisateur
+/** Signs up a new user, joining an existing class or creating one. */
 router.post('/register', signupLimiter, async (req, res) => {
-  const { username, password, email, nom, prenom, etablissement_id, classe_nom, classe_id } = req.body || {};
+  const {
+    username, password, email, nom: lastName, prenom: firstName,
+    etablissement_id: schoolId, classe_nom: className, classe_id: classId
+  } = req.body || {};
 
-  if (!username || !password || !nom || !prenom || !etablissement_id) {
+  if (!username || !password || !lastName || !firstName || !schoolId) {
     return res.status(400).json({ error: 'Tous les champs obligatoires doivent etre remplis' });
   }
 
@@ -205,20 +214,20 @@ router.post('/register', signupLimiter, async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const fields = { username, hashedPassword, email, nom, prenom, etablissement_id, classe_id, classe_nom };
+    const fields = { username, hashedPassword, email, lastName, firstName, schoolId, classId, className };
 
     let outcome;
-    if (classe_id) {
+    if (classId) {
       outcome = await createUserWithJoinRequest(fields);
-    } else if (classe_nom) {
-      outcome = await createUserWithNewClasse(fields);
+    } else if (className) {
+      outcome = await createUserWithNewClass(fields);
     } else {
       return res.status(400).json({ error: 'Veuillez selectionner une classe ou en creer une nouvelle' });
     }
 
     return res.status(outcome.status).json(outcome.body);
   } catch (error) {
-    console.error('Erreur inscription:', error);
+    console.error('Signup failed:', error);
     if (error.code === 'ER_DUP_ENTRY') {
       return res.status(400).json({ error: 'Ce nom d\'utilisateur ou cet email est deja utilise' });
     }
@@ -226,7 +235,7 @@ router.post('/register', signupLimiter, async (req, res) => {
   }
 });
 
-// Verifier la disponibilite d'un username
+/** Checks whether a username is available. */
 router.post('/check-username', lookupLimiter, async (req, res) => {
   const { username } = req.body || {};
 
@@ -240,58 +249,57 @@ router.post('/check-username', lookupLimiter, async (req, res) => {
       return res.json({ available: false, message: 'Ce nom d\'utilisateur est deja pris' });
     }
     return res.json({ available: true, message: 'Nom d\'utilisateur disponible' });
-  } catch (error) {
+  } catch {
     return res.json({ available: false, message: 'Erreur de verification' });
   }
 });
 
-// Recuperer les infos pour un lien pre-rempli
+/** Info for a prefilled invite link (class and school). */
 router.get('/invite-info', async (req, res) => {
-  const { classe_id, etab_id } = req.query;
+  const { classe_id: classId, etab_id: schoolId } = req.query;
 
-  if (!classe_id || !etab_id) {
+  if (!classId || !schoolId) {
     return res.status(400).json({ error: 'Parametres manquants' });
   }
 
   try {
-    const classe = await db.get('SELECT c.id, c.nom FROM classes c WHERE c.id = ? AND c.etablissement_id = ?', [classe_id, etab_id]);
-    const etab = await db.get('SELECT id, nom, commune, code_postal, latitude, longitude FROM etablissements WHERE id = ?', [etab_id]);
+    const schoolClass = await db.get('SELECT c.id, c.nom FROM classes c WHERE c.id = ? AND c.etablissement_id = ?', [classId, schoolId]);
+    const school = await db.get('SELECT id, nom, commune, code_postal, latitude, longitude FROM etablissements WHERE id = ?', [schoolId]);
 
-    if (!classe || !etab) {
+    if (!schoolClass || !school) {
       return res.status(404).json({ error: 'Classe ou etablissement introuvable' });
     }
 
-    res.json({ classe, etablissement: etab });
-  } catch (error) {
+    res.json({ classe: schoolClass, etablissement: school });
+  } catch {
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
-// Demande d'ajout d'etablissement
+/** Request to add a school, emailed to the superadmin. */
 router.post('/etablissement-request', signupLimiter, async (req, res) => {
-  const { nom, commune, code_postal, email_demandeur } = req.body || {};
+  const { nom: name, commune: town, code_postal: postalCode, email_demandeur: requesterEmail } = req.body || {};
 
-  if (!nom || !email_demandeur) {
+  if (!name || !requesterEmail) {
     return res.status(400).json({ error: 'Le nom de l\'etablissement et l\'email sont requis' });
   }
 
   try {
     await db.run(
       'INSERT INTO etablissement_requests (nom, commune, code_postal, email_demandeur) VALUES (?, ?, ?, ?)',
-      [nom, commune || null, code_postal || null, email_demandeur]
+      [name, town || null, postalCode || null, requesterEmail]
     );
 
-    // Envoyer un email au superadmin
     const superadmin = await db.get('SELECT email FROM users WHERE role = ? AND email IS NOT NULL', ['superadmin']);
     if (superadmin && superadmin.email) {
-      await sendEtablissementRequestEmail(superadmin.email, nom, email_demandeur).catch(err => {
-        console.error('Erreur envoi email demande etablissement:', err);
+      await sendSchoolRequestEmail(superadmin.email, name, requesterEmail).catch(err => {
+        console.error('Failed to send the school request email:', err);
       });
     }
 
     res.json({ success: true, message: 'Votre demande a bien ete envoyee. Vous serez informe par email de la suite donnee.' });
   } catch (error) {
-    console.error('Erreur demande etablissement:', error);
+    console.error('School request failed:', error);
     res.status(500).json({ error: 'Erreur lors de l\'envoi de la demande' });
   }
 });

@@ -1,17 +1,17 @@
-# Environnement de test local : MySQL + l'application.
-#   docker compose up            -> base de données + app sur http://localhost:3000
-#   docker compose up db         -> uniquement MySQL (pour lancer l'app sur l'hôte)
-#   phpMyAdmin est lancé avec l'ensemble sur http://localhost:8080
+# Local test environment: MySQL + the app.
+#   docker compose up            -> database + app on http://localhost:3000
+#   docker compose up db         -> MySQL only (to run the app on the host)
+#   phpMyAdmin starts with the whole stack on http://localhost:8080
 #
-# Les valeurs ci-dessous sont des valeurs par défaut de développement ; un fichier
-# .env à la racine les remplace automatiquement (interpolation Compose).
+# The values below are development defaults; a .env file at the root
+# overrides them automatically (Compose interpolation).
 
 services:
   db:
     image: mysql:8.4
     command:
-      # Le schéma ne déclare aucun charset : il hérite de celui du serveur.
-      # utf8mb4 est indispensable pour les accents (établissement, élève, ...).
+      # The schema declares no charset: it inherits the server's.
+      # utf8mb4 is required for accented characters (établissement, élève, ...).
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
     environment:
@@ -22,8 +22,8 @@ services:
     volumes:
       - db-data:/var/lib/mysql
     healthcheck:
-      # L'app fait process.exit(1) si la connexion échoue : elle ne doit
-      # démarrer qu'une fois MySQL réellement prêt à accepter des requêtes.
+      # The app calls process.exit(1) when the connection fails: it must only
+      # start once MySQL actually accepts queries.
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
       interval: 5s
       timeout: 5s
@@ -35,7 +35,7 @@ services:
     working_dir: /app
     command: sh -c "npm ci && npm start"
     environment:
-      NODE_ENV: development          # -> port 3000 (sinon 3650, cf. server.js)
+      NODE_ENV: development          # -> port 3000 (3650 otherwise, see server.js)
       DB_HOST: db
       DB_PORT: 3306
       DB_NAME: ${DB_NAME:-ent}
@@ -43,8 +43,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-devpassword}
       BASE_URL: http://localhost:3000
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-not-for-production}
-      # Clés d'API externes : laissées vides, les fonctionnalités
-      # correspondantes (quiz IA, e-mails) sont inactives en test.
+      # External API keys: left empty, the matching features
+      # (AI quizzes, emails) are disabled in tests.
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       BREVO_API_KEY: ${BREVO_API_KEY:-}
       PREMIUM_API_KEY: ${PREMIUM_API_KEY:-}
@@ -52,8 +52,8 @@ services:
       - "3000:3000"
     volumes:
       - .:/app
-      # node_modules dans un volume : évite que le dossier de l'hôte
-      # écrase l'installation faite dans le conteneur.
+      # node_modules in a volume: keeps the host folder from
+      # overwriting the install made inside the container.
       - app-node-modules:/app/node_modules
     depends_on:
       db:
@@ -66,8 +66,8 @@ services:
     environment:
       PMA_HOST: db
       PMA_PORT: 3306
-      # Connexion automatique en root : évite de ressaisir les identifiants
-      # de développement à chaque ouverture de l'interface.
+      # Automatic root login: avoids typing the development credentials
+      # every time the interface is opened.
       PMA_USER: root
       PMA_PASSWORD: ${DB_PASSWORD:-devpassword}
     depends_on:

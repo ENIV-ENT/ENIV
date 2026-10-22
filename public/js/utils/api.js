@@ -3,19 +3,23 @@ import { handlePushBeforeLogout } from './push.js';
 
 export { apiCall };
 
-// Le cache hors ligne des réponses API (voir /sw.js) ne distingue pas les
-// utilisateurs : il doit être vidé dès que le compte connecté change.
+/**
+ * Empties the offline cache of API responses (see /sw.js). That cache does not
+ * tell users apart, so it must be cleared whenever the logged-in account changes.
+ */
 export async function clearApiCache() {
   try {
     if ('caches' in window) await caches.delete('eniv-api');
   } catch {
-    // Cache indisponible (navigation privée...) : rien à vider.
+    return;
   }
 }
 
-// Cookie indicateur partagé avec eniv.fr : il ne contient aucun secret (le
-// jeton reste dans localStorage), il dit seulement « connecté sur ce navigateur »
-// pour que la vitrine renvoie directement vers l'app (voir public-site/.htaccess).
+/**
+ * Hint cookie shared with eniv.fr. It holds no secret (the token stays in
+ * localStorage): it only says "logged in on this browser", so that the showcase
+ * site sends the visitor straight to the app (see public-site/.htaccess).
+ */
 const SESSION_HINT_COOKIE = 'eniv_session';
 
 function setSessionHint(loggedIn) {
@@ -47,6 +51,10 @@ function normalizePath(path) {
   return path.endsWith('/') ? path : path + '/';
 }
 
+/**
+ * Checks the session and redirects to the page allowed for the user's role.
+ * @returns {Promise<object>} The `/api/auth/me` payload, or `{ authenticated: false, error? }`.
+ */
 export async function checkAuth() {
   setLoadingScreenVisible(true);
 
@@ -95,8 +103,11 @@ export async function checkAuth() {
   return data;
 }
 
+/**
+ * Logs out. The push unsubscription runs before the logout call, because it
+ * needs to be authenticated.
+ */
 export async function logout() {
-  // Avant l'appel de déconnexion : désabonner l'appareil demande d'être authentifié
   if (!await handlePushBeforeLogout()) return;
   await apiCall('/api/auth/logout', { method: 'POST' });
   localStorage.removeItem('token');
