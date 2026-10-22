@@ -10,7 +10,7 @@ const fake = installFakeDb();
 const emailFile = path.join(__dirname, '../backend/services/email.js');
 require.cache[emailFile] = {
   id: emailFile, filename: emailFile, loaded: true,
-  exports: { sendJoinRequestEmail: async () => {}, sendEtablissementRequestEmail: async () => {} },
+  exports: { sendJoinRequestEmail: async () => {}, sendSchoolRequestEmail: async () => {} },
 };
 
 const router = require('../backend/routes/registration');

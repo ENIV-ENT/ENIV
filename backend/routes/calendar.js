@@ -88,8 +88,8 @@ router.get('/:token.ics', async (req, res) => {
       : [];
 
     const ics = buildCalendar({
-      nom: user.classe_nom ? `Eniv · ${user.classe_nom}` : 'Eniv',
-      devoirs,
+      name: user.classe_nom ? `Eniv · ${user.classe_nom}` : 'Eniv',
+      assignments: devoirs,
       baseUrl: baseUrl(req),
     });
 

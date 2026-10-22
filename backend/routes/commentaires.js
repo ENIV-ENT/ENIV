@@ -2,8 +2,8 @@ const express = require('express');
 const db = require('../models/dbHelper');
 const { requireAuth } = require('../middleware/auth');
 const { commentLimiter } = require('../middleware/rateLimit');
-const { logDevoirAction } = require('../services/devoirLogger');
-const { devoirDeLaClasse: chercherDevoirDeLaClasse } = require('../services/appartenanceClasse');
+const { logAssignmentAction } = require('../services/assignmentLogger');
+const { findClassAssignment } = require('../services/classMembership');
 const push = require('../services/push');
 const pushMessages = require('../services/pushMessages');
 
@@ -20,7 +20,7 @@ router.use(requireAuth);
 async function devoirDeLaClasse(req, res, next) {
   const idsValides = [req.params.devoirId, req.params.commentaireId ?? '0'].every((id) => /^\d+$/.test(id));
   const devoir = idsValides
-    ? await chercherDevoirDeLaClasse(req.params.devoirId, req.user.classe_id)
+    ? await findClassAssignment(req.params.devoirId, req.user.classe_id)
     : null;
   if (!devoir) {
     return res.status(404).json({ error: 'Devoir non trouvé' });
@@ -80,8 +80,8 @@ router.post('/', commentLimiter, express.json(), devoirDeLaClasse, async (req, r
     await joindreNombre(req, res);
 
     const auteur = [req.user.prenom, req.user.nom].filter(Boolean).join(' ') || req.user.username;
-    push.notifyCommentaireInBackground(req.user.classe_id, res.locals.devoir.id,
-      pushMessages.nouveauCommentaire({ devoirId: res.locals.devoir.id, titre: res.locals.devoir.titre, auteur, contenu }),
+    push.notifyCommentInBackground(req.user.classe_id, res.locals.devoir.id,
+      pushMessages.newComment({ assignmentId: res.locals.devoir.id, title: res.locals.devoir.titre, author: auteur, content: contenu }),
       req.user.id);
 
     res.json({ success: true, id: result.lastInsertRowid });
@@ -112,8 +112,8 @@ router.delete('/:commentaireId', devoirDeLaClasse, async (req, res) => {
     await db.run('DELETE FROM devoir_commentaires WHERE id = ?', [commentaire.id]);
 
     // Garder une trace du message supprimé et de son auteur dans l'Historique
-    await logDevoirAction(req, {
-      devoirId: Number(req.params.devoirId),
+    await logAssignmentAction(req, {
+      assignmentId: Number(req.params.devoirId),
       action: 'delete_commentaire',
       details: {
         titre: commentaire.devoir_titre,

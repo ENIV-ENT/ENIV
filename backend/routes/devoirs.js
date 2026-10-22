@@ -4,14 +4,14 @@ const path = require('path');
 const fs = require('fs');
 const db = require('../models/dbHelper');
 const { requireAuth } = require('../middleware/auth');
-const { convertToPDF } = require('../services/fileConverter');
-const { check_before_upload } = require('../services/fileCleanup');
-const { snapshotDevoir, diffSnapshots, logDevoirAction } = require('../services/devoirLogger');
+const { convertToPdf } = require('../services/fileConverter');
+const { checkBeforeUpload } = require('../services/fileCleanup');
+const { snapshotAssignment, diffSnapshots, logAssignmentAction } = require('../services/assignmentLogger');
 const push = require('../services/push');
 const pushMessages = require('../services/pushMessages');
-const { creerJeton } = require('../services/fichierLinks');
-const { matiereDeLaClasse, devoirDeLaClasse } = require('../services/appartenanceClasse');
-const { getSource } = require('../services/emploiTemps');
+const { createFileToken } = require('../services/fileLinks');
+const { findClassSubject, findClassAssignment } = require('../services/classMembership');
+const { getSource } = require('../services/timetable');
 const router = express.Router();
 
 // Devoir avec le nom de sa matière, utilisé pour construire les instantanés des logs
@@ -82,7 +82,7 @@ router.post('/', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'Utilisateur non associé à une classe' });
     }
 
-    if (!await matiereDeLaClasse(matiere_id, classeId)) {
+    if (!await findClassSubject(matiere_id, classeId)) {
       return res.status(400).json({ error: 'Matière inconnue' });
     }
 
@@ -95,15 +95,15 @@ router.post('/', express.json(), async (req, res) => {
 
     // Journaliser la création avec l'état complet du devoir tel qu'enregistré
     const created = await db.get(DEVOIR_WITH_MATIERE_SQL, [devoirId, classeId]);
-    const snapshot = snapshotDevoir(created || { titre, description, matiere_id, date });
-    await logDevoirAction(req, {
-      devoirId,
+    const snapshot = snapshotAssignment(created || { titre, description, matiere_id, date });
+    await logAssignmentAction(req, {
+      assignmentId: devoirId,
       action: 'create',
       details: { titre: snapshot.titre, devoir: snapshot }
     });
 
-    push.notifyClasseInBackground(classeId, 'nouveau_devoir',
-      pushMessages.nouveauDevoir({ id: devoirId, ...snapshot }), req.user.id);
+    push.notifyClassInBackground(classeId, 'nouveau_devoir',
+      pushMessages.newAssignment({ id: devoirId, ...snapshot }), req.user.id);
 
     res.json({
       success: true,
@@ -196,7 +196,7 @@ router.put('/:id', express.json(), async (req, res) => {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
 
-    if (!await matiereDeLaClasse(matiere_id, classeId)) {
+    if (!await findClassSubject(matiere_id, classeId)) {
       return res.status(400).json({ error: 'Matière inconnue' });
     }
 
@@ -208,18 +208,18 @@ router.put('/:id', express.json(), async (req, res) => {
     // Relire le devoir plutôt que de se fier au corps de la requête : on compare
     // ainsi ce qui est réellement stocké, sans fausse modification due au format
     const newDevoir = await db.get(DEVOIR_WITH_MATIERE_SQL, [req.params.id, classeId]);
-    const after = snapshotDevoir(newDevoir || {});
-    const changes = diffSnapshots(snapshotDevoir(oldDevoir), after);
+    const after = snapshotAssignment(newDevoir || {});
+    const changes = diffSnapshots(snapshotAssignment(oldDevoir), after);
 
     // Journaliser uniquement si quelque chose a effectivement changé
     if (changes.length > 0) {
-      await logDevoirAction(req, {
-        devoirId: req.params.id,
+      await logAssignmentAction(req, {
+        assignmentId: req.params.id,
         action: 'update',
         details: { titre: after.titre, changes }
       });
 
-      push.notifyDevoirModifieInBackground(classeId, { id: Number(req.params.id), ...after }, changes, req.user.id);
+      push.notifyAssignmentUpdatedInBackground(classeId, { id: Number(req.params.id), ...after }, changes, req.user.id);
     }
 
     res.json({ success: true, message: 'Devoir mis à jour' });
@@ -255,9 +255,9 @@ router.delete('/:id', async (req, res) => {
     await db.run('DELETE FROM devoirs WHERE id = ? AND classe_id = ?', [req.params.id, classeId]);
 
     // Journaliser la suppression avec l'état complet du devoir perdu
-    const snapshot = snapshotDevoir(devoir);
-    await logDevoirAction(req, {
-      devoirId: req.params.id,
+    const snapshot = snapshotAssignment(devoir);
+    await logAssignmentAction(req, {
+      assignmentId: req.params.id,
       action: 'delete',
       details: { titre: snapshot.titre, devoir: snapshot, fichiers }
     });
@@ -273,7 +273,7 @@ router.post('/:id/statut', express.json(), async (req, res) => {
 
   try {
     // Un élève ne peut cocher que les devoirs de sa propre classe
-    const devoir = await devoirDeLaClasse(req.params.id, req.user.classe_id);
+    const devoir = await findClassAssignment(req.params.id, req.user.classe_id);
     if (!devoir) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
     }
@@ -327,7 +327,7 @@ router.post('/:id/upload', upload.single('pdf'), async (req, res) => {
     }
 
     // Vérifier que le devoir existe et appartient à la même classe
-    const devoir = await devoirDeLaClasse(req.params.id, classeId);
+    const devoir = await findClassAssignment(req.params.id, classeId);
 
     if (!devoir) {
       // Supprimer le fichier uploadé
@@ -336,7 +336,7 @@ router.post('/:id/upload', upload.single('pdf'), async (req, res) => {
     }
 
     // Vérifier la limite de stockage (nettoie si nécessaire ou refuse)
-    const storageCheck = await check_before_upload(req.file.size);
+    const storageCheck = await checkBeforeUpload(req.file.size);
     
     if (!storageCheck.allowed) {
       // Supprimer le fichier uploadé
@@ -355,8 +355,8 @@ router.post('/:id/upload', upload.single('pdf'), async (req, res) => {
     );
 
     // Journaliser l'ajout du document avec ses caractéristiques
-    await logDevoirAction(req, {
-      devoirId: req.params.id,
+    await logAssignmentAction(req, {
+      assignmentId: req.params.id,
       action: 'upload_pdf',
       details: {
         titre: devoir.titre,
@@ -397,7 +397,7 @@ router.get('/:id/fichiers', async (req, res) => {
     }
 
     // Vérifier que le devoir existe et appartient à la même classe
-    const devoir = await devoirDeLaClasse(req.params.id, classeId);
+    const devoir = await findClassAssignment(req.params.id, classeId);
 
     if (!devoir) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
@@ -441,7 +441,7 @@ router.get('/fichiers/:fichierId/lien', async (req, res) => {
       return res.status(404).json({ error: 'Fichier non trouvé' });
     }
 
-    res.json({ url: `/api/fichiers/${creerJeton(fichier.id)}` });
+    res.json({ url: `/api/fichiers/${createFileToken(fichier.id)}` });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erreur lors de l\'ouverture du fichier' });
@@ -478,7 +478,7 @@ router.get('/fichiers/:fichierId/pdf', async (req, res) => {
 
     // Convertir en PDF si nécessaire (DOCX, PPTX, etc.)
     try {
-      filePath = await convertToPDF(filePath);
+      filePath = await convertToPdf(filePath);
     } catch (error) {
       console.error('Erreur conversion PDF:', error);
       return res.status(500).json({ error: 'Erreur lors de la conversion en PDF' });
@@ -533,8 +533,8 @@ router.delete('/fichiers/:fichierId', async (req, res) => {
     await db.run('DELETE FROM devoir_fichiers WHERE id = ?', [req.params.fichierId]);
 
     // Journaliser la suppression du document, y compris son auteur d'origine
-    await logDevoirAction(req, {
-      devoirId: fichier.devoir_id,
+    await logAssignmentAction(req, {
+      assignmentId: fichier.devoir_id,
       action: 'delete_pdf',
       details: {
         titre: fichier.devoir_titre,
@@ -709,7 +709,7 @@ async function generateQuizInBackground(devoirId, devoir, user) {
     // S'assurer que dotenv est chargé
     require('dotenv').config();
     
-    const { generateQuizWithAI } = require('../services/quizGenerator');
+    const { generateQuizWithAi } = require('../services/quizGenerator');
     
     // Récupérer les informations complètes des fichiers
     const fichiers = await db.all(
@@ -717,7 +717,7 @@ async function generateQuizInBackground(devoirId, devoir, user) {
       [devoirId]
     );
     
-    const questions = await generateQuizWithAI(
+    const questions = await generateQuizWithAi(
       devoir,
       user.premium,
       fichiers

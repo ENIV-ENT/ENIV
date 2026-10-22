@@ -1,73 +1,75 @@
 const cron = require('node-cron');
-const { envoyerRecapitulatifQuotidien, envoyerRecapitulatifHebdomadaire } = require('./discord');
-const { envoyerRappelsVeille } = require('./pushReminders');
-const { refreshAll } = require('./emploiTemps');
+const { sendDailySummary, sendWeeklySummary } = require('./discord');
+const { sendDayBeforeReminders } = require('./pushReminders');
+const { refreshAll } = require('./timetable');
 
 /**
- * Initialise le planificateur de tâches
+ * Starts the scheduled tasks (Europe/Paris time):
+ * - 18:00: daily Discord summary and day-before push reminders (assignments due
+ *   tomorrow and not done yet);
+ * - Saturday 09:00: weekly Discord summary;
+ * - every 30 minutes: ICS timetables, so the version kept in the database stays up
+ *   to date even if nobody opens the page, and serves as a fallback when the
+ *   source goes down. A first run happens shortly after startup, once the
+ *   migrations are applied.
  */
 function initScheduler() {
-  // Récapitulatif Discord à 18h00
   cron.schedule('00 18 * * *', async () => {
-    console.log('Exécution de la tâche planifiée: envoi du récapitulatif quotidien');
+    console.log('Scheduled task: sending the daily summary');
     try {
-      await envoyerRecapitulatifQuotidien();
+      await sendDailySummary();
     } catch (error) {
-      console.error('Erreur lors de l\'exécution de la tâche planifiée:', error);
+      console.error('Scheduled task failed:', error);
     }
   }, {
     timezone: "Europe/Paris"
   });
 
-  // Rappel push de la veille : devoirs de demain pas encore faits
   cron.schedule('00 18 * * *', async () => {
     try {
-      await envoyerRappelsVeille();
+      await sendDayBeforeReminders();
     } catch (error) {
-      console.error('Erreur lors de l\'envoi des rappels push:', error);
+      console.error('Failed to send the push reminders:', error);
     }
   }, {
     timezone: "Europe/Paris"
   });
 
   cron.schedule("00 9 * * 6", async () => {
-    console.log("Exécution de la tâche planifiée: envoi du récapitulatif hebdomadaire");
+    console.log("Scheduled task: sending the weekly summary");
     try {
-      await envoyerRecapitulatifHebdomadaire();
+      await sendWeeklySummary();
     } catch (error) {
-      console.error("Erreur lors de l'exécution de la tâche planifiée:", error);
+      console.error("Scheduled task failed:", error);
     }
   }, {
     timezone: "Europe/Paris"
   });
 
-  // Emploi du temps ICS : la version gardée en base reste à jour même si
-  // personne n'ouvre la page, et sert de secours quand la source tombe
-  cron.schedule('*/30 * * * *', rafraichirEmploisDuTemps, {
+  cron.schedule('*/30 * * * *', refreshTimetables, {
     timezone: "Europe/Paris"
   });
-  // Premier passage peu après le démarrage (migrations appliquées entre-temps)
-  setTimeout(rafraichirEmploisDuTemps, 30 * 1000).unref();
+  setTimeout(refreshTimetables, 30 * 1000).unref();
 
-  console.log('Planificateur initialisé: récapitulatif quotidien et rappels push à 18h00 & hebdomadaire le samedi à 9h00, emplois du temps toutes les 30 min');
+  console.log('Scheduler started: daily summary and push reminders at 18:00, weekly summary on Saturday at 09:00, timetables every 30 min');
 }
 
-let rafraichissementEnCours = false;
+let refreshInProgress = false;
 
-async function rafraichirEmploisDuTemps() {
-  // Un passage lent ne doit pas se superposer au suivant
-  if (rafraichissementEnCours) return;
-  rafraichissementEnCours = true;
+/** A slow run must not overlap the next one. */
+async function refreshTimetables() {
+  if (refreshInProgress) return;
+  refreshInProgress = true;
 
   try {
-    const { ok, echecs } = await refreshAll();
-    if (ok || echecs) {
-      console.log(`Emplois du temps rafraîchis : ${ok} à jour, ${echecs} en échec`);
+    const { ok, failed } = await refreshAll();
+    if (ok || failed) {
+      console.log(`Timetables refreshed: ${ok} up to date, ${failed} failed`);
     }
   } catch (error) {
-    console.error('Erreur lors du rafraîchissement des emplois du temps:', error);
+    console.error('Failed to refresh the timetables:', error);
   } finally {
-    rafraichissementEnCours = false;
+    refreshInProgress = false;
   }
 }
 

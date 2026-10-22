@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { associerMatieres } = require('../backend/services/matieresEmploiTemps');
+const { matchSubjects } = require('../backend/services/timetableSubjects');
 
 const MATIERES = [
   { id: 1, nom: 'R505 - Programmation avancée', couleur: '#fcff6e' },
@@ -11,7 +11,7 @@ const MATIERES = [
   { id: 6, nom: 'R512 - Modélisations mathématiques', couleur: 'red; background: url(x)' },
 ];
 
-const matiere = (titre, description = '') => associerMatieres([{ titre, description }], MATIERES)[0].matiere?.id ?? null;
+const matiere = (titre, description = '') => matchSubjects([{ titre, description }], MATIERES)[0].matiere?.id ?? null;
 
 test('par code : dans la description ADE ou le titre, collé à un préfixe', () => {
   assert.equal(matiere('[ALT] TD - Langue G01', 'TD-BUT3 INFO\nTBFAR514 - Anglais\nGD - Informatique'), 2);
@@ -41,7 +41,7 @@ test('une couleur qui n\'est pas hexadécimale écarte la matière', () => {
 
 test('ne modifie pas les cours reçus', () => {
   const cours = [{ titre: 'TD - Anglais', description: '' }];
-  const [resultat] = associerMatieres(cours, MATIERES);
+  const [resultat] = matchSubjects(cours, MATIERES);
   assert.deepEqual(resultat.matiere, { id: 2, nom: 'R514 - Anglais', couleur: '#f673ce' });
   assert.equal('matiere' in cours[0], false);
 });

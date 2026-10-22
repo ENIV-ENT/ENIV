@@ -1,36 +1,37 @@
 const db = require('../models/dbHelper');
 const push = require('./push');
-const { rappelVeille } = require('./pushMessages');
+const { dayBeforeReminder } = require('./pushMessages');
 
 const TIMEZONE = 'Europe/Paris';
 
-// Date de demain (YYYY-MM-DD) dans le fuseau de l'établissement
-function demainParis(now = new Date()) {
-  const demain = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  return new Intl.DateTimeFormat('en-CA', { timeZone: TIMEZONE }).format(demain);
+/** Tomorrow's date (YYYY-MM-DD) in the school's time zone. */
+function tomorrowInParis(now = new Date()) {
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TIMEZONE }).format(tomorrow);
 }
 
 /**
- * Regroupe par élève les devoirs de demain qu'il n'a pas encore cochés.
+ * Groups by student tomorrow's assignments they have not checked yet.
  * @param {Array<{user_id, id, titre, matiere_nom}>} rows
  * @returns {Map<number, Array>}
  */
-function grouperParUtilisateur(rows) {
-  const parUtilisateur = new Map();
+function groupByUser(rows) {
+  const byUser = new Map();
   for (const row of rows) {
-    if (!parUtilisateur.has(row.user_id)) parUtilisateur.set(row.user_id, []);
-    parUtilisateur.get(row.user_id).push({ id: row.id, titre: row.titre, matiere_nom: row.matiere_nom });
+    if (!byUser.has(row.user_id)) byUser.set(row.user_id, []);
+    byUser.get(row.user_id).push({ id: row.id, titre: row.titre, matiere_nom: row.matiere_nom });
   }
-  return parUtilisateur;
+  return byUser;
 }
 
 /**
- * Rappel de la veille : chaque élève abonné reçoit la liste des devoirs pour
- * demain qu'il n'a pas encore marqués comme faits. Rien n'est envoyé à qui a
- * tout fini.
+ * Day-before reminder: each subscribed student gets the list of tomorrow's
+ * assignments they have not marked as done yet. Nothing is sent to those who
+ * finished everything. Sends run in parallel: a student whose send fails or lags
+ * does not deprive the others.
  */
-async function envoyerRappelsVeille(now = new Date()) {
-  const date = demainParis(now);
+async function sendDayBeforeReminders(now = new Date()) {
+  const date = tomorrowInParis(now);
 
   const rows = await db.all(
     `SELECT u.id AS user_id, d.id, d.titre, m.nom AS matiere_nom
@@ -47,19 +48,18 @@ async function envoyerRappelsVeille(now = new Date()) {
     [date, date]
   );
 
-  const parUtilisateur = grouperParUtilisateur(rows);
-  let envoyes = 0;
-  // En parallèle : un élève dont l'envoi échoue ou traîne ne prive pas les autres
-  await Promise.all([...parUtilisateur].map(async ([userId, devoirs]) => {
+  const byUser = groupByUser(rows);
+  let sent = 0;
+  await Promise.all([...byUser].map(async ([userId, assignments]) => {
     try {
-      envoyes += (await push.sendToUser(userId, rappelVeille(devoirs))).sent;
+      sent += (await push.sendToUser(userId, dayBeforeReminder(assignments))).sent;
     } catch (error) {
-      console.error(`Rappel push de la veille échoué pour l'utilisateur ${userId}:`, error);
+      console.error(`Day-before push reminder failed for user ${userId}:`, error);
     }
   }));
 
-  console.log(`Rappels push de la veille (${date}) : ${parUtilisateur.size} élève(s), ${envoyes} notification(s)`);
-  return { date, utilisateurs: parUtilisateur.size, envoyes };
+  console.log(`Day-before push reminders (${date}): ${byUser.size} student(s), ${sent} notification(s)`);
+  return { date, users: byUser.size, sent };
 }
 
-module.exports = { envoyerRappelsVeille, demainParis, grouperParUtilisateur };
+module.exports = { sendDayBeforeReminders, tomorrowInParis, groupByUser };

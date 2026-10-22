@@ -1,7 +1,7 @@
 const express = require('express');
 const db = require('../models/dbHelper');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
-const { devoirDeLaClasse } = require('../services/appartenanceClasse');
+const { findClassAssignment } = require('../services/classMembership');
 const router = express.Router();
 
 router.use(requireAuth);
@@ -150,7 +150,7 @@ router.post('/create', requireAdmin, express.json(), async (req, res) => {
     }
 
     // Vérifier que le devoir existe et appartient à la même classe
-    const devoir = await devoirDeLaClasse(devoirId, classeId);
+    const devoir = await findClassAssignment(devoirId, classeId);
 
     if (!devoir) {
       return res.status(404).json({ error: 'Devoir non trouvé' });
@@ -199,7 +199,7 @@ router.delete('/:devoirId', requireAdmin, async (req, res) => {
     }
 
     // Vérifier que le devoir existe et appartient à la même classe
-    const devoir = await devoirDeLaClasse(devoirId, classeId);
+    const devoir = await findClassAssignment(devoirId, classeId);
 
     if (!devoir) {
       return res.status(404).json({ error: 'Devoir non trouvé' });

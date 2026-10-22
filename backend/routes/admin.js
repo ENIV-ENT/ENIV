@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const db = require('../models/dbHelper');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { sendJoinRequestAcceptedEmail } = require('../services/email');
-const { getEmploiTemps, getSource, setSource } = require('../services/emploiTemps');
+const { getTimetable, getSource, setSource } = require('../services/timetable');
 const { prepareUrl } = require('../services/safeRequest');
 const router = express.Router();
 
@@ -387,7 +387,7 @@ router.post('/settings/emploi-temps-ics', requireAdmin, express.json(), async (r
     // Une source momentanément injoignable n'empêche pas l'enregistrement.
     let erreur;
     try {
-      const emploi = await getEmploiTemps(classeId, { force: true });
+      const emploi = await getTimetable(classeId, { force: true });
       if (!emploi.horsLigne) {
         return res.json({ success: true, nombreCours: emploi.evenements.length });
       }

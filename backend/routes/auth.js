@@ -194,7 +194,7 @@ function parseMcpTokenBody(body) {
   }
 
   if (body.expires_at === null || body.expires_at === undefined || body.expires_at === '') {
-    return { nom, expiresAt: null };
+    return { name: nom, expiresAt: null };
   }
   const date = new Date(body.expires_at);
   if (Number.isNaN(date.getTime())) {
@@ -203,7 +203,7 @@ function parseMcpTokenBody(body) {
   if (date.getTime() <= Date.now()) {
     return { error: "La date d'expiration doit être dans le futur" };
   }
-  return { nom, expiresAt: date.toISOString().slice(0, 19).replace('T', ' ') };
+  return { name: nom, expiresAt: date.toISOString().slice(0, 19).replace('T', ' ') };
 }
 
 router.get('/mcp-tokens', requireAuth, async (req, res) => {

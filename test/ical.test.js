@@ -26,10 +26,10 @@ describe('format iCalendar', () => {
 
 describe('agenda', () => {
   const ics = buildCalendar({
-    nom: 'Eniv · Terminale 3',
+    name: 'Eniv · Terminale 3',
     baseUrl: 'https://app.eniv.fr',
     now: new Date('2026-10-18T12:00:00Z'),
-    devoirs: [
+    assignments: [
       { id: 1, titre: 'Exercices 12, 13', description: 'Rédiger; soigner', date: new Date('2026-10-20T00:00:00Z'), matiere_nom: 'Maths', fait: 0 },
       { id: 2, titre: 'Dissertation', description: null, date: '2026-10-22', matiere_nom: 'Philo', fait: 1 },
       { id: 3, titre: 'Sans date', date: null },

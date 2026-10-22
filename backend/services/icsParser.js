@@ -1,15 +1,20 @@
-// Lecture d'un calendrier iCalendar (RFC 5545) : uniquement ce qu'il faut pour
-// afficher un emploi du temps.
-//
-// Limites assumées : RRULE n'est pas développé (seule la première occurrence
-// est gardée). Les exports d'emploi du temps (ADE notamment) listent chaque
-// séance comme un événement distinct, ce qui rend la récurrence inutile ici.
+/**
+ * Reads an iCalendar file (RFC 5545): only what is needed to show a timetable.
+ *
+ * Known limit: RRULE is not expanded (only the first occurrence is kept).
+ * Timetable exports (ADE in particular) list each lesson as a separate event,
+ * which makes recurrence useless here.
+ *
+ * The event keys (titre, lieu, journee, debut, fin) are stored as JSON in
+ * emploi_temps_ics.evenements and sent to the browser: they must not change.
+ * @module
+ */
 
 const DEFAULT_TIME_ZONE = 'Europe/Paris';
 const DEFAULT_DURATION_MS = 60 * 60 * 1000;
 
 /**
- * Erreur levée quand le texte n'est pas un calendrier exploitable.
+ * Thrown when the text is not a usable calendar. Its message is shown to the user.
  */
 class IcsError extends Error {
   constructor(message) {
@@ -18,7 +23,7 @@ class IcsError extends Error {
   }
 }
 
-// Une ligne trop longue est coupée par CRLF suivi d'une espace ou d'une tabulation
+/** A line that is too long is split by CRLF followed by a space or a tab. */
 function unfold(text) {
   return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n[ \t]/g, '');
 }
@@ -28,8 +33,8 @@ function unescapeText(value) {
 }
 
 /**
- * Découpe « NOM;PARAM=VALEUR;...:VALEUR » (les « : » et « ; » entre guillemets
- * appartiennent au paramètre).
+ * Splits "NAME;PARAM=VALUE;...:VALUE" (the ":" and ";" between quotes belong to
+ * the parameter).
  * @returns {{name: string, params: Object<string, string>, value: string}|null}
  */
 function parseLine(line) {
@@ -81,7 +86,7 @@ function isValidTimeZone(timeZone) {
   }
 }
 
-// Décalage (en ms) entre l'heure locale du fuseau et UTC à un instant donné
+/** Offset (in ms) between the local time of the zone and UTC at a given instant. */
 function timeZoneOffset(timestamp, timeZone) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone,
@@ -100,8 +105,8 @@ function timeZoneOffset(timestamp, timeZone) {
 }
 
 /**
- * Convertit une heure murale d'un fuseau en instant UTC. Le décalage est
- * recalculé une fois pour tomber juste autour des changements d'heure.
+ * Converts a wall-clock time of a zone to a UTC instant. The offset is computed
+ * a second time to be right around daylight saving changes.
  */
 function wallTimeToUtc(year, month, day, hour, minute, second, timeZone) {
   const wall = Date.UTC(year, month - 1, day, hour, minute, second);
@@ -111,7 +116,8 @@ function wallTimeToUtc(year, month, day, hour, minute, second, timeZone) {
 }
 
 /**
- * Lit une valeur DTSTART/DTEND.
+ * Reads a DTSTART/DTEND value. A floating time, or a TZID that is not recognized
+ * (a Windows name for instance), is read in the school's time zone.
  * @returns {{allDay: true, date: string}|{allDay: false, timestamp: number}|null}
  */
 function parseDate(value, params) {
@@ -129,8 +135,6 @@ function parseDate(value, params) {
     return { allDay: false, timestamp: Date.UTC(year, month - 1, day, hour, minute, second) };
   }
 
-  // Heure flottante ou TZID : un TZID non reconnu (nom Windows par exemple)
-  // est interprété dans le fuseau de l'établissement
   const timeZone = params.TZID && isValidTimeZone(params.TZID) ? params.TZID : DEFAULT_TIME_ZONE;
   return { allDay: false, timestamp: wallTimeToUtc(year, month, day, hour, minute, second, timeZone) };
 }
@@ -149,8 +153,9 @@ function cleanDescription(text) {
 }
 
 /**
- * Transforme les propriétés brutes d'un VEVENT en cours affichable.
- * @returns {object|null} Null si l'événement est annulé ou sans date exploitable
+ * Turns the raw properties of a VEVENT into a displayable lesson. All-day events
+ * use "YYYY-MM-DD" dates with an exclusive end, as in the RFC.
+ * @returns {object|null} null if the event is cancelled or has no usable date
  */
 function toEvent(props) {
   if ((props.STATUS?.value || '').toUpperCase() === 'CANCELLED') return null;
@@ -169,13 +174,12 @@ function toEvent(props) {
     description: cleanDescription(text('DESCRIPTION'))
   };
 
-  // Journée entière : dates « AAAA-MM-JJ », fin exclusive comme dans la RFC
   if (start.allDay) {
-    const fin = end?.allDay && end.date > start.date ? end.date : nextDay(start.date);
-    return { ...event, journee: true, debut: start.date, fin };
+    const endDate = end?.allDay && end.date > start.date ? end.date : nextDay(start.date);
+    return { ...event, journee: true, debut: start.date, fin: endDate };
   }
 
-  const finTimestamp = end && !end.allDay && end.timestamp > start.timestamp
+  const endTimestamp = end && !end.allDay && end.timestamp > start.timestamp
     ? end.timestamp
     : start.timestamp + DEFAULT_DURATION_MS;
 
@@ -183,16 +187,17 @@ function toEvent(props) {
     ...event,
     journee: false,
     debut: new Date(start.timestamp).toISOString(),
-    fin: new Date(finTimestamp).toISOString()
+    fin: new Date(endTimestamp).toISOString()
   };
 }
 
 /**
- * Lit un calendrier ICS.
- * @param {string} text - Contenu du fichier .ics
+ * Reads an ICS calendar. Properties of sub-components (VALARM...) are ignored.
+ * Sorting compares strings: "YYYY-MM-DD" and full ISO instants sort together.
+ * @param {string} text - content of the .ics file
  * @returns {Array<{uid: string, titre: string, lieu: string, description: string, journee: boolean, debut: string, fin: string}>}
- *   Triés par début. Instants en ISO UTC, ou dates « AAAA-MM-JJ » pour une journée entière.
- * @throws {IcsError} Si le texte n'est pas un calendrier
+ *   sorted by start; instants in ISO UTC, or "YYYY-MM-DD" dates for all-day events
+ * @throws {IcsError} if the text is not a calendar
  */
 function parseIcs(text) {
   const content = unfold(String(text).replace(/^\uFEFF/, '')).trim();
@@ -203,7 +208,6 @@ function parseIcs(text) {
 
   const events = [];
   let props = null;
-  // Profondeur des sous-composants (VALARM...) dont les propriétés sont ignorées
   let nested = 0;
 
   for (const rawLine of content.split('\n')) {
@@ -232,7 +236,6 @@ function parseIcs(text) {
     }
   }
 
-  // Comparaison de chaînes : « AAAA-MM-JJ » et l'ISO complet se trient ensemble
   return events.sort((a, b) => (a.debut < b.debut ? -1 : a.debut > b.debut ? 1 : 0));
 }
 

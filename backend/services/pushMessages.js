@@ -1,11 +1,12 @@
 /**
- * Contenu des notifications push. Fonctions pures, sans accès à la base,
- * pour pouvoir être testées isolément.
+ * Content of the push notifications. Pure functions, without database access, so
+ * they can be tested on their own.
  *
- * Chaque message porte :
- * - url : page ouverte au clic (le tableau de bord ouvre ?devoir=ID tout seul) ;
- * - tag : une nouvelle notification avec le même tag remplace la précédente
- *   au lieu de s'empiler (ex. trois modifications du même devoir).
+ * Each message has:
+ * - url: page opened on click (the dashboard opens ?devoir=ID by itself);
+ * - tag: a new notification with the same tag replaces the previous one instead
+ *   of piling up (e.g. three changes of the same assignment).
+ * @module
  */
 
 const MAX_BODY = 140;
@@ -15,12 +16,12 @@ function truncate(text, max = MAX_BODY) {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
-function devoirUrl(devoirId) {
-  return `/dashboard/?devoir=${devoirId}`;
+function assignmentUrl(assignmentId) {
+  return `/dashboard/?devoir=${assignmentId}`;
 }
 
-// « 2026-10-20 » -> « mardi 20 octobre »
-function formatJour(dateStr) {
+/** "2026-10-20" -> "mardi 20 octobre" */
+function formatDay(dateStr) {
   if (!dateStr) return null;
   const [y, m, d] = String(dateStr).slice(0, 10).split('-').map(Number);
   if (!y || !m || !d) return null;
@@ -29,82 +30,84 @@ function formatJour(dateStr) {
   });
 }
 
-function nouveauDevoir({ id, titre, matiere_nom, date }) {
-  const jour = formatJour(date);
+function newAssignment({ id, titre: title, matiere_nom: subjectName, date }) {
+  const day = formatDay(date);
   return {
-    title: `📚 Nouveau devoir${matiere_nom ? ` · ${matiere_nom}` : ''}`,
-    body: truncate(jour ? `${titre} — pour ${jour}` : titre),
-    url: devoirUrl(id),
+    title: `📚 Nouveau devoir${subjectName ? ` · ${subjectName}` : ''}`,
+    body: truncate(day ? `${title} — pour ${day}` : title),
+    url: assignmentUrl(id),
     tag: `devoir-${id}`,
   };
 }
 
-// Nom affiché et genre, pour accorder « modifié »
-const CHAMPS = {
-  titre: { nom: 'titre', feminin: false },
-  description: { nom: 'description', feminin: true },
-  matiere_id: { nom: 'matière', feminin: true },
-  date: { nom: 'date', feminin: true },
+/** Displayed name and grammatical gender, to agree "modifié" in French. */
+const FIELDS = {
+  titre: { name: 'titre', feminine: false },
+  description: { name: 'description', feminine: true },
+  matiere_id: { name: 'matière', feminine: true },
+  date: { name: 'date', feminine: true },
 };
 
-function devoirModifie({ id, titre, matiere_nom, date }, changes = []) {
-  const champs = changes.map((c) => CHAMPS[c.field]).filter(Boolean);
+/**
+ * @param {Object} assignment
+ * @param {Array} changes - result of diffSnapshots
+ */
+function assignmentUpdated({ id, titre: title, matiere_nom: subjectName, date }, changes = []) {
+  const fields = changes.map((c) => FIELDS[c.field]).filter(Boolean);
   const dateChange = changes.find((c) => c.field === 'date');
   let detail;
-  if (dateChange && formatJour(date)) {
-    detail = `désormais pour ${formatJour(date)}`;
-  } else if (champs.length) {
-    // Masculin dès qu'un champ masculin est concerné
-    const accord = `${champs.every((c) => c.feminin) ? 'e' : ''}${champs.length > 1 ? 's' : ''}`;
-    detail = `${champs.map((c) => c.nom).join(', ')} modifié${accord}`;
+  if (dateChange && formatDay(date)) {
+    detail = `désormais pour ${formatDay(date)}`;
+  } else if (fields.length) {
+    const agreement = `${fields.every((f) => f.feminine) ? 'e' : ''}${fields.length > 1 ? 's' : ''}`;
+    detail = `${fields.map((f) => f.name).join(', ')} modifié${agreement}`;
   } else {
     detail = 'modifié';
   }
   return {
-    title: `✏️ Devoir modifié${matiere_nom ? ` · ${matiere_nom}` : ''}`,
-    body: truncate(`${titre} — ${detail}`),
-    url: devoirUrl(id),
+    title: `✏️ Devoir modifié${subjectName ? ` · ${subjectName}` : ''}`,
+    body: truncate(`${title} — ${detail}`),
+    url: assignmentUrl(id),
     tag: `devoir-${id}`,
   };
 }
 
 /**
- * Rappel de la veille : un seul message pour tous les devoirs non faits.
- * @param {Array<{id, titre, matiere_nom}>} devoirs
+ * Day-before reminder: a single message for all the assignments not done yet.
+ * @param {Array<{id, titre, matiere_nom}>} assignments
  */
-function rappelVeille(devoirs) {
-  if (devoirs.length === 1) {
-    const [d] = devoirs;
+function dayBeforeReminder(assignments) {
+  if (assignments.length === 1) {
+    const [a] = assignments;
     return {
       title: '⏰ Pour demain',
-      body: truncate(`${d.matiere_nom ? `${d.matiere_nom} : ` : ''}${d.titre}`),
-      url: devoirUrl(d.id),
+      body: truncate(`${a.matiere_nom ? `${a.matiere_nom} : ` : ''}${a.titre}`),
+      url: assignmentUrl(a.id),
       tag: 'rappel-veille',
     };
   }
-  const lignes = devoirs.map((d) => `• ${d.matiere_nom ? `${d.matiere_nom} : ` : ''}${d.titre}`);
+  const lines = assignments.map((a) => `• ${a.matiere_nom ? `${a.matiere_nom} : ` : ''}${a.titre}`);
   return {
-    title: `⏰ ${devoirs.length} devoirs pour demain`,
-    body: truncate(lignes.join('\n'), 300),
+    title: `⏰ ${assignments.length} devoirs pour demain`,
+    body: truncate(lines.join('\n'), 300),
     url: '/dashboard/',
     tag: 'rappel-veille',
   };
 }
 
 /**
- * Nouveau commentaire sur un devoir. Le tag est propre au fil de discussion :
- * plusieurs messages d'affilée ne s'empilent pas, et ne remplacent pas une
- * notification « Nouveau devoir » ou « Devoir modifié » encore affichée.
- * L'url déplie directement la discussion.
+ * New comment on an assignment. The tag is specific to the thread: several
+ * messages in a row do not pile up, and do not replace a "Nouveau devoir" or
+ * "Devoir modifié" notification still displayed. The url opens the thread
+ * directly. The comment is put on a single line: its line breaks waste space.
  */
-function nouveauCommentaire({ devoirId, titre, auteur, contenu }) {
-  // Une seule ligne : les retours à la ligne du commentaire gaspillent la place
-  const texte = String(contenu || '').replace(/\s+/g, ' ').trim();
+function newComment({ assignmentId, title, author, content }) {
+  const text = String(content || '').replace(/\s+/g, ' ').trim();
   return {
-    title: `💬 ${titre}`,
-    body: truncate(`${auteur} : ${texte}`),
-    url: `${devoirUrl(devoirId)}&commentaires=1`,
-    tag: `commentaire-${devoirId}`,
+    title: `💬 ${title}`,
+    body: truncate(`${author} : ${text}`),
+    url: `${assignmentUrl(assignmentId)}&commentaires=1`,
+    tag: `commentaire-${assignmentId}`,
   };
 }
 
@@ -117,4 +120,4 @@ function test() {
   };
 }
 
-module.exports = { nouveauDevoir, devoirModifie, rappelVeille, nouveauCommentaire, test, formatJour, truncate };
+module.exports = { newAssignment, assignmentUpdated, dayBeforeReminder, newComment, test, formatDay, truncate };

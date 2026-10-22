@@ -4,16 +4,17 @@ const Groq = require('groq-sdk');
 const fs = require('fs');
 const path = require('path');
 const { PDFParse } = require('pdf-parse');
-const { convertToPDF } = require('./fileConverter');
+const { convertToPdf } = require('./fileConverter');
 
 /**
- * Extraire le texte d'un fichier PDF
+ * Extracts the text of a PDF file. Returns an empty string when there is little
+ * or no extractable text (scanned document) or on error.
+ * pdf-parse 2: PDFParse class; getText() returns { text: "..." }, destroy() frees the document.
  */
-async function extractTextFromPDF(filePath) {
+async function extractTextFromPdf(filePath) {
   try {
     const dataBuffer = fs.readFileSync(filePath);
-    
-    // pdf-parse 2 : classe PDFParse ; getText() retourne { text: "..." }, destroy() libère le document
+
     const parser = new PDFParse({ data: dataBuffer });
     let text = '';
     try {
@@ -22,31 +23,32 @@ async function extractTextFromPDF(filePath) {
     } finally {
       await parser.destroy();
     }
-    
-    // Nettoyer et vérifier le texte
+
     const cleanText = text.trim();
-    
+
     if (!cleanText || cleanText.length < 100) {
-      console.warn(`⚠️ PDF "${path.basename(filePath)}" contient peu ou pas de texte extractible (${cleanText.length} caractères)`);
+      console.warn(`⚠️ PDF "${path.basename(filePath)}" has little or no extractable text (${cleanText.length} characters)`);
       return '';
     }
-    
-    console.log(`✓ PDF "${path.basename(filePath)}" : ${cleanText.length} caractères extraits`);
+
+    console.log(`✓ PDF "${path.basename(filePath)}": ${cleanText.length} characters extracted`);
     return cleanText;
   } catch (error) {
-    console.error(`❌ Erreur extraction PDF "${path.basename(filePath)}":`, error.message);
+    console.error(`❌ PDF extraction failed for "${path.basename(filePath)}":`, error.message);
     return '';
   }
 }
 
 /**
- * Prompt de génération. Un seul pour la première génération comme pour les
- * compléments : seul le début change quand des questions existent déjà. Le format
- * de la réponse n'y est pas décrit, il est imposé par QUIZ_SCHEMA.
- * @param {{min: number, max: number}} range - Nombre de questions demandé pour cet appel
- * @param {Array<{question: string}>} existing - Questions déjà générées, à ne pas répéter
+ * Generation prompt, in French. A single one for the first generation and for the
+ * additional ones: only the beginning changes when questions already exist. The
+ * answer format is not described there, it is enforced by QUIZ_SCHEMA.
+ * @param {Object} assignment - row with titre, matiere_nom, description, date
+ * @param {string} documentsText
+ * @param {{min: number, max: number}} range - number of questions asked for this call
+ * @param {Array<{question: string}>} existing - questions already generated, not to repeat
  */
-function createPrompt(devoir, documentsText, { min, max }, existing = []) {
+function createPrompt(assignment, documentsText, { min, max }, existing = []) {
   const introduction = existing.length === 0
     ? `Tu es un assistant pédagogique expert. Tu dois générer un questionnaire pour aider les étudiants à RÉVISER le COURS en vue d'une ÉVALUATION.`
     : `Tu es un assistant pédagogique expert. Tu as déjà généré ${existing.length} questions pour un questionnaire de RÉVISION du COURS, il en faut PLUS : génère de NOUVELLES questions, différentes de celles-ci (sans les répéter, même reformulées) :
@@ -61,10 +63,10 @@ Les documents fournis peuvent être :
 - Des TRAVAUX PRATIQUES (TPs) qui illustrent l'application des concepts du cours
 
 CONTEXTE DU DEVOIR :
-- Titre : ${devoir.titre}
-- Matière : ${devoir.matiere_nom || 'Non spécifiée'}
-- Description : ${devoir.description || 'Non spécifiée'}
-- Date : ${devoir.date || 'Non spécifiée'}
+- Titre : ${assignment.titre}
+- Matière : ${assignment.matiere_nom || 'Non spécifiée'}
+- Description : ${assignment.description || 'Non spécifiée'}
+- Date : ${assignment.date || 'Non spécifiée'}
 
 DOCUMENTS DU DEVOIR :
 ${documentsText}
@@ -103,17 +105,17 @@ INSTRUCTIONS :
 }
 
 /**
- * Schéma de la réponse, imposé au modèle par décodage contraint (Claude :
- * output_config.format, Groq : response_format strict). Le JSON reçu est donc
- * toujours syntaxiquement valide et du bon type, sans texte autour.
+ * Answer schema, enforced on the model by constrained decoding (Claude:
+ * output_config.format, Groq: strict response_format). The JSON received is
+ * therefore always syntactically valid and of the right type, without text around.
  *
- * C'est la seule description du format : les prompts n'en répètent rien.
+ * It is the only description of the format: the prompts repeat nothing of it.
  *
- * Limites communes aux deux fournisseurs : tous les champs sont obligatoires et
- * les objets fermés (additionalProperties: false), pas de minimum/maximum ni de
- * maxItems, et minItems seulement à 0 ou 1. Le nombre d'options (4) ne peut donc
- * pas être imposé par le schéma : keepValidQuestions le vérifie.
- * L'enveloppe { questions } est nécessaire, la racine doit être un objet.
+ * Limits shared by both providers: every field is required and objects are closed
+ * (additionalProperties: false), no minimum/maximum or maxItems, and minItems only
+ * at 0 or 1. The number of options (4) can therefore not be enforced by the
+ * schema: keepValidQuestions checks it. The { questions } envelope is needed, the
+ * root must be an object. The keys are also those stored in devoir_quiz.questions_json.
  */
 const QUESTION_SCHEMA = {
   type: 'object',
@@ -137,26 +139,29 @@ const QUIZ_SCHEMA = {
   additionalProperties: false
 };
 
-// Questions demandées par appel, selon ce que la réponse peut contenir. Claude a
-// 16000 tokens de sortie. Groq en a 4096, partagés avec le raisonnement de
-// gpt-oss, et l'offre gratuite plafonne à 8000 tokens par minute en tout
-// (document compris) : on n'y demande que ce qui tient, sans minimum de 20 par
-// appel. La boucle de génération enchaîne les appels jusqu'au total voulu.
-const QUESTIONS_PAR_APPEL = {
+/**
+ * Questions asked per call, depending on what the answer can hold. Claude has
+ * 16000 output tokens. Groq has 4096, shared with the reasoning of gpt-oss, and the
+ * free tier caps at 8000 tokens per minute in total (document included): only what
+ * fits is asked, without a minimum of 20 per call. The generation loop chains the
+ * calls until the wanted total.
+ */
+const QUESTIONS_PER_CALL = {
   claude: { min: 20, max: 100 },
   groq: { min: 8, max: 12 }
 };
 
 /**
- * Générer un quiz avec Claude (Premium)
+ * Generates questions with Claude (premium). A refusal does not follow the
+ * schema: there is nothing to recover, Groq takes over.
  */
 async function generateWithClaude(prompt) {
   const apiKey = process.env.PREMIUM_API_KEY;
-  
+
   if (!apiKey || apiKey.trim() === '') {
     throw new Error('PREMIUM_API_KEY n\'est pas configurée dans les variables d\'environnement');
   }
-  
+
   const client = new Anthropic({
     apiKey: apiKey
   });
@@ -174,7 +179,6 @@ async function generateWithClaude(prompt) {
       }
     });
 
-    // Un refus ne respecte pas le schéma : rien à récupérer, Groq prend le relais
     if (message.stop_reason === 'refusal') {
       const refusal = new Error('Claude a refusé de générer ce quiz');
       refusal.refusal = true;
@@ -184,7 +188,7 @@ async function generateWithClaude(prompt) {
     const content = message.content.find(block => block.type === 'text')?.text ?? '';
     return parseQuestions(content, message.stop_reason === 'max_tokens');
   } catch (error) {
-    console.error('❌ Erreur détaillée Claude:', {
+    console.error('❌ Claude error details:', {
       status: error.status,
       message: error.message,
       type: error.type,
@@ -195,15 +199,15 @@ async function generateWithClaude(prompt) {
 }
 
 /**
- * Générer un quiz avec Groq (Gratuit)
+ * Generates questions with Groq (free).
  */
 async function generateWithGroq(prompt) {
   const apiKey = process.env.GROQ_API_KEY;
-  
+
   if (!apiKey || apiKey.trim() === '') {
     throw new Error('GROQ_API_KEY n\'est pas configurée dans les variables d\'environnement');
   }
-  
+
   const client = new Groq({
     apiKey: apiKey
   });
@@ -234,11 +238,11 @@ async function generateWithGroq(prompt) {
 }
 
 /**
- * Groq valide lui-même le JSON contre le schéma : quand le modèle génère quelque
- * chose d'invalide (une question à laquelle il manque un champ, une réponse
- * coupée...), il répond une erreur 400 qui contient ce qui a été généré dans
- * `failed_generation`. On en récupère les questions valides.
- * @returns {Array|null} Null si l'erreur n'en contient aucune
+ * Groq validates the JSON against the schema itself: when the model generates
+ * something invalid (a question missing a field, a cut answer...), it answers a
+ * 400 error holding what was generated in `failed_generation`. The valid questions
+ * are recovered from it.
+ * @returns {Array|null} null if the error holds none
  */
 function questionsFromGroqError(error) {
   if (error?.status !== 400) return null;
@@ -247,7 +251,7 @@ function questionsFromGroqError(error) {
 
   try {
     const questions = parseQuestions(failed, true);
-    console.warn(`⚠️ Groq a refusé sa propre réponse (${error.message.slice(0, 120)}) : ${questions.length} question(s) valide(s) récupérée(s)`);
+    console.warn(`⚠️ Groq refused its own answer (${error.message.slice(0, 120)}): ${questions.length} valid question(s) recovered`);
     return questions;
   } catch {
     return null;
@@ -255,10 +259,18 @@ function questionsFromGroqError(error) {
 }
 
 /**
- * Questions complètes d'un JSON coupé en route. Le décodage contraint garantit un
- * JSON valide, pas qu'il soit complet : quand la réponse s'arrête sur la limite de
- * tokens, on garde les questions entières plutôt que de tout perdre.
+ * Complete questions of a JSON cut midway. Constrained decoding guarantees valid
+ * JSON, not complete JSON: when the answer stops on the token limit, the whole
+ * questions are kept rather than losing everything. A damaged question is skipped.
  */
+function parseJsonOrNull(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
 function completeQuestionsOfTruncatedJson(text) {
   const start = text.indexOf('[');
   if (start === -1) return [];
@@ -284,11 +296,8 @@ function completeQuestionsOfTruncatedJson(text) {
     } else if (char === '}') {
       depth--;
       if (depth === 0 && itemStart !== -1) {
-        try {
-          questions.push(JSON.parse(text.slice(itemStart, i + 1)));
-        } catch {
-          // Question abîmée : ignorée
-        }
+        const question = parseJsonOrNull(text.slice(itemStart, i + 1));
+        if (question) questions.push(question);
         itemStart = -1;
       }
     }
@@ -297,12 +306,11 @@ function completeQuestionsOfTruncatedJson(text) {
 }
 
 /**
- * Lire la réponse du modèle : { questions: [...] }. Les
- * questions invalides sont écartées une à une (keepValidQuestions), une seule ne
- * fait plus perdre toute la série.
- * @param {string} text - Réponse du modèle
- * @param {boolean} truncated - Réponse incomplète (limite de tokens, rejet de Groq)
- * @throws {Error} Si aucune question valide n'en ressort
+ * Reads the model answer: { questions: [...] }. Invalid questions are dropped one
+ * by one (keepValidQuestions), so a single one no longer loses the whole series.
+ * @param {string} text - model answer
+ * @param {boolean} truncated - incomplete answer (token limit, rejection by Groq)
+ * @throws {Error} if no valid question comes out of it
  */
 function parseQuestions(text, truncated = false) {
   let questions;
@@ -314,7 +322,7 @@ function parseQuestions(text, truncated = false) {
   }
 
   if (truncated) {
-    console.warn(`⚠️ Réponse incomplète : ${Array.isArray(questions) ? questions.length : 0} question(s) complète(s) récupérée(s)`);
+    console.warn(`⚠️ Incomplete answer: ${Array.isArray(questions) ? questions.length : 0} complete question(s) recovered`);
   }
 
   const valid = keepValidQuestions(questions);
@@ -325,59 +333,59 @@ function parseQuestions(text, truncated = false) {
 }
 
 /**
- * Détecter une question qui renvoie à un code (« ce Dockerfile », « le code
- * ci-dessous »...) sans l'inclure : l'étudiant n'aurait rien à analyser.
- * Seuls les démonstratifs (ce, cette...) et « suivant / ci-dessous » comptent :
- * « la commande pour lister les conteneurs » est une question de cours.
+ * Detects a question that refers to code ("ce Dockerfile", "le code ci-dessous"...)
+ * without including it: the student would have nothing to analyze. Only French
+ * demonstratives (ce, cette...) and "suivant / ci-dessous" count: "la commande pour
+ * lister les conteneurs" is a course question. A code block is ''' ''' or ``` ```,
+ * or inline code between backticks.
  */
-const OBJETS_CODE = String.raw`code|dockerfile|script|extrait|fichier|commande|configuration|pipeline|requête|snippet|programme|pom|\.?gitlab-ci(?:\.ya?ml)?|ya?ml|compose|makefile`;
-const REFERENCE_CODE = new RegExp(
-  String.raw`\b(?:ce|cet|cette|ces)\s+(?:${OBJETS_CODE})\b|\b(?:${OBJETS_CODE})\s+(?:suivante?s?|ci-dessous|ci-dessus)`,
+const CODE_OBJECTS = String.raw`code|dockerfile|script|extrait|fichier|commande|configuration|pipeline|requête|snippet|programme|pom|\.?gitlab-ci(?:\.ya?ml)?|ya?ml|compose|makefile`;
+const CODE_REFERENCE = new RegExp(
+  String.raw`\b(?:ce|cet|cette|ces)\s+(?:${CODE_OBJECTS})\b|\b(?:${CODE_OBJECTS})\s+(?:suivante?s?|ci-dessous|ci-dessus)`,
   'i'
 );
-// Bloc ''' ''' ou ``` ```, ou code en ligne entre accents graves
-const BLOC_CODE = /'''[\s\S]*?'''|```[\s\S]*?```|`[^`\n]+`/;
+const CODE_BLOCK = /'''[\s\S]*?'''|```[\s\S]*?```|`[^`\n]+`/;
 
 function referencesMissingCode(q) {
-  return REFERENCE_CODE.test(q.question) && !BLOC_CODE.test(q.question);
+  return CODE_REFERENCE.test(q.question) && !CODE_BLOCK.test(q.question);
 }
 
 /**
- * Questions bien formées parmi celles reçues (le schéma garantit les types, pas
- * le nombre d'options ni les textes vides). Les autres sont écartées et journalisées.
+ * Well-formed questions among those received (the schema guarantees the types,
+ * not the number of options nor empty texts). The others are dropped and logged.
+ * The example is optional: the schema requires the field, empty when there is none.
  */
 function keepValidQuestions(questions) {
   if (!Array.isArray(questions)) return [];
 
   const isText = (value) => typeof value === 'string' && value.trim() !== '';
   const valid = questions.filter((q, index) => {
-    const problem = !q || typeof q !== 'object' ? 'question absente'
-      : !isText(q.question) ? 'champ "question" vide'
-      : !Array.isArray(q.options) || q.options.length !== 4 ? 'il faut exactement 4 options'
-      : !q.options.every(isText) ? 'option vide'
-      : !Number.isInteger(q.correct) || q.correct < 0 || q.correct > 3 ? 'indice de réponse correcte invalide'
-      : !isText(q.explanation) ? 'champ "explanation" vide'
+    const problem = !q || typeof q !== 'object' ? 'missing question'
+      : !isText(q.question) ? 'empty "question" field'
+      : !Array.isArray(q.options) || q.options.length !== 4 ? 'exactly 4 options are needed'
+      : !q.options.every(isText) ? 'empty option'
+      : !Number.isInteger(q.correct) || q.correct < 0 || q.correct > 3 ? 'invalid correct answer index'
+      : !isText(q.explanation) ? 'empty "explanation" field'
       : null;
-    if (problem) console.warn(`⚠️ Question ${index + 1} écartée : ${problem}`);
+    if (problem) console.warn(`⚠️ Question ${index + 1} dropped: ${problem}`);
     return !problem;
   });
 
-  // L'exemple est facultatif : le schéma impose le champ, vide quand il n'y en a pas
   return valid.map(q => ({ ...q, example: typeof q.example === 'string' ? q.example : '' }));
 }
 
 /**
- * Claude passe la main à Groq quand il ne peut pas répondre : refus de contenu,
- * ou erreur 400 (crédit épuisé...). Un schéma refusé n'en fait pas partie : ce
- * serait une erreur de code, qui enverrait en silence tous les utilisateurs
- * premium sur Groq. Elle remonte telle quelle et n'est pas réessayée.
+ * Claude hands over to Groq when it cannot answer: content refusal, or 400 error
+ * (credit exhausted...). A refused schema is not one of them: it would be a code
+ * error, silently sending every premium user to Groq. It is thrown as is and not
+ * retried.
  */
 function shouldFallbackToGroq(error) {
   if (error.refusal) return true;
   if (error.status !== 400) return false;
 
   if (/output_config|json_schema|schema|grammar/i.test(error.message)) {
-    console.error('❌ Schéma de sortie refusé par Claude, pas de repli sur Groq :', error.message);
+    console.error('❌ Output schema refused by Claude, no fallback to Groq:', error.message);
     error.noRetry = true;
     return false;
   }
@@ -385,86 +393,82 @@ function shouldFallbackToGroq(error) {
 }
 
 /**
- * Un appel de génération : Claude pour les classes premium, Groq sinon ou en
- * repli. Le prompt est construit pour le fournisseur qui répond, car le nombre
- * de questions demandé dépend de sa limite de sortie.
+ * One generation call: Claude for premium classes, Groq otherwise or as fallback.
+ * The prompt is built for the provider that answers, since the number of questions
+ * asked depends on its output limit.
  * @param {(range: {min: number, max: number}) => string} buildPrompt
- * @param {{premium: boolean, fallback: boolean}} provider - fallback passe à true quand Claude est écarté
+ * @param {{premium: boolean, fallback: boolean}} provider - fallback becomes true when Claude is set aside
  */
 async function generateBatch(buildPrompt, provider) {
   if (provider.premium && !provider.fallback) {
     try {
-      return await generateWithClaude(buildPrompt(QUESTIONS_PAR_APPEL.claude));
+      return await generateWithClaude(buildPrompt(QUESTIONS_PER_CALL.claude));
     } catch (error) {
       if (!shouldFallbackToGroq(error)) throw error;
-      console.warn(`⚠️ Claude écarté (${error.message.slice(0, 120)}), basculement vers Groq (gratuit)...`);
+      console.warn(`⚠️ Claude set aside (${error.message.slice(0, 120)}), switching to Groq (free)...`);
       provider.fallback = true;
     }
   }
-  return generateWithGroq(buildPrompt(QUESTIONS_PAR_APPEL.groq));
+  return generateWithGroq(buildPrompt(QUESTIONS_PER_CALL.groq));
 }
 
 /**
- * Générer avec retry jusqu'à avoir 20 questions
+ * Generates with retries until there are 20 questions. Later attempts use the same
+ * prompt, with the questions already generated so they are not repeated. Questions
+ * that refer to missing code are dropped. An error that would come back the same
+ * (noRetry) is not retried. The thrown messages are in French: they are shown to
+ * the user.
  */
-async function generate_with_retry(devoir, isPremium, documentsText) {
+async function generateWithRetry(assignment, isPremium, documentsText) {
   const MAX_RETRIES = 5;
   const MIN_QUESTIONS = 20;
   let allQuestions = [];
   let attempts = 0;
-  const provider = { premium: isPremium, fallback: false }; // fallback : Claude écarté, Groq prend le relais
+  const provider = { premium: isPremium, fallback: false };
 
-  console.log(`🎯 Objectif: ${MIN_QUESTIONS} questions minimum`);
-  console.log(`🤖 Mode: ${isPremium ? 'Premium (Claude)' : 'Gratuit (Groq)'}`);
+  console.log(`🎯 Goal: at least ${MIN_QUESTIONS} questions`);
+  console.log(`🤖 Mode: ${isPremium ? 'Premium (Claude)' : 'Free (Groq)'}`);
 
   while (attempts < MAX_RETRIES && allQuestions.length < MIN_QUESTIONS) {
     attempts++;
-    
+
     try {
       let newQuestions;
 
       if (allQuestions.length === 0) {
-        // Première tentative : prompt normal
-        console.log(`📝 Tentative ${attempts}/${MAX_RETRIES} - Génération initiale...`);
-        newQuestions = await generateBatch(range => createPrompt(devoir, documentsText, range), provider);
+        console.log(`📝 Attempt ${attempts}/${MAX_RETRIES} - initial generation...`);
+        newQuestions = await generateBatch(range => createPrompt(assignment, documentsText, range), provider);
       } else {
-        // Tentatives suivantes : même prompt, avec les questions déjà générées à ne pas répéter
-        console.log(`📝 Tentative ${attempts}/${MAX_RETRIES} - Demande de questions supplémentaires...`);
-        newQuestions = await generateBatch(range => createPrompt(devoir, documentsText, range, allQuestions), provider);
+        console.log(`📝 Attempt ${attempts}/${MAX_RETRIES} - asking for more questions...`);
+        newQuestions = await generateBatch(range => createPrompt(assignment, documentsText, range, allQuestions), provider);
       }
 
-      // Écarter les questions qui parlent d'un code absent
-      const avantFiltre = newQuestions.length;
+      const countBeforeFilter = newQuestions.length;
       newQuestions = newQuestions.filter(q => !referencesMissingCode(q));
-      if (newQuestions.length < avantFiltre) {
-        console.warn(`⚠️ ${avantFiltre - newQuestions.length} question(s) écartée(s) : elles renvoient à un code absent`);
+      if (newQuestions.length < countBeforeFilter) {
+        console.warn(`⚠️ ${countBeforeFilter - newQuestions.length} question(s) dropped: they refer to missing code`);
       }
 
-      // Ajouter les nouvelles questions
       allQuestions = allQuestions.concat(newQuestions);
-      
-      console.log(`✓ ${newQuestions.length} questions générées (Total: ${allQuestions.length}/${MIN_QUESTIONS})`);
-      
-      // Si on a atteint le minimum, on arrête
+
+      console.log(`✓ ${newQuestions.length} questions generated (total: ${allQuestions.length}/${MIN_QUESTIONS})`);
+
       if (allQuestions.length >= MIN_QUESTIONS) {
-        console.log(`✅ Objectif atteint: ${allQuestions.length} questions`);
+        console.log(`✅ Goal reached: ${allQuestions.length} questions`);
         break;
       }
-      
-    } catch (error) {
-      console.error(`❌ Tentative ${attempts} échouée:`, error.message);
 
-      // Inutile de réessayer une erreur qui reviendra à l'identique
+    } catch (error) {
+      console.error(`❌ Attempt ${attempts} failed:`, error.message);
+
       if (error.noRetry) throw error;
-      
-      // Si c'est la dernière tentative et qu'on n'a pas assez de questions
+
       if (attempts >= MAX_RETRIES && allQuestions.length < MIN_QUESTIONS) {
         throw new Error(`Impossible de générer 20 questions après ${MAX_RETRIES} tentatives. Seulement ${allQuestions.length} questions générées.`, { cause: error });
       }
     }
   }
 
-  // Vérification finale
   if (allQuestions.length < MIN_QUESTIONS) {
     throw new Error(`Impossible de générer ${MIN_QUESTIONS} questions après ${MAX_RETRIES} tentatives. Seulement ${allQuestions.length} questions générées.`);
   }
@@ -473,33 +477,35 @@ async function generate_with_retry(devoir, isPremium, documentsText) {
 }
 
 /**
- * Fonction principale pour générer un quiz
+ * Generates the quiz of an assignment from its attached files: converts them to
+ * PDF, extracts their text, then generates at least 20 questions. The thrown
+ * messages are in French: they are shown to the user.
+ * @param {Object} assignment
+ * @param {boolean} isPremium - use Claude instead of Groq
+ * @param {Array<{filename: string}>} files
  */
-async function generateQuizWithAI(devoir, isPremium, fichiers) {
-  // Extraire le texte de tous les documents
+async function generateQuizWithAi(assignment, isPremium, files) {
   const uploadsDir = path.join(__dirname, '../uploads');
   const documentsTexts = [];
-  
-  console.log(`📄 Extraction de ${fichiers.length} document(s)...`);
 
-  for (const fichier of fichiers) {
-    let filePath = path.join(uploadsDir, fichier.filename);
-    
+  console.log(`📄 Extracting ${files.length} document(s)...`);
+
+  for (const file of files) {
+    let filePath = path.join(uploadsDir, file.filename);
+
     if (!fs.existsSync(filePath)) {
-      console.warn(`⚠️ Fichier non trouvé : ${filePath}`);
+      console.warn(`⚠️ File not found: ${filePath}`);
       continue;
     }
 
-    // Convertir en PDF si nécessaire (DOCX, PPTX, etc.)
     try {
-      filePath = await convertToPDF(filePath);
+      filePath = await convertToPdf(filePath);
     } catch (error) {
-      console.error(`❌ Erreur conversion : ${error.message}`);
+      console.error(`❌ Conversion failed: ${error.message}`);
       continue;
     }
 
-    // Extraire le texte du PDF
-    const text = await extractTextFromPDF(filePath);
+    const text = await extractTextFromPdf(filePath);
     if (text) {
       documentsTexts.push(text);
     }
@@ -511,27 +517,24 @@ async function generateQuizWithAI(devoir, isPremium, fichiers) {
 
   const documentsText = documentsTexts.join('\n\n--- DOCUMENT SUIVANT ---\n\n');
   const totalChars = documentsText.length;
-  
-  console.log(`📊 Contenu extrait : ${totalChars} caractères au total`);
-  
-  // Vérifier qu'il y a suffisamment de contenu
+
+  console.log(`📊 Extracted content: ${totalChars} characters in total`);
+
   if (totalChars < 500) {
     throw new Error('Le contenu des documents est insuffisant pour générer un quiz. Les documents doivent contenir au moins 500 caractères de texte extractible.');
   }
 
-  // Générer avec retry jusqu'à avoir 20 questions
-  const questions = await generate_with_retry(devoir, isPremium, documentsText);
-  
-  console.log(`🎉 Quiz généré avec succès: ${questions.length} questions`);
-  
+  const questions = await generateWithRetry(assignment, isPremium, documentsText);
+
+  console.log(`🎉 Quiz generated: ${questions.length} questions`);
+
   return questions;
 }
 
 module.exports = {
-  generateQuizWithAI,
-  extractTextFromPDF,
+  generateQuizWithAi,
+  extractTextFromPdf,
   referencesMissingCode,
-  // Pour les tests
   createPrompt,
   parseQuestions,
   keepValidQuestions,

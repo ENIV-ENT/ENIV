@@ -1,10 +1,7 @@
 require('dotenv').config();
 const { BrevoClient } = require('@getbrevo/brevo');
 
-// Configuration du client Brevo
 const brevo = new BrevoClient({ apiKey: process.env.BREVO_API_KEY });
-
-// --- Shared email helpers ---
 
 const EMAIL_STYLES = `
   body {
@@ -133,22 +130,20 @@ async function sendEmail(recipientEmail, subject, htmlContent, textContent, logL
 
   try {
     const result = await brevo.transactionalEmails.sendTransacEmail(sendSmtpEmail);
-    console.log(`${logLabel} envoyé avec succès à:`, recipientEmail);
+    console.log(`${logLabel} sent to:`, recipientEmail);
     return { success: true, messageId: result.messageId };
   } catch (error) {
-    console.error(`Erreur lors de l'envoi (${logLabel}):`, error);
-    throw new Error(`Impossible d'envoyer l'email (${logLabel})`, { cause: error });
+    console.error(`Failed to send (${logLabel}):`, error);
+    throw new Error(`Failed to send the email (${logLabel})`, { cause: error });
   }
 }
 
-// --- Public email functions ---
-
 /**
- * Envoyer un email d'invitation pour créer un compte
- * @param {string} email - Email du destinataire
- * @param {string} token - Token d'invitation unique
- * @param {string} role - Role de l'utilisateur (admin ou eleve)
- * @param {string} className - Nom de la classe (optionnel)
+ * Sends an invitation email to create an account.
+ * @param {string} email - recipient
+ * @param {string} token - unique invitation token
+ * @param {string} role - user role (admin or eleve)
+ * @param {string} [className] - name of the class
  */
 async function sendInvitationEmail(email, token, role, className = null) {
   const invitationUrl = `${process.env.BASE_URL}/register?token=${token}`;
@@ -198,19 +193,19 @@ Si vous n'avez pas demandé cette invitation, vous pouvez ignorer ce message.
     `;
 
   const htmlContent = buildEmailHtml('Eniv', bodyHtml);
-  return sendEmail(email, `Invitation à rejoindre Eniv - ${roleText}`, htmlContent, textContent, 'Email d\'invitation');
+  return sendEmail(email, `Invitation à rejoindre Eniv - ${roleText}`, htmlContent, textContent, 'Invitation email');
 }
 
 /**
- * Envoyer un email quand le quiz est prêt
- * @param {string} email - Email du destinataire
- * @param {string} devoirTitle - Titre du devoir
- * @param {number} devoirId - ID du devoir
+ * Sends an email when the quiz of an assignment is ready.
+ * @param {string} email - recipient
+ * @param {string} assignmentTitle
+ * @param {number} assignmentId
  */
-async function sendQuizReadyEmail(email, devoirTitle, devoirId) {
-  const quizUrl = `${process.env.BASE_URL}/quiz?id=${devoirId}`;
+async function sendQuizReadyEmail(email, assignmentTitle, assignmentId) {
+  const quizUrl = `${process.env.BASE_URL}/quiz?id=${assignmentId}`;
 
-  const infoLines = `<p style="margin: 5px 0;"><strong>Devoir :</strong> ${devoirTitle}</p>`;
+  const infoLines = `<p style="margin: 5px 0;"><strong>Devoir :</strong> ${assignmentTitle}</p>`;
 
   const bodyHtml = `
     <h2>Quiz de révision disponible</h2>
@@ -226,7 +221,7 @@ async function sendQuizReadyEmail(email, devoirTitle, devoirId) {
   const textContent = `
 Votre quiz est prêt !
 
-Le quiz de révision pour votre devoir "${devoirTitle}" est maintenant disponible.
+Le quiz de révision pour votre devoir "${assignmentTitle}" est maintenant disponible.
 
 Pour commencer le quiz, accédez au lien suivant :
 ${quizUrl}
@@ -235,14 +230,14 @@ Bon courage pour vos révisions !
     `;
 
   const htmlContent = buildEmailHtml('✅ Votre quiz est prêt !', bodyHtml);
-  return sendEmail(email, `Votre quiz est prêt : ${devoirTitle}`, htmlContent, textContent, 'Email notification quiz');
+  return sendEmail(email, `Votre quiz est prêt : ${assignmentTitle}`, htmlContent, textContent, 'Quiz ready email');
 }
 
 /**
- * Envoyer un email pour notifier l'admin d'une nouvelle demande d'adhésion
- * @param {string} adminEmail - Email de l'admin
- * @param {string} studentName - Nom complet de l'élève
- * @param {string} className - Nom de la classe
+ * Tells a class admin about a new join request.
+ * @param {string} adminEmail
+ * @param {string} studentName - full name of the student
+ * @param {string} className
  */
 async function sendJoinRequestEmail(adminEmail, studentName, className) {
   const dashboardUrl = `${process.env.BASE_URL}/dashboard/`;
@@ -271,14 +266,14 @@ ${dashboardUrl}
     `;
 
   const htmlContent = buildEmailHtml('Eniv', bodyHtml, '', { showCopyright: false });
-  return sendEmail(adminEmail, `Nouvelle demande d'adhésion - ${className}`, htmlContent, textContent, 'Email demande adhésion');
+  return sendEmail(adminEmail, `Nouvelle demande d'adhésion - ${className}`, htmlContent, textContent, 'Join request email');
 }
 
 /**
- * Envoyer un email à l'élève quand sa demande d'adhésion est acceptée
- * @param {string} studentEmail - Email de l'élève
- * @param {string} studentName - Nom complet de l'élève
- * @param {string} className - Nom de la classe
+ * Tells a student that their join request was accepted.
+ * @param {string} studentEmail
+ * @param {string} studentName - full name of the student
+ * @param {string} className
  */
 async function sendJoinRequestAcceptedEmail(studentEmail, studentName, className) {
   const dashboardUrl = `${process.env.BASE_URL}/dashboard/`;
@@ -309,21 +304,21 @@ ${dashboardUrl}
   `;
 
   const htmlContent = buildEmailHtml('Bienvenue sur Eniv', bodyHtml, '', { showCopyright: false });
-  return sendEmail(studentEmail, `Demande acceptée - ${className}`, htmlContent, textContent, 'Email acceptation adhésion');
+  return sendEmail(studentEmail, `Demande acceptée - ${className}`, htmlContent, textContent, 'Join request accepted email');
 }
 
 /**
- * Envoyer un email au superadmin pour une demande d'ajout d'etablissement
- * @param {string} superadminEmail - Email du superadmin
- * @param {string} etablissementNom - Nom de l'etablissement demande
- * @param {string} demandeurEmail - Email du demandeur
+ * Tells the superadmin about a request to add a school.
+ * @param {string} superadminEmail
+ * @param {string} schoolName - name of the requested school
+ * @param {string} requesterEmail
  */
-async function sendEtablissementRequestEmail(superadminEmail, etablissementNom, demandeurEmail) {
+async function sendSchoolRequestEmail(superadminEmail, schoolName, requesterEmail) {
   const dashboardUrl = `${process.env.BASE_URL}/superadmin/dashboard/`;
 
   const infoLines = `
-    <p style="margin: 5px 0;"><strong>Établissement :</strong> ${etablissementNom}</p>
-    <p style="margin: 5px 0;"><strong>Email du demandeur :</strong> ${demandeurEmail}</p>`;
+    <p style="margin: 5px 0;"><strong>Établissement :</strong> ${schoolName}</p>
+    <p style="margin: 5px 0;"><strong>Email du demandeur :</strong> ${requesterEmail}</p>`;
 
   const bodyHtml = `
     <h2>Nouvelle demande d'ajout d'établissement</h2>
@@ -338,15 +333,15 @@ async function sendEtablissementRequestEmail(superadminEmail, etablissementNom, 
   const textContent = `
 Nouvelle demande d'ajout d'établissement
 
-Un utilisateur souhaite ajouter l'établissement "${etablissementNom}".
-Email du demandeur : ${demandeurEmail}
+Un utilisateur souhaite ajouter l'établissement "${schoolName}".
+Email du demandeur : ${requesterEmail}
 
 Connectez-vous à votre tableau de bord pour accepter ou refuser la demande :
 ${dashboardUrl}
   `;
 
   const htmlContent = buildEmailHtml('Eniv', bodyHtml, '', { showCopyright: false });
-  return sendEmail(superadminEmail, `Nouvelle demande d'établissement - ${etablissementNom}`, htmlContent, textContent, 'Email demande etablissement');
+  return sendEmail(superadminEmail, `Nouvelle demande d'établissement - ${schoolName}`, htmlContent, textContent, 'School request email');
 }
 
 module.exports = {
@@ -354,5 +349,5 @@ module.exports = {
   sendQuizReadyEmail,
   sendJoinRequestEmail,
   sendJoinRequestAcceptedEmail,
-  sendEtablissementRequestEmail
+  sendSchoolRequestEmail
 };

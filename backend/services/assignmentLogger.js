@@ -1,17 +1,18 @@
 const db = require('../models/dbHelper');
 
 /**
- * Journalisation des actions effectuées sur les devoirs (table devoir_logs).
+ * History of the actions on assignments (table devoir_logs).
  *
- * Les détails sont stockés en JSON dans la colonne `details`. Le champ `version`
- * permet au frontend de distinguer ce format des logs plus anciens, qui ne
- * contenaient qu'un sous-ensemble d'informations et sont affichés en mode dégradé.
+ * The details are stored as JSON in the `details` column. The `version` field lets
+ * the frontend tell this format apart from older logs, which only held a subset of
+ * the information and are shown in a degraded mode.
+ * @module
  */
 
 const DETAILS_VERSION = 2;
 
-// Champs du devoir suivis dans l'historique, dans l'ordre d'affichage
-const DEVOIR_FIELDS = [
+/** Assignment fields tracked in the history, in display order. */
+const ASSIGNMENT_FIELDS = [
   { field: 'titre', label: 'Titre' },
   { field: 'description', label: 'Description' },
   { field: 'matiere_id', label: 'Matière' },
@@ -19,9 +20,10 @@ const DEVOIR_FIELDS = [
 ];
 
 /**
- * Normalise une date en YYYY-MM-DD, qu'elle vienne de MySQL (objet Date) ou
- * d'un formulaire (chaîne). Indispensable pour ne pas détecter de fausse
- * modification entre l'ancienne et la nouvelle valeur.
+ * Normalizes a date to YYYY-MM-DD, whether it comes from MySQL (Date object) or
+ * from a form (string), so no false change is detected between the old and the
+ * new value. Dates are read in UTC like the mysql2 pool (timezone "Z"), so the day
+ * does not shift with the server time zone.
  * @param {Date|string|null} value
  * @returns {string|null}
  */
@@ -31,7 +33,6 @@ function toDateString(value) {
   if (value instanceof Date) {
     if (Number.isNaN(value.getTime())) return null;
     const pad = (n) => String(n).padStart(2, '0');
-    // UTC comme le pool mysql2 (timezone "Z") : pas de jour décalé selon le fuseau du serveur
     return `${value.getUTCFullYear()}-${pad(value.getUTCMonth() + 1)}-${pad(value.getUTCDate())}`;
   }
 
@@ -42,8 +43,8 @@ function toDateString(value) {
 }
 
 /**
- * Normalise une valeur texte : les chaînes vides sont ramenées à null pour
- * qu'un champ effacé et un champ absent soient considérés identiques.
+ * Normalizes a text value: empty strings become null, so a cleared field and a
+ * missing field are considered identical.
  * @param {*} value
  * @returns {string|null}
  */
@@ -54,7 +55,7 @@ function toText(value) {
 }
 
 /**
- * Normalise un identifiant, qui arrive en chaîne depuis les formulaires.
+ * Normalizes an id, which comes as a string from forms.
  * @param {*} value
  * @returns {number|null}
  */
@@ -65,11 +66,11 @@ function toId(value) {
 }
 
 /**
- * Construit un instantané des champs suivis d'un devoir.
- * @param {Object} source - Devoir (ligne SQL ou corps de requête), avec éventuellement matiere_nom
+ * Builds a snapshot of the tracked fields of an assignment.
+ * @param {Object} source - assignment (SQL row or request body), optionally with matiere_nom
  * @returns {Object}
  */
-function snapshotDevoir(source) {
+function snapshotAssignment(source) {
   return {
     titre: toText(source.titre),
     description: toText(source.description),
@@ -80,15 +81,15 @@ function snapshotDevoir(source) {
 }
 
 /**
- * Compare deux instantanés et retourne la liste des champs modifiés.
- * @param {Object} before - Instantané avant modification
- * @param {Object} after - Instantané après modification
- * @returns {Array<Object>} Liste de { field, label, before, after } (+ before_label / after_label pour la matière)
+ * Compares two snapshots and returns the changed fields.
+ * @param {Object} before
+ * @param {Object} after
+ * @returns {Array<Object>} list of { field, label, before, after } (+ before_label / after_label for the subject)
  */
 function diffSnapshots(before, after) {
   const changes = [];
 
-  for (const { field, label } of DEVOIR_FIELDS) {
+  for (const { field, label } of ASSIGNMENT_FIELDS) {
     if (before[field] === after[field]) continue;
 
     const change = { field, label, before: before[field], after: after[field] };
@@ -103,19 +104,19 @@ function diffSnapshots(before, after) {
 }
 
 /**
- * Écrit une entrée dans l'historique des devoirs.
+ * Writes an entry in the assignment history.
  *
- * Une erreur d'écriture est journalisée mais jamais propagée : l'historique ne
- * doit pas faire échouer l'action de l'utilisateur, déjà appliquée à ce stade.
+ * A write error is logged but never thrown: the history must not make the user's
+ * action fail, since it is already applied at this point.
  *
- * @param {Object} req - Requête Express (req.user doit être renseigné)
+ * @param {Object} req - Express request (req.user must be set)
  * @param {Object} options
- * @param {number|string} options.devoirId - Devoir concerné
+ * @param {number|string} options.assignmentId
  * @param {string} options.action - create | update | delete | upload_pdf | delete_pdf | delete_commentaire
- * @param {Object} options.details - Détails spécifiques à l'action
+ * @param {Object} options.details - details specific to the action
  * @returns {Promise<void>}
  */
-async function logDevoirAction(req, { devoirId, action, details = {} }) {
+async function logAssignmentAction(req, { assignmentId, action, details = {} }) {
   const user = req.user;
 
   const payload = {
@@ -131,18 +132,18 @@ async function logDevoirAction(req, { devoirId, action, details = {} }) {
   try {
     await db.run(
       'INSERT INTO devoir_logs (devoir_id, action, user_id, username, classe_id, details) VALUES (?, ?, ?, ?, ?, ?)',
-      [devoirId, action, user.id, user.username, user.classe_id, JSON.stringify(payload)]
+      [assignmentId, action, user.id, user.username, user.classe_id, JSON.stringify(payload)]
     );
   } catch (error) {
-    console.error(`Erreur lors de l'écriture du log "${action}" du devoir ${devoirId}:`, error);
+    console.error(`Failed to write the "${action}" log of assignment ${assignmentId}:`, error);
   }
 }
 
 module.exports = {
   DETAILS_VERSION,
-  DEVOIR_FIELDS,
+  ASSIGNMENT_FIELDS,
   toDateString,
-  snapshotDevoir,
+  snapshotAssignment,
   diffSnapshots,
-  logDevoirAction
+  logAssignmentAction
 };

@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const db = require('../models/dbHelper');
-const { sendJoinRequestEmail, sendEtablissementRequestEmail } = require('../services/email');
+const { sendJoinRequestEmail, sendSchoolRequestEmail } = require('../services/email');
 const { signupLimiter, lookupLimiter } = require('../middleware/rateLimit');
 const router = express.Router();
 
@@ -284,7 +284,7 @@ router.post('/etablissement-request', signupLimiter, async (req, res) => {
     // Envoyer un email au superadmin
     const superadmin = await db.get('SELECT email FROM users WHERE role = ? AND email IS NOT NULL', ['superadmin']);
     if (superadmin && superadmin.email) {
-      await sendEtablissementRequestEmail(superadmin.email, nom, email_demandeur).catch(err => {
+      await sendSchoolRequestEmail(superadmin.email, nom, email_demandeur).catch(err => {
         console.error('Erreur envoi email demande etablissement:', err);
       });
     }

@@ -6,7 +6,7 @@
  */
 
 require('dotenv').config();
-const { generateQuizWithAI } = require('../backend/services/quizGenerator');
+const { generateQuizWithAi } = require('../backend/services/quizGenerator');
 
 // Devoir de test
 const testDevoir = {
@@ -31,7 +31,7 @@ async function testGeneration() {
   try {
     // Test avec Groq (gratuit)
     // console.log('--- Test avec Groq (Standard) ---');
-    // const questionsGroq = await generateQuizWithAI(testDevoir, false, testFichiers);
+    // const questionsGroq = await generateQuizWithAi(testDevoir, false, testFichiers);
     // console.log('✅ Génération Groq réussie !');
     // console.log(`📝 Nombre de questions: ${questionsGroq.length}`);
     // console.log('\nExemple de question:');
@@ -40,7 +40,7 @@ async function testGeneration() {
 
     // Test avec Claude (premium) - décommenter si vous avez une clé Claude
     console.log('--- Test avec Claude (Premium) ---');
-    const questionsClaude = await generateQuizWithAI(testDevoir, true, testFichiers);
+    const questionsClaude = await generateQuizWithAi(testDevoir, true, testFichiers);
     console.log('✅ Génération Claude réussie !');
     console.log(`📝 Nombre de questions: ${questionsClaude.length}`);
     console.log('\nExemple de question:');

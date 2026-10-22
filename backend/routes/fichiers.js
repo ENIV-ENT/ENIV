@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const db = require('../models/dbHelper');
-const { lireJeton } = require('../services/fichierLinks');
+const { readFileToken } = require('../services/fileLinks');
 const router = express.Router();
 
 const UPLOADS_DIR = path.join(__dirname, '../uploads');
@@ -29,7 +29,7 @@ function contentDisposition(inline, nom) {
 
 // Document joint, via un lien temporaire obtenu par un membre de la classe
 router.get('/:token', async (req, res) => {
-  const fichierId = lireJeton(req.params.token);
+  const fichierId = readFileToken(req.params.token);
   if (!fichierId) {
     return res.status(403).type('text/plain').send('Lien expiré : rouvrez le document depuis Eniv.');
   }

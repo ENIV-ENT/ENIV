@@ -1,10 +1,15 @@
-// Requête HTTP sortante vers une URL fournie par un utilisateur.
-//
-// Utilisée par le proxy d'images et par l'import d'emploi du temps ICS.
-//
-// Une URL arbitraire récupérée par le serveur est une cible SSRF classique :
-// sans garde-fou, une URL pointant vers 127.0.0.1 ou vers les métadonnées cloud
-// (169.254.169.254) permettrait de lire des ressources internes au serveur.
+/**
+ * Outgoing HTTP request to a URL given by a user.
+ *
+ * Used by the image proxy and by the ICS timetable import.
+ *
+ * An arbitrary URL fetched by the server is a classic SSRF target: without
+ * safeguards, a URL pointing to 127.0.0.1 or to the cloud metadata
+ * (169.254.169.254) would allow reading resources internal to the server.
+ *
+ * The error messages are in French: they are shown to the user.
+ * @module
+ */
 
 const dns = require('dns');
 const http = require('http');
@@ -16,8 +21,10 @@ const REDIRECT_STATUS = new Set([301, 302, 303, 307, 308]);
 const DEFAULT_TIMEOUT_MS = 10000;
 const MAX_REDIRECTS = 3;
 
-// Plages que le serveur ne doit jamais atteindre : boucle locale, réseaux privés,
-// link-local (métadonnées cloud), partagées, multicast et réservées.
+/**
+ * Ranges the server must never reach: loopback, private networks, link-local
+ * (cloud metadata), shared, multicast and reserved.
+ */
 const BLOCKED_ADDRESSES = new net.BlockList();
 
 BLOCKED_ADDRESSES.addSubnet('0.0.0.0', 8, 'ipv4');
@@ -38,7 +45,7 @@ BLOCKED_ADDRESSES.addSubnet('fe80::', 10, 'ipv6');
 BLOCKED_ADDRESSES.addSubnet('ff00::', 8, 'ipv6');
 
 /**
- * Erreur portant le code HTTP à renvoyer au client.
+ * Error carrying the HTTP status to send back to the client.
  */
 class ProxyError extends Error {
   constructor(message, status = 502) {
@@ -48,15 +55,15 @@ class ProxyError extends Error {
   }
 }
 
-// net.BlockList reconnaît nativement les adresses IPv6 mappées (::ffff:10.0.0.1)
+/** net.BlockList natively recognizes mapped IPv6 addresses (::ffff:10.0.0.1). */
 function isBlockedAddress(address, family) {
   return BLOCKED_ADDRESSES.check(address, family);
 }
 
 /**
- * Extrait l'adresse IP d'un hôte quand celle-ci est écrite en clair dans l'URL.
- * @param {string} hostname - Hôte tel que fourni par URL (IPv6 entre crochets)
- * @returns {{address: string, family: string}|null} Null si l'hôte est un nom de domaine
+ * Extracts the IP address of a host when it is written as is in the URL.
+ * @param {string} hostname - host as given by URL (IPv6 between brackets)
+ * @returns {{address: string, family: string}|null} null if the host is a domain name
  */
 function parseLiteralAddress(hostname) {
   const address = hostname.startsWith('[') && hostname.endsWith(']')
@@ -70,9 +77,9 @@ function parseLiteralAddress(hostname) {
 }
 
 /**
- * Résolution DNS filtrée, utilisée par http.request.
- * Le contrôle a lieu au moment de la résolution : le socket se connecte à
- * l'adresse que nous renvoyons, un DNS rebinding ne peut donc pas la remplacer.
+ * Filtered DNS resolution, used by http.request.
+ * The check happens at resolution time: the socket connects to the address we
+ * return, so a DNS rebinding cannot replace it.
  */
 function safeLookup(hostname, options, callback) {
   dns.lookup(hostname, { ...options, all: true }, (error, addresses) => {
@@ -92,18 +99,18 @@ function safeLookup(hostname, options, callback) {
 }
 
 /**
- * Vérifie qu'une URL est acceptable comme cible d'une requête sortante.
- * @param {URL} url - URL à contrôler
- * @returns {URL} La même URL
- * @throws {ProxyError} Si le schéma ou l'adresse est refusé
+ * Checks that a URL is acceptable as the target of an outgoing request.
+ * An IP written as is bypasses safeLookup (Node does not resolve a host that is
+ * already an address), so that case is filtered here.
+ * @param {URL} url
+ * @returns {URL} the same URL
+ * @throws {ProxyError} if the scheme or the address is refused
  */
 function validateTarget(url) {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     throw new ProxyError('Seules les URL http et https sont acceptées', 400);
   }
 
-  // Une IP écrite en clair court-circuite safeLookup : Node ne résout pas un
-  // hôte qui est déjà une adresse. Ce cas doit donc être filtré ici.
   const literal = parseLiteralAddress(url.hostname);
   if (literal && isBlockedAddress(literal.address, literal.family)) {
     throw new ProxyError('Adresse de destination interdite', 403);
@@ -113,10 +120,15 @@ function validateTarget(url) {
 }
 
 /**
- * Ouvre la requête vers la cible et valide sa réponse.
- * @param {URL} url - Cible déjà validée
- * @param {object} options - Voir openRemote
- * @param {number} redirectsLeft - Redirections encore autorisées
+ * Opens the request to the target and validates its response.
+ *
+ * - No header of the client is forwarded: no cookie, Referer or User-Agent.
+ *   "identity" avoids a compression that would make Content-Length inconsistent.
+ * - Each redirect step is validated again: a redirect to 127.0.0.1 is refused.
+ * - The tracker follows the current request, redirects included, for the deadline.
+ * @param {URL} url - target already validated
+ * @param {object} options - see openRemote
+ * @param {number} redirectsLeft - redirects still allowed
  * @returns {Promise<{contentType: string, contentLength: number|null, stream: import('stream').Readable}>}
  */
 function request(url, options, redirectsLeft) {
@@ -125,8 +137,6 @@ function request(url, options, redirectsLeft) {
   return new Promise((resolve, reject) => {
     const client = url.protocol === 'https:' ? https : http;
 
-    // Aucun en-tête du client n'est transmis : ni cookie, ni Referer, ni son User-Agent.
-    // identity évite une compression qui rendrait Content-Length incohérent.
     const req = client.request(url, {
       lookup,
       timeout: timeoutMs,
@@ -145,7 +155,6 @@ function request(url, options, redirectsLeft) {
           return reject(new ProxyError('Trop de redirections', 502));
         }
 
-        // Chaque étape est revalidée : une redirection vers 127.0.0.1 est refusée
         let target;
         try {
           target = validateTarget(new URL(headers.location, url));
@@ -181,7 +190,6 @@ function request(url, options, redirectsLeft) {
       });
     });
 
-    // Redirection comprise : la durée maximale vise la requête en cours
     if (tracker) tracker.req = req;
 
     req.on('timeout', () => {
@@ -203,10 +211,11 @@ function capitalize(text) {
 }
 
 /**
- * Prépare une URL fournie par un utilisateur : analyse, nettoyage, validation.
- * @param {string} rawUrl - URL absolue http(s)
+ * Prepares a URL given by a user: parsing, cleaning, validation. Credentials in
+ * a URL would only serve to make the server test accesses, so they are removed.
+ * @param {string} rawUrl - absolute http(s) URL
  * @returns {URL}
- * @throws {ProxyError} URL invalide ou refusée
+ * @throws {ProxyError} invalid or refused URL
  */
 function prepareUrl(rawUrl) {
   let url;
@@ -217,7 +226,6 @@ function prepareUrl(rawUrl) {
     throw new ProxyError('URL invalide', 400);
   }
 
-  // Les identifiants d'une URL ne servent qu'à faire tester des accès par le serveur
   url.username = '';
   url.password = '';
   url.hash = '';
@@ -226,28 +234,28 @@ function prepareUrl(rawUrl) {
 }
 
 /**
- * Ouvre une ressource distante en appliquant les protections SSRF.
- * @param {string} rawUrl - URL absolue http(s)
+ * Opens a remote resource with the SSRF protections.
+ * The socket idle timeout does not stop a source that sends a byte now and then:
+ * without a deadline, it would keep the connection forever.
+ * @param {string} rawUrl - absolute http(s) URL
  * @param {object} options
- * @param {string} options.accept - En-tête Accept envoyé
- * @param {string} options.userAgent - En-tête User-Agent envoyé
- * @param {Set<string>} options.allowedTypes - Types de contenu acceptés
- * @param {number} options.maxBytes - Taille maximale annoncée par Content-Length
- * @param {number} [options.timeoutMs] - Délai d'inactivité du socket
- * @param {number} [options.deadlineMs] - Durée maximale de l'ensemble (redirections et
- *   lecture du flux comprises), au-delà de laquelle la requête est abandonnée
- * @param {string} options.label - Désignation de la cible dans les messages d'erreur
- * @param {Function} [options.lookup] - Résolution DNS : ne remplacer que dans les tests
+ * @param {string} options.accept - Accept header sent
+ * @param {string} options.userAgent - User-Agent header sent
+ * @param {Set<string>} options.allowedTypes - accepted content types
+ * @param {number} options.maxBytes - maximum size announced by Content-Length
+ * @param {number} [options.timeoutMs] - socket idle timeout
+ * @param {number} [options.deadlineMs] - maximum duration of the whole request
+ *   (redirects and stream reading included), after which it is aborted
+ * @param {string} options.label - name of the target in the (French) error messages
+ * @param {Function} [options.lookup] - DNS resolution: only replace it in tests
  * @returns {Promise<{contentType: string, contentLength: number|null, stream: import('stream').Readable}>}
- * @throws {ProxyError} URL refusée, hôte injoignable ou réponse inexploitable
+ * @throws {ProxyError} URL refused, host unreachable or unusable response
  */
 async function openRemote(rawUrl, options) {
   const url = prepareUrl(rawUrl);
   const settings = { timeoutMs: DEFAULT_TIMEOUT_MS, lookup: safeLookup, ...options };
   if (!settings.deadlineMs) return request(url, settings, MAX_REDIRECTS);
 
-  // Le délai d'inactivité ne coupe pas une source qui envoie un octet de temps
-  // en temps : sans durée maximale, elle garderait la connexion indéfiniment
   const tracker = { req: null, response: null };
   const deadline = new ProxyError(`${capitalize(settings.label)} met trop de temps à répondre`, 504);
   const timer = setTimeout(() => {
@@ -266,8 +274,9 @@ async function openRemote(rawUrl, options) {
 }
 
 /**
- * Lit entièrement un flux en refusant de dépasser une taille donnée.
- * Content-Length est déclaratif : les octets reçus sont recomptés.
+ * Reads a whole stream, refusing to go past a given size.
+ * Content-Length is only declarative: the received bytes are counted again.
+ * A ProxyError comes from openRemote (deadline exceeded) and is kept as is.
  * @param {import('stream').Readable} stream
  * @param {number} maxBytes
  * @returns {Promise<Buffer>}
@@ -287,7 +296,6 @@ function readLimited(stream, maxBytes) {
     });
 
     stream.on('end', () => resolve(Buffer.concat(chunks)));
-    // Une ProxyError vient de openRemote (durée maximale dépassée) : elle est gardée
     stream.on('error', error => reject(error instanceof ProxyError
       ? error
       : new ProxyError('Réception interrompue', 502)));

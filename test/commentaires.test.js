@@ -38,7 +38,7 @@ require.cache[realtimeFile] = { id: realtimeFile, filename: realtimeFile, loaded
 const pushes = [];
 const pushFile = path.join(__dirname, '../backend/services/push.js');
 require.cache[pushFile] = { id: pushFile, filename: pushFile, loaded: true, exports: {
-  notifyCommentaireInBackground: (classeId, devoirId, payload, excludeUserId) => pushes.push({ classeId, devoirId, payload, excludeUserId }),
+  notifyCommentInBackground: (classeId, devoirId, payload, excludeUserId) => pushes.push({ classeId, devoirId, payload, excludeUserId }),
 } };
 
 const realtimeNotifier = require('../backend/middleware/realtimeNotifier');

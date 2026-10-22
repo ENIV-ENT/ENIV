@@ -3,13 +3,13 @@ const path = require('path');
 const db = require('../models/dbHelper');
 
 const UPLOAD_DIR = path.join(__dirname, '../uploads');
-const MAX_UPLOAD_SIZE = 5 * 1024 * 1024 * 1024; // 5 Go en octets
-const MIN_FILE_AGE_DAYS = 30; // Age minimum pour supprimer (1 mois)
+/** 5 GB. */
+const MAX_UPLOAD_SIZE = 5 * 1024 * 1024 * 1024;
+/** Minimum age (one month) before a file can be deleted to free space. */
+const MIN_FILE_AGE_DAYS = 30;
 
-/**
- * Calcule la taille totale du dossier uploads
- */
-function calc_dir_size(dirPath) {
+/** Total size of the files directly in a directory. */
+function calcDirSize(dirPath) {
   let totalSize = 0;
 
   if (!fs.existsSync(dirPath)) {
@@ -17,11 +17,11 @@ function calc_dir_size(dirPath) {
   }
 
   const files = fs.readdirSync(dirPath);
-  
+
   for (const file of files) {
     const filePath = path.join(dirPath, file);
     const stats = fs.statSync(filePath);
-    
+
     if (stats.isFile()) {
       totalSize += stats.size;
     }
@@ -30,31 +30,25 @@ function calc_dir_size(dirPath) {
   return totalSize;
 }
 
-/**
- * Formate la taille en Mo/Go
- */
-function format_size(bytes) {
+/** Formats a size in MB/GB, in French units (Mo/Go). */
+function formatSize(bytes) {
   if (bytes >= 1024 * 1024 * 1024) {
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} Go`;
   }
   return `${(bytes / (1024 * 1024)).toFixed(2)} Mo`;
 }
 
-/**
- * Supprime un fichier physique et son PDF converti
- */
-function del_file_and_converted(filePath) {
+/** Deletes a file and its converted PDF; returns the number of bytes freed. */
+function deleteFileAndConverted(filePath) {
   let totalDeleted = 0;
-  
+
   try {
-    // Supprimer le fichier original
     if (fs.existsSync(filePath)) {
       const stats = fs.statSync(filePath);
       fs.unlinkSync(filePath);
       totalDeleted += stats.size;
     }
-    
-    // Supprimer le PDF converti si existe
+
     const ext = path.extname(filePath);
     if (ext !== '.pdf') {
       const pdfPath = filePath.replace(ext, '.pdf');
@@ -65,123 +59,121 @@ function del_file_and_converted(filePath) {
       }
     }
   } catch (error) {
-    console.error(`Erreur suppression ${path.basename(filePath)}:`, error.message);
+    console.error(`Failed to delete ${path.basename(filePath)}:`, error.message);
   }
-  
+
   return totalDeleted;
 }
 
 /**
- * Vérifie avant chaque upload et nettoie si nécessaire
+ * Checks the storage before an upload and frees space if needed, by deleting the
+ * files of the oldest assignments first. Files are only deleted when the oldest
+ * assignment is at least MIN_FILE_AGE_DAYS old. The errors are in French: they are
+ * shown to the user.
+ * @param {number} fileSize
+ * @returns {Promise<{allowed: boolean, error?: string, cleaned?: {count: number, size: number}}>}
  */
-async function check_before_upload(fileSize) {
+async function checkBeforeUpload(fileSize) {
   try {
-    const currentSize = calc_dir_size(UPLOAD_DIR);
+    const currentSize = calcDirSize(UPLOAD_DIR);
     const afterUploadSize = currentSize + fileSize;
-    
-    console.log(`📊 Taille actuelle: ${format_size(currentSize)} / ${format_size(MAX_UPLOAD_SIZE)}`);
-    
+
+    console.log(`📊 Current size: ${formatSize(currentSize)} / ${formatSize(MAX_UPLOAD_SIZE)}`);
+
     if (afterUploadSize <= MAX_UPLOAD_SIZE) {
-      console.log(`✅ Espace suffisant pour upload de ${format_size(fileSize)}`);
+      console.log(`✅ Enough space to upload ${formatSize(fileSize)}`);
       return { allowed: true };
     }
-    
-    // Calculer l'espace nécessaire à libérer
+
     const spaceNeeded = afterUploadSize - MAX_UPLOAD_SIZE;
-    console.warn(`⚠️  Besoin de libérer ${format_size(spaceNeeded)}...`);
-    
-    // Récupérer tous les fichiers triés par ancienneté
-    const fichiers = await db.all(
+    console.warn(`⚠️  ${formatSize(spaceNeeded)} must be freed...`);
+
+    const files = await db.all(
       `SELECT df.id, df.filename, df.uploaded_at, d.date, d.titre
        FROM devoir_fichiers df
        JOIN devoirs d ON df.devoir_id = d.id
        ORDER BY d.date ASC, df.uploaded_at ASC`
     );
-    
-    if (fichiers.length === 0) {
-      return { 
-        allowed: false, 
-        error: 'Espace insuffisant et aucun fichier à supprimer' 
+
+    if (files.length === 0) {
+      return {
+        allowed: false,
+        error: 'Espace insuffisant et aucun fichier à supprimer'
       };
     }
-    
-    // Vérifier si le plus vieux fichier a moins d'1 mois
-    const oldestFichier = fichiers[0];
-    const oldestDate = new Date(oldestFichier.date);
+
+    const oldestFile = files[0];
+    const oldestDate = new Date(oldestFile.date);
     const now = new Date();
     const daysDiff = Math.floor((now - oldestDate) / (1000 * 60 * 60 * 24));
-    
+
     if (daysDiff < MIN_FILE_AGE_DAYS) {
-      console.error(`❌ Le plus vieux fichier a ${daysDiff} jours (minimum: ${MIN_FILE_AGE_DAYS})`);
-      return { 
-        allowed: false, 
-        error: `Espace insuffisant. Le fichier le plus ancien a seulement ${daysDiff} jours (minimum ${MIN_FILE_AGE_DAYS} jours pour suppression). Veuillez contacter l'administrateur.` 
+      console.error(`❌ The oldest file is ${daysDiff} days old (minimum: ${MIN_FILE_AGE_DAYS})`);
+      return {
+        allowed: false,
+        error: `Espace insuffisant. Le fichier le plus ancien a seulement ${daysDiff} jours (minimum ${MIN_FILE_AGE_DAYS} jours pour suppression). Veuillez contacter l'administrateur.`
       };
     }
-    
-    // Supprimer les fichiers jusqu'à avoir assez d'espace
+
     let freedSpace = 0;
     let deletedCount = 0;
-    
-    for (const fichier of fichiers) {
+
+    for (const file of files) {
       if (freedSpace >= spaceNeeded) break;
-      
-      const filePath = path.join(UPLOAD_DIR, fichier.filename);
-      
+
+      const filePath = path.join(UPLOAD_DIR, file.filename);
+
       if (fs.existsSync(filePath)) {
-        const deletedSize = del_file_and_converted(filePath);
-        
+        const deletedSize = deleteFileAndConverted(filePath);
+
         if (deletedSize > 0) {
           freedSpace += deletedSize;
           deletedCount++;
-          
-          // Supprimer de la DB
-          await db.run('DELETE FROM devoir_fichiers WHERE id = ?', [fichier.id]);
-          
-          console.log(`  ✓ Supprimé: ${fichier.titre} - ${fichier.filename} (${format_size(deletedSize)})`);
+
+          await db.run('DELETE FROM devoir_fichiers WHERE id = ?', [file.id]);
+
+          console.log(`  ✓ Deleted: ${file.titre} - ${file.filename} (${formatSize(deletedSize)})`);
         }
       }
     }
-    
-    console.log(`✅ ${deletedCount} fichiers supprimés, ${format_size(freedSpace)} libérés`);
-    
+
+    console.log(`✅ ${deletedCount} files deleted, ${formatSize(freedSpace)} freed`);
+
     return { allowed: true, cleaned: { count: deletedCount, size: freedSpace } };
   } catch (error) {
-    console.error('❌ Erreur vérification stockage:', error.message);
-    return { 
-      allowed: false, 
-      error: 'Erreur lors de la vérification du stockage' 
+    console.error('❌ Storage check failed:', error.message);
+    return {
+      allowed: false,
+      error: 'Erreur lors de la vérification du stockage'
     };
   }
 }
 
-/**
- * Obtient les statistiques du stockage
- */
-async function get_storage_stats() {
+/** Storage statistics of the upload directory. */
+async function getStorageStats() {
   try {
-    const totalSize = calc_dir_size(UPLOAD_DIR);
+    const totalSize = calcDirSize(UPLOAD_DIR);
     const limit = MAX_UPLOAD_SIZE;
     const percentage = ((totalSize / limit) * 100).toFixed(1);
-    
+
     return {
-      current: format_size(totalSize),
+      current: formatSize(totalSize),
       currentBytes: totalSize,
-      limit: format_size(limit),
+      limit: formatSize(limit),
       limitBytes: limit,
       percentage: percentage,
-      remaining: format_size(limit - totalSize),
+      remaining: formatSize(limit - totalSize),
       remainingBytes: limit - totalSize
     };
   } catch (error) {
-    console.error('❌ Erreur stats stockage:', error.message);
+    console.error('❌ Storage stats failed:', error.message);
     throw error;
   }
 }
 
 module.exports = {
-  check_before_upload,
-  get_storage_stats,
-  calc_dir_size,
-  format_size
+  checkBeforeUpload,
+  getStorageStats,
+  calcDirSize,
+  formatSize
 };
