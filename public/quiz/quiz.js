@@ -1,7 +1,6 @@
 import {escapeHtml} from "../js/utils/dom.js";
 import {mountHeader, setHeaderUser} from "../js/components/header.js";
 
-// Variables globales
 let quizData = null;
 let currentQuestions = [];
 let currentQuestionIndex = 0;
@@ -11,25 +10,29 @@ let correctCount = 0;
 let incorrectCount = 0;
 let answered = false;
 let quizMode = null;
-let answeredQuestions = new Set(); // Pour empêcher la modification des anciennes réponses
-let answersHistory = {}; // Stocker l'historique des réponses {questionIndex: {selectedOption, isCorrect, mode}}
-let devoirId = null;
+/** Answered questions, which can no longer be changed. */
+let answeredQuestions = new Set();
+/** Answers by question index: `{ selectedOption, isCorrect, mode }`. */
+let answersHistory = {};
+let assignmentId = null;
 let userId = null;
-let questionOrder = [];  // ordre mélangé des questions : indices dans quizData.questions
+/** Shuffled order of the questions: indexes in quizData.questions. */
+let questionOrder = [];
 let resolveUserReady;
 const userReady = new Promise((resolve) => { resolveUserReady = resolve; });
 
-// ============= REPRISE DU QUIZ =============
-// La progression reste dans le navigateur tant que le quiz n'est ni terminé ni
-// abandonné : un rechargement ou un changement de page ne fait plus tout perdre.
-
+/**
+ * Quiz resume: the progress stays in the browser until the quiz is finished or
+ * abandoned, so reloading or leaving the page no longer loses everything.
+ * Saving is a convenience: when storage is full or refused, the quiz goes on.
+ */
 const SAVE_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 
 function saveKey() {
-    return `eniv-quiz-${userId ?? 'anonyme'}-${devoirId}`;
+    return `eniv-quiz-${userId ?? 'anonyme'}-${assignmentId}`;
 }
 
-// Empreinte du contenu : un quiz régénéré ou modifié invalide la progression gardée
+/** Fingerprint of the content: a regenerated or edited quiz invalidates the saved progress. */
 function quizSignature(questions) {
     let hash = 5381;
     const text = JSON.stringify(questions.map(q => [q.question, q.options]));
@@ -56,7 +59,7 @@ function saveProgress() {
             history: answersHistory
         }));
     } catch {
-        // Stockage plein ou refusé : la reprise est un confort, elle ne bloque pas le quiz
+        return;
     }
 }
 
@@ -64,23 +67,25 @@ function clearProgress() {
     try {
         localStorage.removeItem(saveKey());
     } catch {
-        // Voir saveProgress
+        return;
     }
 }
 
 const isIndex = (value, length) => Number.isInteger(value) && value >= 0 && value < length;
 
-// Progression gardée si elle correspond encore à ce quiz, sinon null
+/**
+ * Saved progress when it still matches this quiz, otherwise null. A quiz
+ * restricted to one mode does not resume in the other ('both' allows both).
+ */
 function readProgress() {
     try {
         const saved = JSON.parse(localStorage.getItem(saveKey()));
         const questions = quizData.questions || [];
         if (!saved || Date.now() - saved.savedAt > SAVE_MAX_AGE_MS) return null;
         if (saved.signature !== quizSignature(questions)) return null;
-        // Un quiz limité à un mode ne reprend pas dans l'autre ('both' : les deux sont permis)
         if (saved.mode !== 'choice' && saved.mode !== 'oral') return null;
-        const modeImpose = quizData.mode === 'choice' || quizData.mode === 'oral';
-        if (modeImpose && quizData.mode !== saved.mode) return null;
+        const forcedMode = quizData.mode === 'choice' || quizData.mode === 'oral';
+        if (forcedMode && quizData.mode !== saved.mode) return null;
 
         const n = questions.length;
         const order = saved.order;
@@ -123,19 +128,21 @@ function resumeQuiz(saved) {
     answersHistory = saved.history;
 
     updateStats();
-    document.getElementById('resumeNotice').style.display = 'block';
-    document.getElementById('modeSelector').style.display = 'none';
-    document.getElementById('progressBar').style.display = 'block';
-    document.getElementById('quizCard').style.display = 'block';
+    document.getElementById('resume-notice').style.display = 'block';
+    document.getElementById('mode-selector').style.display = 'none';
+    document.getElementById('progress-bar').style.display = 'block';
+    document.getElementById('quiz-card').style.display = 'block';
     loadQuestion();
 }
 
-// Abandonner : la progression gardée est effacée
+/**
+ * Abandons the quiz and erases the saved progress. A quiz restricted to one
+ * mode has nothing to choose, so it goes back to the assignments.
+ */
 function abandonQuiz() {
     if (!confirm('Abandonner ce quiz ? Votre progression sera perdue.')) return;
     clearProgress();
 
-    // Quiz limité à un mode : rien à choisir, retour aux devoirs
     if (quizData.mode === 'choice' || quizData.mode === 'oral') {
         window.location.href = '/dashboard';
         return;
@@ -148,64 +155,56 @@ function abandonQuiz() {
     incorrectCount = 0;
     quizMode = null;
     updateStats();
-    document.getElementById('resumeNotice').style.display = 'none';
-    document.getElementById('quizCard').style.display = 'none';
-    document.getElementById('progressBar').style.display = 'none';
-    document.getElementById('modeSelector').style.display = 'block';
+    document.getElementById('resume-notice').style.display = 'none';
+    document.getElementById('quiz-card').style.display = 'none';
+    document.getElementById('progress-bar').style.display = 'none';
+    document.getElementById('mode-selector').style.display = 'block';
 }
 
-// Fonction pour formater le texte avec des blocs de code
+/** Escapes the text and turns '''code''' and ```code``` into code blocks. */
 function formatTextWithCode(text) {
     if (!text) return '';
 
-    // Remplacer '''code''' par des blocs de code HTML avec coloration syntaxique
-    // Support pour ''' (3 apostrophes) et ``` (3 backticks)
     let result = escapeHtml(text);
 
     function replacer(match, code) {
       return `<pre><code>${code.trim()}</code></pre>`;
     }
 
-    // Remplacer '''code''' (3 apostrophes simples)
     result = result.replace(/'''([\s\S]*?)'''/g, replacer);
-    // Remplacer ```code``` (3 backticks) au cas où
     result = result.replace(/```([\s\S]*?)```/g, replacer);
 
     return result;
 }
 
-// Récupérer l'ID du devoir depuis l'URL
-function getDevoirIdFromUrl() {
+function getAssignmentIdFromUrl() {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get('id');
 }
 
-// Charger les données du quiz depuis le backend
 async function loadQuizData() {
     try {
-        devoirId = getDevoirIdFromUrl();
-        if (!devoirId) {
+        assignmentId = getAssignmentIdFromUrl();
+        if (!assignmentId) {
             alert('Aucun quiz spécifié');
             window.location.href = '/dashboard';
             return;
         }
 
-        const response = await fetch(`/api/quiz/${devoirId}`, {
+        const response = await fetch(`/api/quiz/${assignmentId}`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
         });
 
         if (!response.ok) {
-            throw new Error('Erreur lors du chargement du quiz');
+            throw new Error('Quiz loading failed');
         }
 
         quizData = await response.json();
 
-        // Mettre à jour le titre
-        document.getElementById('quizTitle').textContent = quizData.titre || 'Quiz';
+        document.getElementById('quiz-title').textContent = quizData.titre || 'Quiz';
 
-        // Quiz en cours : reprise là où on l'avait laissé (l'utilisateur est nécessaire à la clé)
         await userReady;
         const saved = readProgress();
         if (saved) {
@@ -213,23 +212,20 @@ async function loadQuizData() {
             return;
         }
 
-        // Afficher le sélecteur de mode
-        document.getElementById('modeSelector').style.display = 'block';
+        document.getElementById('mode-selector').style.display = 'block';
 
-        // Si le quiz n'autorise qu'un mode, le démarrer directement
         if (quizData.mode === 'choice') {
             startQuiz('choice');
         } else if (quizData.mode === 'oral') {
             startQuiz('oral');
         }
     } catch (error) {
-        console.error('Erreur:', error);
+        console.error('Quiz error:', error);
         alert('Impossible de charger le quiz');
         window.location.href = '/dashboard';
     }
 }
 
-// Démarrer le quiz
 function startQuiz(mode) {
     quizMode = mode;
     currentQuestions = quizData.questions || [];
@@ -239,7 +235,6 @@ function startQuiz(mode) {
         return;
     }
 
-    // Mélanger les questions : l'ordre est gardé pour pouvoir reprendre
     questionOrder = shuffleArray(currentQuestions.map((_, i) => i));
     currentQuestions = questionOrder.map(i => currentQuestions[i]);
     currentQuestionIndex = 0;
@@ -250,14 +245,13 @@ function startQuiz(mode) {
     answersHistory = {};
 
     updateStats();
-    document.getElementById('modeSelector').style.display = 'none';
-    document.getElementById('progressBar').style.display = 'block';
-    document.getElementById('quizCard').style.display = 'block';
+    document.getElementById('mode-selector').style.display = 'none';
+    document.getElementById('progress-bar').style.display = 'block';
+    document.getElementById('quiz-card').style.display = 'block';
 
     loadQuestion();
 }
 
-// Mélanger un tableau
 function shuffleArray(array) {
     const newArray = [...array];
     for (let i = newArray.length - 1; i > 0; i--) {
@@ -267,26 +261,25 @@ function shuffleArray(array) {
     return newArray;
 }
 
-// Charger une question
 function loadQuestion() {
-    // Vérifier si la question a déjà été répondue
     const isAlreadyAnswered = answeredQuestions.has(currentQuestionIndex);
     answered = isAlreadyAnswered;
     selectedOption = null;
 
     const question = currentQuestions[currentQuestionIndex];
-    const progress = ((currentQuestionIndex + 1) / currentQuestions.length) * 100;    document.getElementById('progressFill').style.width = progress + '%';
-    document.getElementById('questionNumber').textContent =
+    const progress = ((currentQuestionIndex + 1) / currentQuestions.length) * 100;
+    document.getElementById('progress-fill').style.width = progress + '%';
+    document.getElementById('question-number').textContent =
         `Question ${currentQuestionIndex + 1} sur ${currentQuestions.length}`;
     document.getElementById('question').innerHTML = formatTextWithCode(question.question);
 
     document.getElementById('explanation').classList.remove('show');
     document.getElementById('options').style.display = 'none';
-    document.getElementById('oralResponse').style.display = 'none';
-    document.getElementById('validateBtn').style.display = 'none';
-    document.getElementById('nextBtn').style.display = 'none';
+    document.getElementById('oral-response').style.display = 'none';
+    document.getElementById('validate-btn').style.display = 'none';
+    document.getElementById('next-btn').style.display = 'none';
 
-    const existingRecap = document.getElementById('recapDiv');
+    const existingRecap = document.getElementById('recap');
     if (existingRecap) {
         existingRecap.remove();
     }
@@ -295,21 +288,19 @@ function loadQuestion() {
         document.getElementById('options').style.display = 'flex';
 
         if (!isAlreadyAnswered) {
-            document.getElementById('validateBtn').style.display = 'inline-block';
+            document.getElementById('validate-btn').style.display = 'inline-block';
         } else {
-            document.getElementById('nextBtn').style.display = 'inline-block';
+            document.getElementById('next-btn').style.display = 'inline-block';
         }
 
         const optionsContainer = document.getElementById('options');
         optionsContainer.innerHTML = '';
 
-        // Créer un tableau d'options mélangées avec leur index original
         const shuffledOptions = question.options.map((option, index) => ({
             text: option,
             originalIndex: index
         }));
 
-        // Mélanger les options seulement si pas déjà répondu
         if (!isAlreadyAnswered && !question.shuffledOptions) {
             question.shuffledOptions = shuffleArray(shuffledOptions);
         } else if (!question.shuffledOptions) {
@@ -320,7 +311,6 @@ function loadQuestion() {
             const optionDiv = document.createElement('div');
             optionDiv.className = 'option';
 
-            // Si déjà répondu, empêcher la sélection
             if (!isAlreadyAnswered) {
                 optionDiv.onclick = () => selectOption(displayIndex);
             } else {
@@ -336,17 +326,14 @@ function loadQuestion() {
             optionsContainer.appendChild(optionDiv);
         });
 
-        // Restaurer l'état si déjà répondu
         if (isAlreadyAnswered && answersHistory[currentQuestionIndex]) {
             const history = answersHistory[currentQuestionIndex];
             const options = document.querySelectorAll('.option');
             
-            // Trouver la position affichée de la bonne réponse
             const correctDisplayIndex = question.shuffledOptions.findIndex(
                 opt => opt.originalIndex === question.correct
             );
 
-            // Marquer l'option sélectionnée
             if (history.isCorrect) {
                 options[history.selectedOption].classList.add('correct');
             } else {
@@ -354,11 +341,10 @@ function loadQuestion() {
                 options[correctDisplayIndex].classList.add('correct');
             }
 
-            // Afficher l'explication
             if (question.explanation) {
-                document.getElementById('explanationText').innerHTML = formatTextWithCode(question.explanation);
+                document.getElementById('explanation-text').innerHTML = formatTextWithCode(question.explanation);
                 if (question.example) {
-                    document.getElementById('exampleText').innerHTML = formatTextWithCode(question.example);
+                    document.getElementById('example-text').innerHTML = formatTextWithCode(question.example);
                     document.getElementById('example').style.display = 'block';
                 } else {
                     document.getElementById('example').style.display = 'none';
@@ -367,35 +353,32 @@ function loadQuestion() {
             }
         }
     } else {
-        document.getElementById('oralResponse').style.display = 'block';
+        document.getElementById('oral-response').style.display = 'block';
 
         if (!isAlreadyAnswered) {
-            document.getElementById('showAnswerBtn').style.display = 'inline-block';
+            document.getElementById('show-answer-btn').style.display = 'inline-block';
         } else {
-            document.getElementById('showAnswerBtn').style.display = 'none';
-            document.getElementById('nextBtn').style.display = 'inline-block';
+            document.getElementById('show-answer-btn').style.display = 'none';
+            document.getElementById('next-btn').style.display = 'inline-block';
         }
 
-        document.getElementById('selfEvaluation').style.display = 'none';
-        document.getElementById('correctAnswer').style.display = 'none';
-        document.getElementById('correctAnswer').innerHTML = '';
+        document.getElementById('self-evaluation').style.display = 'none';
+        document.getElementById('correct-answer').style.display = 'none';
+        document.getElementById('correct-answer').innerHTML = '';
 
-        // Restaurer l'état si déjà répondu (mode oral)
         if (isAlreadyAnswered && answersHistory[currentQuestionIndex]) {
             const history = answersHistory[currentQuestionIndex];
-              // Afficher la réponse correcte
-            const correctAnswerDiv = document.getElementById('correctAnswer');
+            const correctAnswerDiv = document.getElementById('correct-answer');
             correctAnswerDiv.innerHTML = `<strong>Réponse correcte:</strong> ${formatTextWithCode(question.options[question.correct])}`;
             correctAnswerDiv.style.display = 'block';
 
-            // Afficher l'auto-évaluation (désactivée)
-            document.getElementById('selfEvaluation').style.display = 'block';
+            document.getElementById('self-evaluation').style.display = 'block';
             const evalButtons = document.querySelectorAll('.eval-buttons button');
-            evalButtons.forEach(btn => btn.disabled = true);            // Afficher l'explication
+            evalButtons.forEach(btn => btn.disabled = true);
             if (question.explanation) {
-                document.getElementById('explanationText').innerHTML = formatTextWithCode(question.explanation);
+                document.getElementById('explanation-text').innerHTML = formatTextWithCode(question.explanation);
                 if (question.example) {
-                    document.getElementById('exampleText').innerHTML = formatTextWithCode(question.example);
+                    document.getElementById('example-text').innerHTML = formatTextWithCode(question.example);
                     document.getElementById('example').style.display = 'block';
                 } else {
                     document.getElementById('example').style.display = 'none';
@@ -403,10 +386,9 @@ function loadQuestion() {
                 document.getElementById('explanation').classList.add('show');
             }
 
-            // Restaurer le récap si la réponse était incorrecte
             if (!history.isCorrect) {
                 const recapDiv = document.createElement('div');
-                recapDiv.id = 'recapDiv';
+                recapDiv.id = 'recap';
                 recapDiv.className = 'recap';
                 recapDiv.innerHTML = `
                     <strong>Récapitulatif:</strong>
@@ -414,19 +396,17 @@ function loadQuestion() {
                     <p><strong>Réponse:</strong> ${formatTextWithCode(question.options[question.correct])}</p>
                     ${question.explanation ? `<p>${formatTextWithCode(question.explanation)}</p>` : ''}
                 `;
-                const correctAnswerDiv = document.getElementById('correctAnswer');
+                const correctAnswerDiv = document.getElementById('correct-answer');
                 correctAnswerDiv.parentNode.insertBefore(recapDiv, correctAnswerDiv.nextSibling);
             }
         }
     }
 
-    // Gérer l'affichage du bouton précédent
-    document.getElementById('prevBtn').disabled = currentQuestionIndex === 0;
+    document.getElementById('prev-btn').disabled = currentQuestionIndex === 0;
 
     saveProgress();
 }
 
-// Sélectionner une option
 function selectOption(index) {
     if (answered || answeredQuestions.has(currentQuestionIndex)) return;
 
@@ -436,7 +416,6 @@ function selectOption(index) {
     selectedOption = index;
 }
 
-// Valider la réponse (mode choix multiple)
 function validateAnswer() {
     if (selectedOption === null || answered || answeredQuestions.has(currentQuestionIndex)) return;
 
@@ -446,22 +425,18 @@ function validateAnswer() {
     const question = currentQuestions[currentQuestionIndex];
     const options = document.querySelectorAll('.option');
 
-    // Désactiver toutes les options
     options.forEach(opt => {
         opt.style.cursor = 'not-allowed';
         opt.onclick = null;
     });
 
-    // Vérifier si l'option sélectionnée correspond à la bonne réponse originale
     const selectedOriginalIndex = question.shuffledOptions[selectedOption].originalIndex;
     const isCorrect = selectedOriginalIndex === question.correct;
 
-    // Trouver la position affichée de la bonne réponse
     const correctDisplayIndex = question.shuffledOptions.findIndex(
         opt => opt.originalIndex === question.correct
     );
 
-    // Sauvegarder dans l'historique
     answersHistory[currentQuestionIndex] = {
         selectedOption: selectedOption,
         isCorrect: isCorrect,
@@ -478,11 +453,10 @@ function validateAnswer() {
         incorrectCount++;
     }
 
-    // Afficher l'explication si elle existe
     if (question.explanation) {
-        document.getElementById('explanationText').innerHTML = formatTextWithCode(question.explanation);
+        document.getElementById('explanation-text').innerHTML = formatTextWithCode(question.explanation);
         if (question.example) {
-            document.getElementById('exampleText').innerHTML = formatTextWithCode(question.example);
+            document.getElementById('example-text').innerHTML = formatTextWithCode(question.example);
             document.getElementById('example').style.display = 'block';
         } else {
             document.getElementById('example').style.display = 'none';
@@ -493,29 +467,27 @@ function validateAnswer() {
     updateStats();
     saveProgress();
 
-    document.getElementById('validateBtn').style.display = 'none';
-    document.getElementById('nextBtn').style.display = 'inline-block';
+    document.getElementById('validate-btn').style.display = 'none';
+    document.getElementById('next-btn').style.display = 'inline-block';
 }
 
-// Afficher la réponse (mode oral)
 function showAnswer() {
     if (answered || answeredQuestions.has(currentQuestionIndex)) return;
 
     const question = currentQuestions[currentQuestionIndex];
     answered = true;
 
-    const correctAnswerDiv = document.getElementById('correctAnswer');
+    const correctAnswerDiv = document.getElementById('correct-answer');
     correctAnswerDiv.innerHTML = `<strong>Réponse correcte:</strong> ${formatTextWithCode(question.options[question.correct])}`;
     correctAnswerDiv.style.display = 'block';
 
-    document.getElementById('selfEvaluation').style.display = 'block';
-    document.getElementById('showAnswerBtn').style.display = 'none';
+    document.getElementById('self-evaluation').style.display = 'block';
+    document.getElementById('show-answer-btn').style.display = 'none';
 
-    // Afficher l'explication si elle existe
     if (question.explanation) {
-        document.getElementById('explanationText').innerHTML = formatTextWithCode(question.explanation);
+        document.getElementById('explanation-text').innerHTML = formatTextWithCode(question.explanation);
         if (question.example) {
-            document.getElementById('exampleText').innerHTML = formatTextWithCode(question.example);
+            document.getElementById('example-text').innerHTML = formatTextWithCode(question.example);
             document.getElementById('example').style.display = 'block';
         } else {
             document.getElementById('example').style.display = 'none';
@@ -527,20 +499,18 @@ function showAnswer() {
     evalButtons.forEach(btn => btn.disabled = false);
 }
 
-// Évaluer la réponse (mode oral)
 function evaluateAnswer(isCorrect) {
     if (answeredQuestions.has(currentQuestionIndex)) return;
 
     answeredQuestions.add(currentQuestionIndex);
 
-    // Sauvegarder dans l'historique
     answersHistory[currentQuestionIndex] = {
-        selectedOption: null, // Pas d'option sélectionnée en mode oral
+        selectedOption: null,
         isCorrect: isCorrect,
         mode: 'oral'
     };
 
-    const existingRecap = document.getElementById('recapDiv');
+    const existingRecap = document.getElementById('recap');
     if (existingRecap) {
         existingRecap.remove();
     }
@@ -551,8 +521,9 @@ function evaluateAnswer(isCorrect) {
     } else {
         incorrectCount++;
 
-        const question = currentQuestions[currentQuestionIndex];        const recapDiv = document.createElement('div');
-        recapDiv.id = 'recapDiv';
+        const question = currentQuestions[currentQuestionIndex];
+        const recapDiv = document.createElement('div');
+        recapDiv.id = 'recap';
         recapDiv.className = 'recap';
         recapDiv.innerHTML = `
             <strong>Récapitulatif:</strong>
@@ -561,7 +532,7 @@ function evaluateAnswer(isCorrect) {
             ${question.explanation ? `<p>${formatTextWithCode(question.explanation)}</p>` : ''}
         `;
 
-        const correctAnswerDiv = document.getElementById('correctAnswer');
+        const correctAnswerDiv = document.getElementById('correct-answer');
         correctAnswerDiv.parentNode.insertBefore(recapDiv, correctAnswerDiv.nextSibling);
     }
 
@@ -571,10 +542,9 @@ function evaluateAnswer(isCorrect) {
     const evalButtons = document.querySelectorAll('.eval-buttons button');
     evalButtons.forEach(btn => btn.disabled = true);
 
-    document.getElementById('nextBtn').style.display = 'inline-block';
+    document.getElementById('next-btn').style.display = 'inline-block';
 }
 
-// Question suivante
 function nextQuestion() {
     if (currentQuestionIndex < currentQuestions.length - 1) {
         currentQuestionIndex++;
@@ -584,7 +554,6 @@ function nextQuestion() {
     }
 }
 
-// Question précédente
 function previousQuestion() {
     if (currentQuestionIndex > 0) {
         currentQuestionIndex--;
@@ -592,22 +561,19 @@ function previousQuestion() {
     }
 }
 
-// Mettre à jour les statistiques
 function updateStats() {
     document.getElementById('score').textContent = score;
     document.getElementById('correct').textContent = correctCount;
     document.getElementById('incorrect').textContent = incorrectCount;
 }
 
-// Afficher les résultats
 async function showResults() {
-    // Quiz terminé : plus rien à reprendre
     clearProgress();
-    document.getElementById('quizCard').style.display = 'none';
-    document.getElementById('progressBar').style.display = 'none';
+    document.getElementById('quiz-card').style.display = 'none';
+    document.getElementById('progress-bar').style.display = 'none';
 
     const percentage = Math.round((correctCount / currentQuestions.length) * 100);
-    document.getElementById('finalScore').textContent = percentage + '%';
+    document.getElementById('final-score').textContent = percentage + '%';
 
     let message;
     if (percentage >= 90) {
@@ -620,10 +586,9 @@ async function showResults() {
         message = '💪 Il faut réviser un peu plus ! Ne baissez pas les bras !';
     }
 
-    document.getElementById('resultMessage').textContent = message;
-    document.getElementById('resultCard').classList.add('show');
+    document.getElementById('result-message').textContent = message;
+    document.getElementById('result-card').classList.add('show');
 
-    // Sauvegarder les résultats
     try {
         await fetch('/api/quiz/results', {
             method: 'POST',
@@ -632,7 +597,7 @@ async function showResults() {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             },
             body: JSON.stringify({
-                devoirId: devoirId,
+                devoirId: assignmentId,
                 score: score,
                 totalQuestions: currentQuestions.length,
                 correctAnswers: correctCount,
@@ -641,16 +606,15 @@ async function showResults() {
             })
         });
     } catch (error) {
-        console.error('Erreur lors de la sauvegarde des résultats:', error);
+        console.error('Saving the quiz results failed:', error);
     }
 }
 
-// Recommencer le quiz
 function restartQuiz() {
     clearProgress();
-    document.getElementById('resumeNotice').style.display = 'none';
-    document.getElementById('resultCard').classList.remove('show');
-    document.getElementById('modeSelector').style.display = 'block';
+    document.getElementById('resume-notice').style.display = 'none';
+    document.getElementById('result-card').classList.remove('show');
+    document.getElementById('mode-selector').style.display = 'block';
     answeredQuestions.clear();
     answersHistory = {};
     score = 0;
@@ -659,12 +623,14 @@ function restartQuiz() {
     updateStats();
 }
 
-// Retour au dashboard
 function goBack() {
     window.location.href = '/dashboard';
 }
 
-// Identité de l'utilisateur : clé de la reprise du quiz et menu du header
+/**
+ * Loads the user identity, used by the resume key and the header menu. Without
+ * it (network error...), the quiz still resumes, under an anonymous key.
+ */
 async function loadUserInfo() {
     try {
         const response = await fetch('/api/auth/me', {
@@ -680,9 +646,8 @@ async function loadUserInfo() {
             setHeaderUser(data);
         }
     } catch (error) {
-        console.error('Erreur lors du chargement des infos utilisateur:', error);
+        console.error('Loading the user info failed:', error);
     } finally {
-        // Sans identité (erreur réseau...), la reprise se fait quand même, sous une clé anonyme
         resolveUserReady();
     }
 }
@@ -692,13 +657,11 @@ function hideLoadingScreen() {
     if (ls) ls.classList.add('hidden');
 }
 
-// Initialiser le quiz au chargement de la page
 document.addEventListener('DOMContentLoaded', async () => {
     mountHeader({ page: 'quiz' });
     await Promise.all([loadQuizData(), loadUserInfo()]);
     hideLoadingScreen();
 });
-
 
 window.startQuiz = startQuiz;
 window.showAnswer = showAnswer;
