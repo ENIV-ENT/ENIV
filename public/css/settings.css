@@ -489,12 +489,12 @@ html.dark-theme .optional {
 }
 
 /* Préférence à plusieurs choix : libellé, puis liste déroulante en dessous */
-.push-pref-choix {
+.push-pref-choice {
   flex-direction: column;
   gap: 0.4rem;
 }
 
-.push-pref-choix select {
+.push-pref-choice select {
   margin-bottom: 0;
   padding: 0.45rem 0.6rem;
   font-size: 0.95rem;
