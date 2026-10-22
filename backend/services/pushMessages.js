@@ -34,7 +34,7 @@ function newAssignment({ id, titre: title, matiere_nom: subjectName, date }) {
   const day = formatDay(date);
   return {
     title: `📚 Nouveau devoir${subjectName ? ` · ${subjectName}` : ''}`,
-    body: truncate(day ? `${title} — pour ${day}` : title),
+    body: truncate(day ? `${title} · pour ${day}` : title),
     url: assignmentUrl(id),
     tag: `devoir-${id}`,
   };
@@ -66,7 +66,7 @@ function assignmentUpdated({ id, titre: title, matiere_nom: subjectName, date },
   }
   return {
     title: `✏️ Devoir modifié${subjectName ? ` · ${subjectName}` : ''}`,
-    body: truncate(`${title} — ${detail}`),
+    body: truncate(`${title} · ${detail}`),
     url: assignmentUrl(id),
     tag: `devoir-${id}`,
   };

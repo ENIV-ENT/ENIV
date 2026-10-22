@@ -53,6 +53,10 @@ function createFileToken(fileId) { … }
 
 Configuration files that are not code (`.github/workflows/*.yml`, `compose.y*ml`, `Dockerfile`, `deploy.sh`, `.env.example`) keep their comments, in English: they document operations.
 
+### Em dashes
+
+Do not use the em dash (U+2014) anywhere: code, strings shown to users, documentation, commits, pull requests, issues. Use a colon, a comma, parentheses or a middle dot (`·`) instead, whichever fits the sentence.
+
 ## Casing
 
 | What | Rule | Examples |

@@ -90,7 +90,7 @@
     <g class="carte c3" filter="url(#ombre)">
       <rect x="780" y="236" width="340" height="80" rx="14" fill="#fff"/>
       <rect x="780" y="236" width="7" height="80" rx="3" fill="#2ecc71"/>
-      <text x="806" y="268" class="carte-titre" fill-opacity="0.55">TP titrage — compte rendu</text>
+      <text x="806" y="268" class="carte-titre" fill-opacity="0.55">TP titrage : compte rendu</text>
       <rect class="barre" x="806" y="262" width="214" height="2" fill="#78909c"/>
       <text x="806" y="294" class="carte-matiere" fill="#2ecc71">Physique-Chimie</text>
       <circle cx="1084" cy="276" r="16" fill="#2ecc71"/>

@@ -208,11 +208,11 @@ Changez-le dès la première connexion.
 | `JWT_SECRET` | ✅ | Signature des jetons de connexion (`openssl rand -hex 48`) |
 | `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASSWORD` | ✅ | Connexion à la base (MySQL ou MariaDB) |
 | `BASE_URL` | ✅ | Adresse publique (liens des e-mails et de Discord) |
-| `BREVO_API_KEY` `BREVO_SENDER_EMAIL` `BREVO_SENDER_NAME` | — | E-mails (invitations, mot de passe oublié…) |
-| `GROQ_API_KEY` | — | Quiz IA des classes standard |
-| `PREMIUM_API_KEY` | — | Quiz IA des classes premium (Anthropic) |
-| `SUPERADMIN_PASSWORD` | — | Mot de passe du compte `superadmin` créé au premier démarrage (sinon tiré au hasard et affiché dans les journaux) |
-| `VAPID_PUBLIC_KEY` `VAPID_PRIVATE_KEY` `VAPID_SUBJECT` | — | Notifications push : générées automatiquement si absentes. Une fois fixées, ne plus les changer (tous les abonnements deviendraient invalides) |
+| `BREVO_API_KEY` `BREVO_SENDER_EMAIL` `BREVO_SENDER_NAME` |  | E-mails (invitations, mot de passe oublié…) |
+| `GROQ_API_KEY` |  | Quiz IA des classes standard |
+| `PREMIUM_API_KEY` |  | Quiz IA des classes premium (Anthropic) |
+| `SUPERADMIN_PASSWORD` |  | Mot de passe du compte `superadmin` créé au premier démarrage (sinon tiré au hasard et affiché dans les journaux) |
+| `VAPID_PUBLIC_KEY` `VAPID_PRIVATE_KEY` `VAPID_SUBJECT` |  | Notifications push : générées automatiquement si absentes. Une fois fixées, ne plus les changer (tous les abonnements deviendraient invalides) |
 
 Sans clé, la fonctionnalité correspondante est simplement désactivée.
 
