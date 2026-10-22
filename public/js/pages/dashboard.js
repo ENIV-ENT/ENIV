@@ -106,7 +106,7 @@ async function init() {
 
   if (!authData.classe_id && !authData.is_admin) {
     document.getElementById('main-content').innerHTML = `
-      <div style="text-align: center; padding: 3rem; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+      <div style="text-align: center; padding: 3rem; background: var(--surface); border-radius: 8px; box-shadow: 0 2px 4px var(--shadow);">
         <h2>Bienvenue sur Eniv</h2>
         <p style="color: var(--secondary); margin-top: 1rem;">Vous n'êtes pas encore associé à une classe.</p>
       </div>
