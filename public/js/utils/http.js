@@ -4,7 +4,7 @@ import { getRealtimeId } from './realtime.js';
  * Calls the API with the stored token and returns the parsed JSON body.
  *
  * Kept apart from api.js so that modules imported by api.js (push.js) can call
- * the API without an import cycle: scripts/version-assets.js cannot version two
+ * the API without an import cycle: scripts/versionAssets.js cannot version two
  * files that import each other.
  *
  * The X-Realtime-Id header keeps the tab that made a change from receiving its
