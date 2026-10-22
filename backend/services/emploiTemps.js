@@ -4,7 +4,9 @@
 // (table emploi_temps_ics) : si la source tombe, c'est elle qui est servie,
 // avec sa date de mise à jour. Le planificateur la rafraîchit régulièrement
 // (refreshAll), les requêtes des utilisateurs ne la récupèrent elles-mêmes que
-// si elle a vieilli.
+// si elle a vieilli. Après un échec, elles n'attendent plus la source : la
+// version gardée est servie aussitôt et la nouvelle tentative se fait en
+// arrière-plan.
 
 const db = require('../models/dbHelper');
 // Appelé via l'objet module pour que les tests puissent remplacer openRemote
@@ -152,7 +154,9 @@ async function refresh(row) {
 }
 
 /**
- * Emploi du temps d'une classe, depuis la version gardée ou la source.
+ * Emploi du temps d'une classe, depuis la version gardée ou la source. Après
+ * un échec, la version gardée est renvoyée sans attendre la source, qui est
+ * interrogée en arrière-plan une fois RETRY_MS écoulé.
  * @param {number|null} classeId
  * @param {object} [options]
  * @param {boolean} [options.force] - Récupère la source même si la version gardée est récente
@@ -172,12 +176,28 @@ async function getEmploiTemps(classeId, { force = false } = {}) {
       return present(row, stored);
     }
 
+    // Une source en panne peut mettre DEADLINE_MS à échouer de nouveau : la
+    // page n'attend pas, la version gardée est servie même périmée
+    if (row.last_error && stored) {
+      if (age(row.last_attempt_at) >= RETRY_MS) {
+        startRefresh(row).catch(error => {
+          console.error(`Emploi du temps (classe ${classeId}) :`, error);
+        });
+      }
+      return present(row, stored);
+    }
+
     if (row.last_error && age(row.last_attempt_at) < RETRY_MS) {
-      if (stored) return present(row, stored);
       throw new safeRequest.ProxyError(row.last_error, 502);
     }
   }
 
+  return startRefresh(row);
+}
+
+// Lance la récupération, ou renvoie celle déjà en cours pour cette classe
+function startRefresh(row) {
+  const classeId = row.classe_id;
   if (!inFlight.has(classeId)) {
     inFlight.set(classeId, refresh(row).finally(() => inFlight.delete(classeId)));
   }
