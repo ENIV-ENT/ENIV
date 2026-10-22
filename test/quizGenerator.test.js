@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { referencesMissingCode, parseQuestions, keepValidQuestions, QUIZ_SCHEMA } = require('../backend/services/quizGenerator');
+const { referencesMissingCode, parseQuestions, keepValidQuestions, questionsFromGroqError, shouldFallbackToGroq, QUIZ_SCHEMA } = require('../backend/services/quizGenerator');
 
 test('question qui renvoie à un code absent', () => {
   assert.equal(referencesMissingCode({ question: 'Analysez ce Dockerfile. Quel est le problème ?' }), true);
@@ -68,10 +68,6 @@ test('parseQuestions lit l\'enveloppe { questions } et rend un tableau', () => {
   assert.equal(result.length, 2);
 });
 
-test('parseQuestions accepte aussi un tableau seul', () => {
-  assert.equal(parseQuestions(JSON.stringify([question()])).length, 1);
-});
-
 test('une question invalide est écartée sans perdre les autres', () => {
   const lot = [
     question(),
@@ -111,4 +107,52 @@ test('réponse coupée par la limite de tokens : les questions entières sont ga
 
 test('réponse coupée avant la première question entière : erreur claire', () => {
   assert.throws(() => parseQuestions('{"questions":[{"question":"Que f', true), /aucune question complète/);
+});
+
+// --- Erreurs des fournisseurs --------------------------------------------------
+
+// Erreur 400 de Groq telle que la lève le SDK : error.error est le corps de la réponse
+const erreurGroq = (failedGeneration, status = 400) => Object.assign(new Error('400 Generated JSON does not match the expected schema'), {
+  status,
+  error: { error: { message: 'Generated JSON does not match the expected schema', type: 'invalid_request_error', failed_generation: failedGeneration } }
+});
+
+test('Groq refuse sa propre réponse : les questions valides de failed_generation sont récupérées', () => {
+  const question34 = { question: 'Il manque des champs', options: ['a', 'b', 'c', 'd'], correct: 0 };
+  const failed = JSON.stringify({ questions: [question(), question({ correct: 2 }), question34] });
+
+  const result = questionsFromGroqError(erreurGroq(failed));
+  assert.deepEqual(result.map(q => q.correct), [0, 2]);
+});
+
+test('Groq : failed_generation coupé en route, les questions entières sont gardées', () => {
+  const complet = JSON.stringify({ questions: [question(), question({ correct: 1 }), question({ correct: 2 })] });
+  const result = questionsFromGroqError(erreurGroq(complet.slice(0, complet.lastIndexOf('"options"') + 5)));
+  assert.equal(result.length, 2);
+});
+
+test('Groq : une erreur sans réponse exploitable est relancée', () => {
+  assert.equal(questionsFromGroqError(erreurGroq(undefined)), null);
+  assert.equal(questionsFromGroqError(erreurGroq('')), null);
+  assert.equal(questionsFromGroqError(erreurGroq('pas du json')), null);
+  assert.equal(questionsFromGroqError(erreurGroq(JSON.stringify({ questions: [{ question: 'x' }] }))), null);
+  assert.equal(questionsFromGroqError(erreurGroq(JSON.stringify({ questions: [question()] }), 429)), null, 'seulement les 400');
+  assert.equal(questionsFromGroqError(new Error('réseau')), null);
+});
+
+test('Claude : un refus ou un 400 (crédit épuisé) passe sur Groq', () => {
+  assert.equal(shouldFallbackToGroq(Object.assign(new Error('Claude a refusé de générer ce quiz'), { refusal: true })), true);
+  assert.equal(shouldFallbackToGroq(Object.assign(new Error('400 Your credit balance is too low to access the Anthropic API'), { status: 400 })), true);
+});
+
+test('Claude : un schéma refusé ne passe pas sur Groq et n\'est pas réessayé', () => {
+  const erreur = Object.assign(new Error('400 output_config.format.schema: unsupported keyword'), { status: 400 });
+  assert.equal(shouldFallbackToGroq(erreur), false);
+  assert.equal(erreur.noRetry, true);
+});
+
+test('Claude : les autres erreurs ne déclenchent pas le repli', () => {
+  assert.equal(shouldFallbackToGroq(Object.assign(new Error('500 overloaded'), { status: 500 })), false);
+  assert.equal(shouldFallbackToGroq(Object.assign(new Error('401 invalid x-api-key'), { status: 401 })), false);
+  assert.equal(shouldFallbackToGroq(new Error('réseau')), false);
 });

@@ -42,22 +42,7 @@ async function extractTextFromPDF(filePath) {
 /**
  * Créer le prompt pour l'IA
  */
-function createPrompt(devoir, documentsText) {
-  const exampleQuestions = [
-    {
-      "question": "Quel est le rôle principal de Paris dans l'organisation territoriale française ?",
-      "options": [
-        "Paris est la capitale administrative et politique de la France",
-        "Paris est uniquement une ville touristique sans rôle politique",
-        "Paris est la deuxième ville la plus importante après Lyon",
-        "Paris est seulement un centre économique sans rôle politique"
-      ],
-      "correct": 0,
-      "explanation": "Paris est la capitale et la plus grande ville de France depuis le XIIe siècle. Elle concentre les institutions politiques, administratives et culturelles du pays.",
-      "example": "Les principales institutions comme l'Élysée, Matignon et l'Assemblée nationale sont toutes situées à Paris, illustrant son rôle de capitale politique."
-    }
-  ];
-
+function createPrompt(devoir, documentsText, maxQuestions) {
   return `Tu es un assistant pédagogique expert. Tu dois générer un questionnaire pour aider les étudiants à RÉVISER le COURS en vue d'une ÉVALUATION.
 
 🎯 OBJECTIF DU QCM :
@@ -100,7 +85,7 @@ DOCUMENTS DU DEVOIR :
 ${documentsText}
 
 INSTRUCTIONS :
-1. Génère un questionnaire de MINIMUM 20 questions et MAXIMUM 100 questions pour RÉVISER le COURS
+1. Génère un questionnaire de MINIMUM 20 questions et MAXIMUM ${maxQuestions} questions pour RÉVISER le COURS
 2. Base TOUTES les questions sur les CONCEPTS et CONNAISSANCES du COURS présents dans les documents
 3. Si les documents contiennent du CODE :
    - Propose des exemples de code et demande ce qu'ils retournent
@@ -138,11 +123,6 @@ INSTRUCTIONS :
 - Si ta question contient du code à analyser, mets ce code dans "question", PAS dans "example"
 - Le champ "example" doit apporter une valeur ajoutée APRÈS avoir compris la réponse
 
-FORMAT DE RÉPONSE :
-Tu dois répondre UNIQUEMENT avec un objet JSON valide { "questions": [ ... ] }, sans aucun texte avant ou après.
-Chaque question a ses 5 champs ; "example" vaut "" (chaîne vide) quand il n'y a pas d'exemple pertinent.
-Format attendu : ${JSON.stringify({ questions: exampleQuestions }, null, 2)}
-
 IMPORTANT POUR LE CODE :
 - Si tu inclus du code dans les questions, réponses ou explications, tu DOIS le mettre entre ''' code '''
 - Par exemple: '''const x = 5;''' ou '''function hello() { return "world"; }'''
@@ -150,9 +130,8 @@ IMPORTANT POUR LE CODE :
 - Respecte toujours cette syntaxe pour que le code soit lisible
 
 IMPORTANT :
-- Réponds UNIQUEMENT avec le JSON, pas de texte explicatif
 - Génère MINIMUM 20 questions basées sur les CONCEPTS du COURS
-- Si le contenu le permet, va jusqu'à 100 questions pour une révision complète
+- Si le contenu le permet, va jusqu'à ${maxQuestions} questions pour une révision complète
 - Pour le code : propose des EXEMPLES et teste la COMPRÉHENSION du comportement
 - Utilise ''' code ''' pour tout extrait de code dans les questions/réponses/explications
 - Chaque question doit tester la COMPRÉHENSION et l'APPLICATION des concepts
@@ -175,10 +154,12 @@ IMPORTANT :
  * output_config.format, Groq : response_format strict). Le JSON reçu est donc
  * toujours syntaxiquement valide et du bon type, sans texte autour.
  *
+ * C'est la seule description du format : les prompts n'en répètent rien.
+ *
  * Limites communes aux deux fournisseurs : tous les champs sont obligatoires et
- * les objets fermés (additionalProperties: false), pas de minimum/maximum, et
- * minItems/maxItems ne vont pas au-delà de 0 ou 1. Le nombre d'options (4) ne
- * peut donc pas être imposé par le schéma : keepValidQuestions le vérifie.
+ * les objets fermés (additionalProperties: false), pas de minimum/maximum ni de
+ * maxItems, et minItems seulement à 0 ou 1. Le nombre d'options (4) ne peut donc
+ * pas être imposé par le schéma : keepValidQuestions le vérifie.
  * L'enveloppe { questions } est nécessaire, la racine doit être un objet.
  */
 const QUESTION_SCHEMA = {
@@ -188,7 +169,7 @@ const QUESTION_SCHEMA = {
     options: { type: 'array', items: { type: 'string' }, description: 'Exactement 4 réponses possibles' },
     correct: { type: 'integer', enum: [0, 1, 2, 3], description: 'Indice (0 à 3) de la seule bonne réponse dans options' },
     explanation: { type: 'string', description: 'Explication de la bonne réponse' },
-    example: { type: 'string', description: "Exemple d'application du concept, chaîne vide s'il n'y en a pas" }
+    example: { type: 'string', description: "Exemple d'application du concept, chaîne vide s'il n'y en a pas ; jamais le code de la question" }
   },
   required: ['question', 'options', 'correct', 'explanation', 'example'],
   additionalProperties: false
@@ -197,11 +178,17 @@ const QUESTION_SCHEMA = {
 const QUIZ_SCHEMA = {
   type: 'object',
   properties: {
-    questions: { type: 'array', items: QUESTION_SCHEMA }
+    questions: { type: 'array', items: QUESTION_SCHEMA, description: 'Les questions du quiz' }
   },
   required: ['questions'],
   additionalProperties: false
 };
+
+// Questions demandées par appel, selon ce que la réponse peut contenir. Claude a
+// 16000 tokens de sortie. Groq en a 4096, et l'offre gratuite plafonne à 8000
+// tokens par minute en tout (document compris) : on n'y demande pas plus que ce
+// qui tient, la boucle de génération complète si besoin.
+const MAX_QUESTIONS = { claude: 100, groq: 25 };
 
 /**
  * Générer un quiz avec Claude (Premium)
@@ -230,9 +217,11 @@ async function generateWithClaude(prompt) {
       }
     });
 
-    // Un refus ne respecte pas le schéma : rien à récupérer
+    // Un refus ne respecte pas le schéma : rien à récupérer, Groq prend le relais
     if (message.stop_reason === 'refusal') {
-      throw new Error('Claude a refusé de générer ce quiz');
+      const refusal = new Error('Claude a refusé de générer ce quiz');
+      refusal.refusal = true;
+      throw refusal;
     }
 
     const content = message.content.find(block => block.type === 'text')?.text ?? '';
@@ -262,22 +251,50 @@ async function generateWithGroq(prompt) {
     apiKey: apiKey
   });
 
-  const completion = await client.chat.completions.create({
-    model: 'openai/gpt-oss-120b',
-    messages: [{
-      role: 'user',
-      content: prompt
-    }],
-    temperature: 0.7,
-    max_tokens: 4096,
-    response_format: {
-      type: 'json_schema',
-      json_schema: { name: 'quiz_questions', strict: true, schema: QUIZ_SCHEMA }
-    }
-  });
+  let completion;
+  try {
+    completion = await client.chat.completions.create({
+      model: 'openai/gpt-oss-120b',
+      messages: [{
+        role: 'user',
+        content: prompt
+      }],
+      temperature: 0.7,
+      max_tokens: 4096,
+      response_format: {
+        type: 'json_schema',
+        json_schema: { name: 'quiz_questions', strict: true, schema: QUIZ_SCHEMA }
+      }
+    });
+  } catch (error) {
+    const recovered = questionsFromGroqError(error);
+    if (!recovered) throw error;
+    return recovered;
+  }
 
   const choice = completion.choices[0];
   return parseQuestions(choice.message.content ?? '', choice.finish_reason === 'length');
+}
+
+/**
+ * Groq valide lui-même le JSON contre le schéma : quand le modèle génère quelque
+ * chose d'invalide (une question à laquelle il manque un champ, une réponse
+ * coupée...), il répond une erreur 400 qui contient ce qui a été généré dans
+ * `failed_generation`. On en récupère les questions valides.
+ * @returns {Array|null} Null si l'erreur n'en contient aucune
+ */
+function questionsFromGroqError(error) {
+  if (error?.status !== 400) return null;
+  const failed = error.error?.error?.failed_generation ?? error.error?.failed_generation;
+  if (typeof failed !== 'string' || !failed) return null;
+
+  try {
+    const questions = parseQuestions(failed, true);
+    console.warn(`⚠️ Groq a refusé sa propre réponse (${error.message.slice(0, 120)}) : ${questions.length} question(s) valide(s) récupérée(s)`);
+    return questions;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -323,30 +340,29 @@ function completeQuestionsOfTruncatedJson(text) {
 }
 
 /**
- * Lire la réponse du modèle : { questions: [...] }, ou un tableau seul. Les
+ * Lire la réponse du modèle : { questions: [...] }. Les
  * questions invalides sont écartées une à une (keepValidQuestions), une seule ne
  * fait plus perdre toute la série.
  * @param {string} text - Réponse du modèle
- * @param {boolean} truncated - La réponse s'est arrêtée sur la limite de tokens
+ * @param {boolean} truncated - Réponse incomplète (limite de tokens, rejet de Groq)
  * @throws {Error} Si aucune question valide n'en ressort
  */
 function parseQuestions(text, truncated = false) {
   let questions;
   try {
-    const data = JSON.parse(text);
-    questions = Array.isArray(data) ? data : data?.questions;
+    questions = JSON.parse(text)?.questions;
   } catch {
     if (!truncated) throw new Error('Format JSON invalide dans la réponse');
     questions = completeQuestionsOfTruncatedJson(text);
   }
 
   if (truncated) {
-    console.warn(`⚠️ Réponse coupée par la limite de tokens : ${Array.isArray(questions) ? questions.length : 0} question(s) complète(s) récupérée(s)`);
+    console.warn(`⚠️ Réponse incomplète : ${Array.isArray(questions) ? questions.length : 0} question(s) complète(s) récupérée(s)`);
   }
 
   const valid = keepValidQuestions(questions);
   if (valid.length === 0) {
-    throw new Error(truncated ? 'Réponse coupée par la limite de tokens, aucune question complète' : 'Aucune question valide dans la réponse');
+    throw new Error(truncated ? 'Réponse incomplète, aucune question complète' : 'Aucune question valide dans la réponse');
   }
   return valid;
 }
@@ -396,7 +412,7 @@ function keepValidQuestions(questions) {
 /**
  * Créer un prompt pour compléter un quiz
  */
-function create_completion_prompt(devoir, documentsText, existing) {
+function create_completion_prompt(devoir, documentsText, existing, maxQuestions) {
   return `Tu es un assistant pédagogique expert. Tu as déjà généré ${existing.length} questions pour un quiz de RÉVISION du COURS, mais il en faut PLUS.
 
 DEVOIR : ${devoir.titre}
@@ -409,20 +425,7 @@ DOCUMENTS :
 ${documentsText}
 
 GÉNÈRE MINIMUM 20 NOUVELLES QUESTIONS différentes de celles ci-dessus.
-Plus tu en génères, mieux c'est (tu peux aller jusqu'à 50-100 si le contenu le permet).
-
-Format JSON strict, un objet { "questions": [ ... ] } :
-{
-  "questions": [
-    {
-      "question": "Question claire (mets le code ici si besoin)",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
-      "correct": 0,
-      "explanation": "Explication de la bonne réponse",
-      "example": "Exemple d'APPLICATION du concept (chaîne vide s'il n'y en a pas, JAMAIS le code de la question)"
-    }
-  ]
-}
+Plus tu en génères, mieux c'est (jusqu'à ${maxQuestions} si le contenu le permet).
 
 RÈGLES STRICTES :
 - MINIMUM 20 nouvelles questions
@@ -431,7 +434,6 @@ RÈGLES STRICTES :
 - Questions DIFFÉRENTES de celles déjà générées
 - Basées sur les CONCEPTS du COURS uniquement
 - Teste la COMPRÉHENSION et l'APPLICATION des concepts
-- Format JSON valide sans texte avant/après
 - Si tu inclus du code, utilise ''' code ''' pour le délimiter
 - QUESTIONS PIÈGES : inclus des réponses plausibles mais incorrectes (ex: "ça marche" vs "ça ne marche pas")
 - LONGUEUR ÉGALE : toutes les options de réponse doivent avoir une longueur similaire (±10-20%)
@@ -445,6 +447,44 @@ RÈGLES STRICTES :
 }
 
 /**
+ * Claude passe la main à Groq quand il ne peut pas répondre : refus de contenu,
+ * ou erreur 400 (crédit épuisé...). Un schéma refusé n'en fait pas partie : ce
+ * serait une erreur de code, qui enverrait en silence tous les utilisateurs
+ * premium sur Groq. Elle remonte telle quelle et n'est pas réessayée.
+ */
+function shouldFallbackToGroq(error) {
+  if (error.refusal) return true;
+  if (error.status !== 400) return false;
+
+  if (/output_config|json_schema|schema|grammar/i.test(error.message)) {
+    console.error('❌ Schéma de sortie refusé par Claude, pas de repli sur Groq :', error.message);
+    error.noRetry = true;
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Un appel de génération : Claude pour les classes premium, Groq sinon ou en
+ * repli. Le prompt est construit pour le fournisseur qui répond, car le nombre
+ * de questions demandé dépend de sa limite de sortie.
+ * @param {(maxQuestions: number) => string} buildPrompt
+ * @param {{premium: boolean, fallback: boolean}} provider - fallback passe à true quand Claude est écarté
+ */
+async function generateBatch(buildPrompt, provider) {
+  if (provider.premium && !provider.fallback) {
+    try {
+      return await generateWithClaude(buildPrompt(MAX_QUESTIONS.claude));
+    } catch (error) {
+      if (!shouldFallbackToGroq(error)) throw error;
+      console.warn(`⚠️ Claude écarté (${error.message.slice(0, 120)}), basculement vers Groq (gratuit)...`);
+      provider.fallback = true;
+    }
+  }
+  return generateWithGroq(buildPrompt(MAX_QUESTIONS.groq));
+}
+
+/**
  * Générer avec retry jusqu'à avoir 20 questions
  */
 async function generate_with_retry(devoir, isPremium, documentsText) {
@@ -452,7 +492,7 @@ async function generate_with_retry(devoir, isPremium, documentsText) {
   const MIN_QUESTIONS = 20;
   let allQuestions = [];
   let attempts = 0;
-  let useFallback = false; // Pour basculer vers Groq si Claude échoue
+  const provider = { premium: isPremium, fallback: false }; // fallback : Claude écarté, Groq prend le relais
 
   console.log(`🎯 Objectif: ${MIN_QUESTIONS} questions minimum`);
   console.log(`🤖 Mode: ${isPremium ? 'Premium (Claude)' : 'Gratuit (Groq)'}`);
@@ -461,49 +501,16 @@ async function generate_with_retry(devoir, isPremium, documentsText) {
     attempts++;
     
     try {
-      let newQuestions = [];
-      
+      let newQuestions;
+
       if (allQuestions.length === 0) {
         // Première tentative : prompt normal
         console.log(`📝 Tentative ${attempts}/${MAX_RETRIES} - Génération initiale...`);
-        const prompt = createPrompt(devoir, documentsText);
-        
-        if (isPremium && !useFallback) {
-          try {
-            newQuestions = await generateWithClaude(prompt);
-          } catch (error) {
-            // Si erreur 400 avec Claude, basculer vers Groq
-            if (error.status === 400 || error.message.includes('400')) {
-              console.warn('⚠️ Erreur 400 avec Claude, basculement vers Groq (gratuit)...');
-              useFallback = true;
-              newQuestions = await generateWithGroq(prompt);
-            } else {
-              throw error;
-            }
-          }
-        } else {
-          newQuestions = await generateWithGroq(prompt);
-        }
+        newQuestions = await generateBatch(max => createPrompt(devoir, documentsText, max), provider);
       } else {
         // Tentatives suivantes : compléter avec minimum 20 questions
         console.log(`📝 Tentative ${attempts}/${MAX_RETRIES} - Demande de questions supplémentaires (minimum 20)...`);
-        const prompt = create_completion_prompt(devoir, documentsText, allQuestions);
-        
-        if (isPremium && !useFallback) {
-          try {
-            newQuestions = await generateWithClaude(prompt);
-          } catch (error) {
-            if (error.status === 400 || error.message.includes('400')) {
-              console.warn('⚠️ Erreur 400 avec Claude, basculement vers Groq (gratuit)...');
-              useFallback = true;
-              newQuestions = await generateWithGroq(prompt);
-            } else {
-              throw error;
-            }
-          }
-        } else {
-          newQuestions = await generateWithGroq(prompt);
-        }
+        newQuestions = await generateBatch(max => create_completion_prompt(devoir, documentsText, allQuestions, max), provider);
       }
 
       // Écarter les questions qui parlent d'un code absent
@@ -526,6 +533,9 @@ async function generate_with_retry(devoir, isPremium, documentsText) {
       
     } catch (error) {
       console.error(`❌ Tentative ${attempts} échouée:`, error.message);
+
+      // Inutile de réessayer une erreur qui reviendra à l'identique
+      if (error.noRetry) throw error;
       
       // Si c'est la dernière tentative et qu'on n'a pas assez de questions
       if (attempts >= MAX_RETRIES && allQuestions.length < MIN_QUESTIONS) {
@@ -601,9 +611,10 @@ module.exports = {
   generateQuizWithAI,
   extractTextFromPDF,
   referencesMissingCode,
-  generateWithClaude,
-  generateWithGroq,
+  // Pour les tests
   parseQuestions,
   keepValidQuestions,
+  questionsFromGroqError,
+  shouldFallbackToGroq,
   QUIZ_SCHEMA
 };
