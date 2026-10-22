@@ -27,7 +27,6 @@
   </header>
 
   <div class="register-container">
-    <!-- Stepper -->
     <div class="stepper">
       <div class="step active" data-step="1">
         <div class="step-number">1</div>
@@ -50,76 +49,74 @@
       </div>
     </div>
 
-    <!-- Étape 1 : Établissement -->
     <div id="step-1" class="step-content active">
       <div class="form-container">
         <h2>Rechercher votre établissement</h2>
         <p class="step-description">Commencez à taper le nom de votre établissement scolaire</p>
 
         <div class="form-group">
-          <label for="etab-search" class="form-label">Nom de l'établissement</label>
-          <input type="text" id="etab-search" placeholder="Ex: Lycée Victor Hugo..." autocomplete="off">
-          <div id="etab-results" class="autocomplete-results"></div>
+          <label for="school-search" class="form-label">Nom de l'établissement</label>
+          <input type="text" id="school-search" placeholder="Ex: Lycée Victor Hugo..." autocomplete="off">
+          <div id="school-results" class="autocomplete-results"></div>
         </div>
 
-        <div id="etab-selected" class="selected-card" style="display: none;">
+        <div id="school-selected" class="selected-card" style="display: none;">
           <div class="selected-card-info">
-            <h3 id="etab-selected-nom"></h3>
-            <p id="etab-selected-details"></p>
+            <h3 id="school-selected-name"></h3>
+            <p id="school-selected-details"></p>
           </div>
-          <button type="button" id="etab-change-btn" class="btn-secondary btn-sm">Changer</button>
+          <button type="button" id="school-change-btn" class="btn-secondary btn-sm">Changer</button>
         </div>
 
         <div id="map-container" style="display: none;">
           <div id="map"></div>
         </div>
 
-        <div id="etab-not-found" style="display: none; margin-top: 1rem;">
+        <div id="school-not-found" style="display: none; margin-top: 1rem;">
           <p style="color: var(--secondary); text-align: center;">
-            <a href="#" id="etab-request-link" style="color: var(--primary); text-decoration: underline; cursor: pointer;">
+            <a href="#" id="school-request-link" style="color: var(--primary); text-decoration: underline; cursor: pointer;">
               Votre établissement n'apparaît pas ? Faites une demande d'ajout
             </a>
           </p>
         </div>
 
-        <div id="etab-request-form" style="display: none; margin-top: 1.5rem; padding: 1.5rem; background: var(--bg-secondary, #f8f9fa); border-radius: 8px;">
+        <div id="school-request-form" style="display: none; margin-top: 1.5rem; padding: 1.5rem; background: var(--bg-secondary, #f8f9fa); border-radius: 8px;">
           <h3 style="margin: 0 0 1rem 0;">Demander l'ajout d'un établissement</h3>
           <div class="form-group">
-            <label for="request-etab-nom" class="form-label">Nom de l'établissement *</label>
-            <input type="text" id="request-etab-nom" placeholder="Ex: Université de Lyon...">
+            <label for="request-school-name" class="form-label">Nom de l'établissement *</label>
+            <input type="text" id="request-school-name" placeholder="Ex: Université de Lyon...">
           </div>
           <div class="form-group">
-            <label for="request-etab-commune" class="form-label">Commune</label>
-            <input type="text" id="request-etab-commune" placeholder="Ex: Lyon">
+            <label for="request-school-city" class="form-label">Commune</label>
+            <input type="text" id="request-school-city" placeholder="Ex: Lyon">
           </div>
           <div class="form-group">
-            <label for="request-etab-cp" class="form-label">Code postal</label>
-            <input type="text" id="request-etab-cp" placeholder="Ex: 69000" maxlength="10">
+            <label for="request-school-postcode" class="form-label">Code postal</label>
+            <input type="text" id="request-school-postcode" placeholder="Ex: 69000" maxlength="10">
           </div>
           <div class="form-group">
-            <label for="request-etab-email" class="form-label">Votre email de contact *</label>
-            <input type="email" id="request-etab-email" placeholder="votre@email.com">
+            <label for="request-school-email" class="form-label">Votre email de contact *</label>
+            <input type="email" id="request-school-email" placeholder="votre@email.com">
           </div>
-          <button type="button" id="request-etab-submit" class="btn-primary" style="width: 100%;">Envoyer la demande</button>
+          <button type="button" id="request-school-submit" class="btn-primary" style="width: 100%;">Envoyer la demande</button>
         </div>
 
-        <div id="etab-request-success" style="display: none; margin-top: 1.5rem; padding: 1.5rem; background: #e8f5e9; border-radius: 8px; text-align: center;">
+        <div id="school-request-success" style="display: none; margin-top: 1.5rem; padding: 1.5rem; background: #e8f5e9; border-radius: 8px; text-align: center;">
           <p style="color: #2e7d32; font-weight: bold;">Demande envoyée avec succès !</p>
           <p style="color: #555;">Vous serez informé par email de la suite donnée à votre demande.</p>
         </div>
 
         <div class="step-actions">
           <a href="/" class="btn-secondary">Retour</a>
-          <button type="button" id="step1-next" class="btn-primary" disabled>Suivant</button>
+          <button type="button" id="step-1-next" class="btn-primary" disabled>Suivant</button>
         </div>
       </div>
     </div>
 
-    <!-- Étape 2 : Classe -->
     <div id="step-2" class="step-content">
       <div class="form-container">
         <h2>Choisir votre classe</h2>
-        <p class="step-description" id="step2-description">Sélectionnez votre classe ou créez-en une nouvelle</p>
+        <p class="step-description" id="step-2-description">Sélectionnez votre classe ou créez-en une nouvelle</p>
 
         <div id="classes-list" class="classes-list"></div>
 
@@ -132,32 +129,31 @@
         </div>
 
         <div class="form-group">
-          <label for="new-classe-nom" class="form-label">Créer une nouvelle classe</label>
-          <input type="text" id="new-classe-nom" placeholder="Ex: Terminale G2, BTS SIO 1...">
+          <label for="new-class-name" class="form-label">Créer une nouvelle classe</label>
+          <input type="text" id="new-class-name" placeholder="Ex: Terminale G2, BTS SIO 1...">
           <p class="help-text">En créant une classe, vous en deviendrez l'administrateur.</p>
         </div>
 
         <div class="step-actions">
-          <button type="button" id="step2-prev" class="btn-secondary">Précédent</button>
-          <button type="button" id="step2-next" class="btn-primary" disabled>Suivant</button>
+          <button type="button" id="step-2-prev" class="btn-secondary">Précédent</button>
+          <button type="button" id="step-2-next" class="btn-primary" disabled>Suivant</button>
         </div>
       </div>
     </div>
 
-    <!-- Étape 3 : Informations -->
     <div id="step-3" class="step-content">
       <div class="form-container">
         <h2>Vos informations</h2>
         <p class="step-description">Remplissez vos informations pour créer votre compte</p>
 
         <div class="form-group">
-          <label for="reg-nom" class="form-label">Nom *</label>
-          <input type="text" id="reg-nom" placeholder="Votre nom" required>
+          <label for="reg-last-name" class="form-label">Nom *</label>
+          <input type="text" id="reg-last-name" placeholder="Votre nom" required>
         </div>
 
         <div class="form-group">
-          <label for="reg-prenom" class="form-label">Prénom *</label>
-          <input type="text" id="reg-prenom" placeholder="Votre prénom" required>
+          <label for="reg-first-name" class="form-label">Prénom *</label>
+          <input type="text" id="reg-first-name" placeholder="Votre prénom" required>
         </div>
 
         <div class="form-group">
@@ -182,13 +178,12 @@
         </div>
 
         <div class="step-actions">
-          <button type="button" id="step3-prev" class="btn-secondary">Précédent</button>
-          <button type="button" id="step3-next" class="btn-primary">Suivant</button>
+          <button type="button" id="step-3-prev" class="btn-secondary">Précédent</button>
+          <button type="button" id="step-3-next" class="btn-primary">Suivant</button>
         </div>
       </div>
     </div>
 
-    <!-- Étape 4 : Confirmation -->
     <div id="step-4" class="step-content">
       <div class="form-container">
         <h2>Confirmer votre inscription</h2>
@@ -197,11 +192,11 @@
         <div class="summary-card">
           <div class="summary-row">
             <span class="summary-label">Établissement</span>
-            <span id="summary-etab" class="summary-value"></span>
+            <span id="summary-school" class="summary-value"></span>
           </div>
           <div class="summary-row">
             <span class="summary-label">Classe</span>
-            <span id="summary-classe" class="summary-value"></span>
+            <span id="summary-class" class="summary-value"></span>
           </div>
           <div class="summary-row">
             <span class="summary-label">Rôle</span>
@@ -209,11 +204,11 @@
           </div>
           <div class="summary-row">
             <span class="summary-label">Nom</span>
-            <span id="summary-nom" class="summary-value"></span>
+            <span id="summary-last-name" class="summary-value"></span>
           </div>
           <div class="summary-row">
             <span class="summary-label">Prénom</span>
-            <span id="summary-prenom" class="summary-value"></span>
+            <span id="summary-first-name" class="summary-value"></span>
           </div>
           <div class="summary-row">
             <span class="summary-label">Nom d'utilisateur</span>
@@ -224,13 +219,12 @@
         <div id="summary-info-message" class="info-message" style="display: none;"></div>
 
         <div class="step-actions">
-          <button type="button" id="step4-prev" class="btn-secondary">Précédent</button>
-          <button type="button" id="step4-submit" class="btn-primary btn-large">Créer mon compte</button>
+          <button type="button" id="step-4-prev" class="btn-secondary">Précédent</button>
+          <button type="button" id="step-4-submit" class="btn-primary btn-large">Créer mon compte</button>
         </div>
       </div>
     </div>
 
-    <!-- État de succès -->
     <div id="success-state" style="display: none;">
       <div class="success-container">
         <div class="success-icon">&#10003;</div>

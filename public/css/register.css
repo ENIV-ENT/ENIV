@@ -283,7 +283,7 @@ header h1 {
   margin-bottom: 1rem;
 }
 
-.classe-item {
+.class-item {
   padding: 1rem;
   border: 2px solid var(--border);
   border-radius: 8px;
@@ -294,22 +294,22 @@ header h1 {
   align-items: center;
 }
 
-.classe-item:hover {
+.class-item:hover {
   border-color: var(--primary);
   background: rgba(74, 144, 226, 0.05);
 }
 
-.classe-item.selected {
+.class-item.selected {
   border-color: var(--primary);
   background: #e3f2fd;
 }
 
-.classe-item-name {
+.class-item-name {
   font-weight: 600;
   color: var(--dark);
 }
 
-.classe-item-info {
+.class-item-info {
   font-size: 0.8rem;
   color: var(--secondary);
 }
