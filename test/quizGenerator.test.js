@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { referencesMissingCode, parseQuestions, keepValidQuestions, questionsFromGroqError, shouldFallbackToGroq, QUIZ_SCHEMA } = require('../backend/services/quizGenerator');
+const { referencesMissingCode, createPrompt, parseQuestions, keepValidQuestions, questionsFromGroqError, shouldFallbackToGroq, QUIZ_SCHEMA } = require('../backend/services/quizGenerator');
 
 test('question qui renvoie à un code absent', () => {
   assert.equal(referencesMissingCode({ question: 'Analysez ce Dockerfile. Quel est le problème ?' }), true);
@@ -155,4 +155,43 @@ test('Claude : les autres erreurs ne déclenchent pas le repli', () => {
   assert.equal(shouldFallbackToGroq(Object.assign(new Error('500 overloaded'), { status: 500 })), false);
   assert.equal(shouldFallbackToGroq(Object.assign(new Error('401 invalid x-api-key'), { status: 401 })), false);
   assert.equal(shouldFallbackToGroq(new Error('réseau')), false);
+});
+
+// --- Prompt ------------------------------------------------------------------
+
+const devoir = { titre: 'Contrôle Docker', matiere_nom: 'R507', description: 'Tout sauf Prometheus', date: '2026-10-21' };
+const range = { min: 8, max: 12 };
+
+test('prompt : la fourchette de questions demandée est celle de l\'appel', () => {
+  const prompt = createPrompt(devoir, 'DOC', range);
+  assert.match(prompt, /entre 8 et 12 questions/);
+  assert.doesNotMatch(prompt, /MINIMUM 20|minimum 20/, 'pas de minimum de 20 par appel');
+});
+
+test('prompt : le complément ne change que le début et garde le reste identique', () => {
+  const premier = createPrompt(devoir, 'DOC', range);
+  const complement = createPrompt(devoir, 'DOC', range, [{ question: 'Q déjà posée A' }, { question: 'Q déjà posée B' }]);
+
+  assert.doesNotMatch(premier, /déjà généré/);
+  assert.match(complement, /déjà généré 2 questions/);
+  assert.match(complement, /1\. Q déjà posée A\n2\. Q déjà posée B/);
+
+  const corps = (prompt) => prompt.slice(prompt.indexOf('🎯 OBJECTIF DU QCM'));
+  assert.equal(corps(complement), corps(premier));
+});
+
+test('prompt : le format de la réponse n\'est décrit que par le schéma', () => {
+  const prompt = createPrompt(devoir, 'DOC', range);
+  assert.doesNotMatch(prompt, /FORMAT DE RÉPONSE|Format JSON|"correct"|"options"|"explanation"/);
+});
+
+test('prompt : « exemple » ne désigne pas du code, le champ « example » est expliqué une fois', () => {
+  const prompt = createPrompt(devoir, 'DOC', range);
+  assert.doesNotMatch(prompt, /exemples? (de |du )?code|code[^.\n]{0,30}exemple/i);
+  assert.equal(prompt.match(/CHAMP "example"|RÈGLES POUR LE CHAMP "example"/g).length, 1);
+  assert.match(prompt, /APRÈS que l'étudiant a répondu/);
+});
+
+test('schéma : le champ example précise qu\'il n\'est affiché qu\'après la réponse', () => {
+  assert.match(QUIZ_SCHEMA.properties.questions.items.properties.example.description, /seulement après qu'il a répondu/);
 });

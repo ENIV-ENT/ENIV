@@ -40,13 +40,22 @@ async function extractTextFromPDF(filePath) {
 }
 
 /**
- * Créer le prompt pour l'IA
+ * Prompt de génération. Un seul pour la première génération comme pour les
+ * compléments : seul le début change quand des questions existent déjà. Le format
+ * de la réponse n'y est pas décrit, il est imposé par QUIZ_SCHEMA.
+ * @param {{min: number, max: number}} range - Nombre de questions demandé pour cet appel
+ * @param {Array<{question: string}>} existing - Questions déjà générées, à ne pas répéter
  */
-function createPrompt(devoir, documentsText, maxQuestions) {
-  return `Tu es un assistant pédagogique expert. Tu dois générer un questionnaire pour aider les étudiants à RÉVISER le COURS en vue d'une ÉVALUATION.
+function createPrompt(devoir, documentsText, { min, max }, existing = []) {
+  const introduction = existing.length === 0
+    ? `Tu es un assistant pédagogique expert. Tu dois générer un questionnaire pour aider les étudiants à RÉVISER le COURS en vue d'une ÉVALUATION.`
+    : `Tu es un assistant pédagogique expert. Tu as déjà généré ${existing.length} questions pour un questionnaire de RÉVISION du COURS, il en faut PLUS : génère de NOUVELLES questions, différentes de celles-ci (sans les répéter, même reformulées) :
+${existing.map((q, i) => `${i + 1}. ${q.question}`).join('\n')}`;
+
+  return `${introduction}
 
 🎯 OBJECTIF DU QCM :
-Ce QCM a pour but de réviser les connaissances et concepts du COURS afin de se préparer à une évaluation.
+Réviser les connaissances et concepts du COURS afin de se préparer à une évaluation.
 Les documents fournis peuvent être :
 - Des COURS (support principal de révision)
 - Des TRAVAUX PRATIQUES (TPs) qui illustrent l'application des concepts du cours
@@ -57,96 +66,40 @@ CONTEXTE DU DEVOIR :
 - Description : ${devoir.description || 'Non spécifiée'}
 - Date : ${devoir.date || 'Non spécifiée'}
 
-⚠️ RÈGLES STRICTES CONCERNANT LES TPs :
-- NE POSE JAMAIS de questions du type "Dans le TP2, quelle est..." ou "Selon le TP..."
-- NE POSE PAS de questions spécifiques aux exercices pratiques des TPs
-- NE DEMANDE PAS ce qui a été fait dans tel ou tel TP
-- Les TPs servent UNIQUEMENT d'inspiration pour comprendre quels concepts sont importants
-- Utilise les TPs pour identifier les concepts clés à réviser, mais pose des questions de COURS
-
-✅ CE QU'IL FAUT FAIRE :
-- Poser des questions de COURS sur les concepts théoriques
-- Pour les matières avec du code, n'hésite PAS à proposer des EXEMPLES DE CODE et demander :
-  * Ce que ce code retourne
-  * Quel sera le résultat de l'exécution
-  * Identifier les erreurs dans le code
-  * Expliquer le comportement du code
-- Tester la COMPRÉHENSION des concepts à travers des exemples concrets
-- Créer tes propres exemples de code originaux (pas ceux des TPs)
-
-❌ CE QU'IL NE FAUT PAS FAIRE :
-- Questions générales non liées aux documents
-- Questions sur le document lui-même (version, auteur, format, structure)
-- Questions sur les métadonnées (dates de publication, copyright)
-- Questions spécifiques aux TPs ("Dans le TP1...", "L'exercice 2 du TP...")
-- Pages de couverture, disclaimers, tables des matières
-
 DOCUMENTS DU DEVOIR :
 ${documentsText}
 
 INSTRUCTIONS :
-1. Génère un questionnaire de MINIMUM 20 questions et MAXIMUM ${maxQuestions} questions pour RÉVISER le COURS
-2. Base TOUTES les questions sur les CONCEPTS et CONNAISSANCES du COURS présents dans les documents
-3. Si les documents contiennent du CODE :
-   - Propose des exemples de code et demande ce qu'ils retournent
-   - Crée des questions sur le comportement du code
-   - Demande d'identifier les erreurs ou problèmes dans un code
-   - Teste la compréhension de la syntaxe et des concepts de programmation
-4. IGNORE :
-   - Les questions spécifiques aux TPs ("Dans le TP1...", "L'exercice 2...")
-   - Les informations sur le document (version, auteur, structure, copyright)
-   - Les connaissances générales non présentes dans les documents
-5. Crée des questions variées (faciles: 30%, moyennes: 50%, difficiles: 20%)
-6. Chaque question doit avoir 4 options de réponse
-7. Une seule réponse correcte par question
-8. Fournis une explication claire basée sur le COURS
-9. Ajoute un exemple concret si pertinent (surtout pour le code)
-10. Couvre tous les concepts importants du COURS
-11. Teste la COMPRÉHENSION et la capacité à APPLIQUER les concepts
+- Génère entre ${min} et ${max} questions pour RÉVISER le COURS, basées sur les CONCEPTS et CONNAISSANCES du COURS présents dans les documents
+- Couvre les concepts importants, avec des questions variées (faciles : 30%, moyennes : 50%, difficiles : 20%)
+- Teste la COMPRÉHENSION et la capacité à APPLIQUER les concepts, pas la mémorisation
+
+⚠️ RÈGLES CONCERNANT LES TPs :
+- Les TPs servent UNIQUEMENT à repérer les concepts importants : pose des questions de COURS
+- NE POSE JAMAIS de questions du type "Dans le TP2, quelle est..." ou "Selon le TP...", ni sur ce qui a été fait dans tel ou tel TP
+
+❌ À IGNORER :
+- Les connaissances générales non présentes dans les documents
+- Le document lui-même : version, auteur, format, structure, métadonnées, copyright, pages de couverture, tables des matières
+
+💻 QUESTIONS SUR DU CODE :
+- Si les documents contiennent du code, pose des questions dessus : ce qu'un extrait de code retourne ou affiche, son comportement, les erreurs à repérer, la syntaxe
+- Écris tes propres extraits de code (pas ceux des TPs)
+- L'extrait de code se met dans l'énoncé de la question : jamais dans le champ "example", que l'étudiant ne voit qu'après avoir répondu
+- Tout code, dans les questions, les réponses ou les explications, s'écrit entre ''' ''' : il est affiché avec coloration syntaxique
+- CHAQUE QUESTION SE SUFFIT À ELLE-MÊME : l'étudiant n'a ni le cours ni les TPs sous les yeux. Une question sur un Dockerfile, un fichier ou une commande contient son contenu en entier dans l'énoncé. Sans extrait à montrer, pose une question générale qui ne le désigne pas. Bon : "Quelle instruction définit l'image de base d'un Dockerfile ?" ou "Que fait ce Dockerfile ? '''FROM node COPY . /app'''". Mauvais : "Que fait ce Dockerfile ?" sans le Dockerfile.
 
 ⚠️ RÈGLES POUR LES RÉPONSES :
-- Toutes les options de réponse doivent être de longueur approximativement égale (à 10-20% près)
-- Inclus des QUESTIONS PIÈGES avec des réponses plausibles mais incorrectes
-- Certaines mauvaises réponses doivent ressembler à la bonne (exemple: "ça marche" vs "ça ne marche pas")
+- 4 options par question, dont UNE SEULE correcte
+- Toutes les options ont une longueur approximativement égale (à 10-20% près)
+- Inclus des QUESTIONS PIÈGES : des mauvaises réponses plausibles, basées sur des erreurs de compréhension courantes, certaines ressemblant à la bonne (ex : "ça marche" vs "ça ne marche pas")
 - Évite les réponses évidentes comme "Aucune de ces réponses" ou "Toutes les réponses"
-- Les mauvaises réponses doivent être crédibles et basées sur des erreurs courantes
-- Les réponses doivent tester la compréhension fine, pas juste la mémorisation
-- UNE SEULE réponse correcte par question (pas plusieurs bonnes réponses)
-- NE JAMAIS référencer la position des réponses (A, B, C, D ou 1, 2, 3, 4) dans la question ou l'explication
-- Les réponses sont affichées dans un ORDRE ALÉATOIRE, donc ne dis JAMAIS "la réponse B" ou "la deuxième option"
-- Dans l'explication, désigne la bonne réponse par son CONTENU, pas par sa position
+- Les options sont affichées dans un ORDRE ALÉATOIRE : ne référence JAMAIS leur position (A, B, C, D, 1, 2, 3, 4, "la deuxième option") dans la question ou l'explication
+- L'explication, claire et basée sur le COURS, désigne la bonne réponse par son CONTENU ("Paris est correct car..."), pas par sa position
 
 ⚠️ RÈGLES POUR LE CHAMP "example" :
-- Le champ "example" est affiché UNIQUEMENT APRÈS que l'étudiant ait répondu
-- Il sert à montrer un EXEMPLE D'APPLICATION ou d'UTILISATION du concept
-- NE METS JAMAIS une partie de la question dans "example"
-- Si ta question contient du code à analyser, mets ce code dans "question", PAS dans "example"
-- Le champ "example" doit apporter une valeur ajoutée APRÈS avoir compris la réponse
-
-IMPORTANT POUR LE CODE :
-- Si tu inclus du code dans les questions, réponses ou explications, tu DOIS le mettre entre ''' code '''
-- Par exemple: '''const x = 5;''' ou '''function hello() { return "world"; }'''
-- Le code sera automatiquement affiché dans un bloc de code formaté avec coloration syntaxique
-- Respecte toujours cette syntaxe pour que le code soit lisible
-
-IMPORTANT :
-- Génère MINIMUM 20 questions basées sur les CONCEPTS du COURS
-- Si le contenu le permet, va jusqu'à ${maxQuestions} questions pour une révision complète
-- Pour le code : propose des EXEMPLES et teste la COMPRÉHENSION du comportement
-- Utilise ''' code ''' pour tout extrait de code dans les questions/réponses/explications
-- Chaque question doit tester la COMPRÉHENSION et l'APPLICATION des concepts
-- NE POSE JAMAIS de questions sur "le TP1", "l'exercice 2", etc.
-- Les TPs sont une source d'inspiration pour les concepts, PAS pour les questions directes
-- QUESTIONS PIÈGES : inclus des réponses qui semblent correctes mais ne le sont pas (ex: "ça fonctionne" vs "ça ne fonctionne pas")
-- LONGUEUR ÉGALE : toutes les options doivent avoir une longueur similaire (±10-20%)
-- Les mauvaises réponses doivent être plausibles et basées sur des erreurs de compréhension courantes
-- CHAMP "example" : il est affiché APRÈS la réponse, ne mets JAMAIS du code de la question dedans
-- Si tu dois montrer du code à analyser, mets-le dans "question", pas dans "example"
-- CHAQUE QUESTION SE SUFFIT À ELLE-MÊME : l'étudiant n'a ni le cours ni les TPs sous les yeux. Une question sur un code, un Dockerfile, un fichier ou une commande contient ce code en entier dans "question", entre ''' ''' (ex : "Que fait ce Dockerfile ? '''FROM node COPY . /app'''"). Sans code à montrer, pose une question générale qui ne le désigne pas (ex : "Quelle instruction définit l'image de base d'un Dockerfile ?" et non "Que fait ce Dockerfile ?")
-- Le champ "example" sert à montrer une APPLICATION ou UTILISATION du concept, pas à poser la question
-- UNE SEULE BONNE RÉPONSE : le champ "correct" doit pointer vers UNE SEULE option (0, 1, 2 ou 3)
-- NE RÉFÉRENCE JAMAIS les positions A/B/C/D ou 1/2/3/4 : les réponses sont affichées dans un ordre ALÉATOIRE
-- Dans ton explication, parle du CONTENU de la réponse ("Paris est correct car..."), pas de sa position ("La réponse A est correcte...")`;
+- Affiché UNIQUEMENT APRÈS que l'étudiant a répondu : il montre une application ou une utilisation du concept, quand c'est pertinent
+- Il n'est jamais le code de la question ni une partie de la question`;
 }
 
 /**
@@ -169,7 +122,7 @@ const QUESTION_SCHEMA = {
     options: { type: 'array', items: { type: 'string' }, description: 'Exactement 4 réponses possibles' },
     correct: { type: 'integer', enum: [0, 1, 2, 3], description: 'Indice (0 à 3) de la seule bonne réponse dans options' },
     explanation: { type: 'string', description: 'Explication de la bonne réponse' },
-    example: { type: 'string', description: "Exemple d'application du concept, chaîne vide s'il n'y en a pas ; jamais le code de la question" }
+    example: { type: 'string', description: "Exemple d'application du concept, affiché à l'élève seulement après qu'il a répondu ; chaîne vide s'il n'y en a pas ; jamais le code ni une partie de la question" }
   },
   required: ['question', 'options', 'correct', 'explanation', 'example'],
   additionalProperties: false
@@ -185,10 +138,14 @@ const QUIZ_SCHEMA = {
 };
 
 // Questions demandées par appel, selon ce que la réponse peut contenir. Claude a
-// 16000 tokens de sortie. Groq en a 4096, et l'offre gratuite plafonne à 8000
-// tokens par minute en tout (document compris) : on n'y demande pas plus que ce
-// qui tient, la boucle de génération complète si besoin.
-const MAX_QUESTIONS = { claude: 100, groq: 25 };
+// 16000 tokens de sortie. Groq en a 4096, partagés avec le raisonnement de
+// gpt-oss, et l'offre gratuite plafonne à 8000 tokens par minute en tout
+// (document compris) : on n'y demande que ce qui tient, sans minimum de 20 par
+// appel. La boucle de génération enchaîne les appels jusqu'au total voulu.
+const QUESTIONS_PAR_APPEL = {
+  claude: { min: 20, max: 100 },
+  groq: { min: 8, max: 12 }
+};
 
 /**
  * Générer un quiz avec Claude (Premium)
@@ -410,43 +367,6 @@ function keepValidQuestions(questions) {
 }
 
 /**
- * Créer un prompt pour compléter un quiz
- */
-function create_completion_prompt(devoir, documentsText, existing, maxQuestions) {
-  return `Tu es un assistant pédagogique expert. Tu as déjà généré ${existing.length} questions pour un quiz de RÉVISION du COURS, mais il en faut PLUS.
-
-DEVOIR : ${devoir.titre}
-${devoir.description ? 'DESCRIPTION : ' + devoir.description : ''}
-
-QUESTIONS DÉJÀ GÉNÉRÉES (à ne PAS répéter) :
-${existing.map((q, i) => `${i + 1}. ${q.question}`).join('\n')}
-
-DOCUMENTS :
-${documentsText}
-
-GÉNÈRE MINIMUM 20 NOUVELLES QUESTIONS différentes de celles ci-dessus.
-Plus tu en génères, mieux c'est (jusqu'à ${maxQuestions} si le contenu le permet).
-
-RÈGLES STRICTES :
-- MINIMUM 20 nouvelles questions
-- Questions de COURS (pas de "Dans le TP1..." ou "L'exercice 2...")
-- Pour le code : propose des exemples et demande ce qu'ils retournent
-- Questions DIFFÉRENTES de celles déjà générées
-- Basées sur les CONCEPTS du COURS uniquement
-- Teste la COMPRÉHENSION et l'APPLICATION des concepts
-- Si tu inclus du code, utilise ''' code ''' pour le délimiter
-- QUESTIONS PIÈGES : inclus des réponses plausibles mais incorrectes (ex: "ça marche" vs "ça ne marche pas")
-- LONGUEUR ÉGALE : toutes les options de réponse doivent avoir une longueur similaire (±10-20%)
-- Les mauvaises réponses doivent être crédibles et basées sur des erreurs courantes
-- CHAMP "example" : affiché APRÈS la réponse, pour montrer l'UTILISATION du concept, pas pour poser la question
-- Si tu veux montrer du code à analyser, mets-le dans "question", JAMAIS dans "example"
-- CHAQUE QUESTION SE SUFFIT À ELLE-MÊME : une question sur un code, un Dockerfile, un fichier ou une commande contient ce code en entier dans "question", entre ''' '''. Sans code à montrer, pose une question générale qui ne le désigne pas (« Quelle instruction définit l'image de base ? » et non « Que fait ce Dockerfile ? »)
-- UNE SEULE BONNE RÉPONSE : le champ "correct" doit être 0, 1, 2 ou 3 (une seule valeur)
-- NE RÉFÉRENCE JAMAIS A/B/C/D ou 1/2/3/4 : les réponses sont affichées dans un ORDRE ALÉATOIRE
-- Dans l'explication, parle du CONTENU de la réponse, pas de sa position (pas de "la réponse B" ou "la deuxième option")`;
-}
-
-/**
  * Claude passe la main à Groq quand il ne peut pas répondre : refus de contenu,
  * ou erreur 400 (crédit épuisé...). Un schéma refusé n'en fait pas partie : ce
  * serait une erreur de code, qui enverrait en silence tous les utilisateurs
@@ -468,20 +388,20 @@ function shouldFallbackToGroq(error) {
  * Un appel de génération : Claude pour les classes premium, Groq sinon ou en
  * repli. Le prompt est construit pour le fournisseur qui répond, car le nombre
  * de questions demandé dépend de sa limite de sortie.
- * @param {(maxQuestions: number) => string} buildPrompt
+ * @param {(range: {min: number, max: number}) => string} buildPrompt
  * @param {{premium: boolean, fallback: boolean}} provider - fallback passe à true quand Claude est écarté
  */
 async function generateBatch(buildPrompt, provider) {
   if (provider.premium && !provider.fallback) {
     try {
-      return await generateWithClaude(buildPrompt(MAX_QUESTIONS.claude));
+      return await generateWithClaude(buildPrompt(QUESTIONS_PAR_APPEL.claude));
     } catch (error) {
       if (!shouldFallbackToGroq(error)) throw error;
       console.warn(`⚠️ Claude écarté (${error.message.slice(0, 120)}), basculement vers Groq (gratuit)...`);
       provider.fallback = true;
     }
   }
-  return generateWithGroq(buildPrompt(MAX_QUESTIONS.groq));
+  return generateWithGroq(buildPrompt(QUESTIONS_PAR_APPEL.groq));
 }
 
 /**
@@ -506,11 +426,11 @@ async function generate_with_retry(devoir, isPremium, documentsText) {
       if (allQuestions.length === 0) {
         // Première tentative : prompt normal
         console.log(`📝 Tentative ${attempts}/${MAX_RETRIES} - Génération initiale...`);
-        newQuestions = await generateBatch(max => createPrompt(devoir, documentsText, max), provider);
+        newQuestions = await generateBatch(range => createPrompt(devoir, documentsText, range), provider);
       } else {
-        // Tentatives suivantes : compléter avec minimum 20 questions
-        console.log(`📝 Tentative ${attempts}/${MAX_RETRIES} - Demande de questions supplémentaires (minimum 20)...`);
-        newQuestions = await generateBatch(max => create_completion_prompt(devoir, documentsText, allQuestions, max), provider);
+        // Tentatives suivantes : même prompt, avec les questions déjà générées à ne pas répéter
+        console.log(`📝 Tentative ${attempts}/${MAX_RETRIES} - Demande de questions supplémentaires...`);
+        newQuestions = await generateBatch(range => createPrompt(devoir, documentsText, range, allQuestions), provider);
       }
 
       // Écarter les questions qui parlent d'un code absent
@@ -612,6 +532,7 @@ module.exports = {
   extractTextFromPDF,
   referencesMissingCode,
   // Pour les tests
+  createPrompt,
   parseQuestions,
   keepValidQuestions,
   questionsFromGroqError,
