@@ -502,6 +502,15 @@ function renderEtat(message, action = '') {
     </div>`;
 }
 
+// Même contenu que le chargeur initial de la page
+function afficherChargement() {
+  document.getElementById('edt-contenu').innerHTML = `
+    <div class="edt-etat" role="status">
+      <span class="edt-chargement" aria-hidden="true"></span>
+      <p>Chargement de l'emploi du temps…</p>
+    </div>`;
+}
+
 function afficherBandeau() {
   const bandeau = document.getElementById('edt-bandeau');
   if (state.horsLigne && state.misAJour) {
@@ -582,6 +591,9 @@ function allerA(semaine, { garderJour = false } = {}) {
 }
 
 async function charger({ silencieux = false } = {}) {
+  // Hors rechargement en arrière-plan, aucun emploi du temps n'est affiché
+  // (ouverture de la page, « Réessayer ») : la source peut être lente
+  if (!silencieux) afficherChargement();
   const data = await apiCall('/api/emploi-temps');
 
   if (data.error) {

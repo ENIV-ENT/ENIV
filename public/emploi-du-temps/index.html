@@ -46,7 +46,13 @@
 
     <p id="edt-bandeau" class="edt-bandeau hidden" role="status"></p>
 
-    <div id="edt-contenu" class="edt-contenu"></div>
+    <!-- Chargeur affiché jusqu'à la réponse : la source peut mettre du temps à répondre -->
+    <div id="edt-contenu" class="edt-contenu">
+      <div class="edt-etat" role="status">
+        <span class="edt-chargement" aria-hidden="true"></span>
+        <p>Chargement de l'emploi du temps…</p>
+      </div>
+    </div>
   </main>
 
   <div id="cours-modal" class="modal">

@@ -68,7 +68,8 @@ beforeEach(() => {
   mock.timers.enable({ apis: ['Date'], now: NOW });
   mock.method(safeRequest, 'openRemote', async () => {
     remoteCalls++;
-    const next = responses.shift();
+    // Une promesse simule une source lente : la réponse arrive à sa résolution
+    const next = await responses.shift();
     if (next instanceof Error) throw next;
     return { contentType: 'text/calendar', contentLength: null, stream: Readable.from([Buffer.from(next)]) };
   });
@@ -135,11 +136,46 @@ test('après un échec, pas de nouvelle tentative pendant RETRY_MS', async () =>
   assert.equal(remoteCalls, 1);
   assert.equal(pendant.horsLigne, true);
 
+  // La nouvelle tentative se fait en arrière-plan : l'ancienne version est
+  // servie sans l'attendre
   mock.timers.tick(2000);
   const apres = await getEmploiTemps(4);
   assert.equal(remoteCalls, 2);
-  assert.equal(apres.horsLigne, false);
-  assert.equal(apres.evenements.length, 2);
+  assert.equal(apres.horsLigne, true);
+  assert.deepEqual(apres.evenements, ANCIEN);
+
+  await new Promise(setImmediate);
+  const rafraichi = await getEmploiTemps(4);
+  assert.equal(remoteCalls, 2);
+  assert.equal(rafraichi.horsLigne, false);
+  assert.equal(rafraichi.evenements.length, 2);
+});
+
+test('après un échec, une source qui ne répond plus ne retarde pas la lecture', async () => {
+  row(4, {
+    evenements: JSON.stringify(ANCIEN),
+    fetched_at: new Date(NOW - 2 * FRESH_MS),
+    last_attempt_at: new Date(NOW - RETRY_MS - 1000),
+    last_error: "La source de l'emploi du temps ne répond pas"
+  });
+  let repondre;
+  source(new Promise(resolve => { repondre = resolve; }));
+
+  const [a, b] = await Promise.all([getEmploiTemps(4), getEmploiTemps(4)]);
+
+  assert.equal(remoteCalls, 1);
+  assert.deepEqual(a.evenements, ANCIEN);
+  assert.equal(a.horsLigne, true);
+  assert.deepEqual(b, a);
+
+  // Pendant la tentative en cours, pas de deuxième appel
+  await getEmploiTemps(4);
+  assert.equal(remoteCalls, 1);
+
+  repondre(ICS);
+  await new Promise(setImmediate);
+  assert.equal(JSON.parse(rows.get(4).evenements).length, 2);
+  assert.equal(rows.get(4).last_error, null);
 });
 
 test('échec sans aucune version gardée : erreur', async () => {
@@ -150,6 +186,19 @@ test('échec sans aucune version gardée : erreur', async () => {
   // Pendant RETRY_MS, l'erreur est renvoyée sans réessayer
   await assert.rejects(getEmploiTemps(4), { status: 502 });
   assert.equal(remoteCalls, 1);
+});
+
+test('échec sans aucune version gardée : après RETRY_MS, la lecture attend la source', async () => {
+  row(4);
+  source(panne(), ICS);
+
+  await assert.rejects(getEmploiTemps(4), { status: 502 });
+  mock.timers.tick(RETRY_MS + 1000);
+
+  const emploi = await getEmploiTemps(4);
+  assert.equal(remoteCalls, 2);
+  assert.equal(emploi.horsLigne, false);
+  assert.equal(emploi.evenements.length, 2);
 });
 
 test('un calendrier vide ou invalide n\'écrase pas un emploi du temps existant', async () => {
