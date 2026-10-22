@@ -10,6 +10,6 @@ git pull --ff-only
 # The Dockerfile base image is not kept locally after a build; using it would add one more download (which can fail) between the pull and the container restart.
 docker compose -f compose.yml build
 image="$(docker compose -f compose.yml config --images)"
-docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/app" -w /app "$image" node scripts/version-assets.js
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/app" -w /app "$image" node scripts/versionAssets.js
 docker compose -f compose.yml up -d --remove-orphans
 docker compose -f compose.yml ps

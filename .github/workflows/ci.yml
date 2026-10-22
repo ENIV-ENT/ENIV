@@ -45,7 +45,7 @@ jobs:
       # Same as deploy.sh on the VPS: catches an import cycle or a crash on the
       # real files before going to production. Nothing is committed.
       - name: Version assets (as on deployment)
-        run: node scripts/version-assets.js
+        run: node scripts/versionAssets.js
 
   startup:
     name: Startup on MySQL (migrations + smoke test)
@@ -95,7 +95,7 @@ jobs:
           grep -q "Migrations completed" server.log
 
       - name: Smoke test
-        run: node scripts/smoke-test.js http://127.0.0.1:3000
+        run: node scripts/smokeTest.js http://127.0.0.1:3000
 
       - name: Restart on the existing database (idempotent migrations)
         run: |
@@ -107,7 +107,7 @@ jobs:
           node server.js > server2.log 2>&1 &
           for _ in $(seq 1 30); do grep -q "No pending migrations" server2.log && break; sleep 1; done
           grep -q "No pending migrations" server2.log
-          node scripts/smoke-test.js http://127.0.0.1:3000
+          node scripts/smokeTest.js http://127.0.0.1:3000
 
       - name: No migration or initialization error
         # After the smoke tests, to also catch errors logged after the expected

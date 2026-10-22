@@ -64,4 +64,4 @@ jobs:
           APP_URL: ${{ vars.APP_URL }}
           # Leaves time for the container to rebuild and restart
           SMOKE_TIMEOUT_S: 180
-        run: node scripts/smoke-test.js "$APP_URL"
+        run: node scripts/smokeTest.js "$APP_URL"

@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { versionAssets, stripVersions } = require('../scripts/version-assets');
+const { versionAssets, stripVersions } = require('../scripts/versionAssets');
 
 // Crée un site temporaire à partir de { 'chemin/relatif': contenu }. Il est
 // placé dans un sous-dossier, pour pouvoir écrire un fichier à côté.
@@ -117,6 +117,6 @@ test('un cycle d\'imports lève une erreur sans rien écrire', () => {
     'a.js': "import './b.js';",
     'b.js': "import './a.js';",
   });
-  assert.throws(() => versionAssets([s.root]), /Cycle d'imports.*a\.js -> b\.js -> a\.js/);
+  assert.throws(() => versionAssets([s.root]), /Import cycle.*a\.js -> b\.js -> a\.js/);
   assert.equal(s.read('index.html'), '<script type="module" src="/a.js"></script>');
 });
