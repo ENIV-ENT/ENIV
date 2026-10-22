@@ -4,7 +4,7 @@ const push = require('../services/push');
 const messages = require('../services/pushMessages');
 const router = express.Router();
 
-// Clé publique VAPID, nécessaire au navigateur pour s'abonner
+/** VAPID public key, needed by the browser to subscribe. */
 router.get('/public-key', async (req, res) => {
   try {
     res.json({ publicKey: await push.getPublicKey() });
@@ -16,7 +16,7 @@ router.get('/public-key', async (req, res) => {
 
 router.use(requireAuth);
 
-// Enregistre l'abonnement de ce navigateur
+/** Saves the subscription of this browser. */
 router.post('/subscribe', express.json(), async (req, res) => {
   const subscription = push.parseSubscription(req.body);
   if (!subscription) {
@@ -49,7 +49,7 @@ router.post('/unsubscribe', express.json(), async (req, res) => {
   }
 });
 
-// Appareils abonnés du compte, pour en retirer un auquel on n'a plus accès
+/** Subscribed devices of the account, to remove one that is no longer accessible. */
 router.get('/subscriptions', async (req, res) => {
   try {
     res.json(await push.listSubscriptions(req.user.id));
@@ -90,7 +90,7 @@ router.put('/preferences', express.json(), async (req, res) => {
   }
 });
 
-// Notification de test vers tous les appareils de l'utilisateur
+/** Test notification to every device of the user. */
 router.post('/test', async (req, res) => {
   try {
     const stats = await push.sendToUser(req.user.id, messages.test());

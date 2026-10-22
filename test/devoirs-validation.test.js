@@ -13,7 +13,7 @@ const fake = installFakeDb((method, sql, params) => {
   return undefined;
 });
 
-const router = require('../backend/routes/devoirs');
+const router = require('../backend/routes/assignments');
 let server;
 let url;
 

@@ -42,14 +42,14 @@ require.cache[pushFile] = { id: pushFile, filename: pushFile, loaded: true, expo
 } };
 
 const realtimeNotifier = require('../backend/middleware/realtimeNotifier');
-const commentaires = require('../backend/routes/commentaires');
+const commentaires = require('../backend/routes/comments');
 
 let server;
 let base;
 before(() => {
   const app = express();
   app.use(realtimeNotifier);
-  app.use('/api/devoirs/:devoirId/commentaires', commentaires);
+  app.use('/api/devoirs/:assignmentId/commentaires', commentaires);
   server = app.listen(0);
   base = `http://127.0.0.1:${server.address().port}/api/devoirs`;
 });

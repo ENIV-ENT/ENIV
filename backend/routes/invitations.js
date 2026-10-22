@@ -7,11 +7,14 @@ const { requireAuth, requireAdminOrSuperAdmin } = require('../middleware/auth');
 const { signupLimiter, lookupLimiter } = require('../middleware/rateLimit');
 const router = express.Router();
 
-// Créer une invitation (Admin ou Superadmin). Sans le contrôle de rôle du
-// middleware, un élève pouvait s'inviter (ou inviter un tiers) dans n'importe
-// quelle classe en passant son classe_id.
+/**
+ * Creates an invitation (admin or superadmin). Without the middleware role check,
+ * a student could invite themselves (or a third party) into any class by passing
+ * its classe_id. An admin can only invite into their own class. The invitation
+ * lasts 7 days and is deleted if the email cannot be sent.
+ */
 router.post('/create', requireAdminOrSuperAdmin, async (req, res) => {
-  const { email, role, classe_id } = req.body || {};
+  const { email, role, classe_id: requestedClassId } = req.body || {};
   const creatorRole = req.session.role;
 
   if (!email || !role) {
@@ -26,26 +29,22 @@ router.post('/create', requireAdminOrSuperAdmin, async (req, res) => {
     return res.status(403).json({ error: 'Un superadmin ne peut créer que des comptes admin' });
   }
 
-  // Validation de l'email
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     return res.status(400).json({ error: 'Format d\'email invalide' });
   }
 
   try {
-    // Récupérer la classe de l'utilisateur créateur si c'est un admin
-    let finalClasseId = classe_id;
+    let finalClassId = requestedClassId;
     if (creatorRole === 'admin') {
-      finalClasseId = req.user.classe_id;
+      finalClassId = req.user.classe_id;
     }
 
-    // Vérifier si l'email existe déjà
     const existingUser = await db.get('SELECT id FROM users WHERE email = ?', [email]);
     if (existingUser) {
       return res.status(400).json({ error: 'Cet email est déjà associé à un compte' });
     }
 
-    // Vérifier si une invitation active existe déjà
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     const existingInvitation = await db.get(
       'SELECT id FROM invitations WHERE email = ? AND used = 0 AND expires_at > ?',
@@ -56,29 +55,23 @@ router.post('/create', requireAdminOrSuperAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Une invitation est déjà en attente pour cet email' });
     }
 
-    // Générer un token unique
     const token = crypto.randomBytes(32).toString('hex');
 
-    // Date d'expiration (7 jours)
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
-    // Convertir au format MySQL YYYY-MM-DD HH:MM:SS
     const mysqlDateTime = expiresAt.toISOString().slice(0, 19).replace('T', ' ');
 
-    // Créer l'invitation
     const result = await db.run(
       'INSERT INTO invitations (email, token, role, classe_id, created_by, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [email, token, role, finalClasseId || null, req.session.userId, mysqlDateTime]
+      [email, token, role, finalClassId || null, req.session.userId, mysqlDateTime]
     );
 
-    // Récupérer le nom de la classe si applicable
     let className = null;
-    if (finalClasseId) {
-      const classe = await db.get('SELECT nom FROM classes WHERE id = ?', [finalClasseId]);
-      className = classe ? classe.nom : null;
+    if (finalClassId) {
+      const schoolClass = await db.get('SELECT nom FROM classes WHERE id = ?', [finalClassId]);
+      className = schoolClass ? schoolClass.nom : null;
     }
 
-    // Envoyer l'email d'invitation
     try {
       await sendInvitationEmail(email, token, role, className);
       res.json({
@@ -87,7 +80,6 @@ router.post('/create', requireAdminOrSuperAdmin, async (req, res) => {
         invitationId: result.lastInsertRowid
       });
     } catch (emailError) {
-      // Supprimer l'invitation si l'email n'a pas pu être envoyé
       await db.run('DELETE FROM invitations WHERE id = ?', [result.lastInsertRowid]);
       throw emailError;
     }
@@ -97,7 +89,6 @@ router.post('/create', requireAdminOrSuperAdmin, async (req, res) => {
   }
 });
 
-// Vérifier la validité d'une invitation
 router.get('/verify/:token', lookupLimiter, async (req, res) => {
   const { token } = req.params;
 
@@ -127,7 +118,6 @@ router.get('/verify/:token', lookupLimiter, async (req, res) => {
   }
 });
 
-// Vérifier la disponibilité d'un username
 router.post('/check-username', lookupLimiter, async (req, res) => {
   const { username } = req.body || {};
 
@@ -153,11 +143,14 @@ router.post('/check-username', lookupLimiter, async (req, res) => {
   }
 });
 
-// Finaliser l'inscription avec une invitation
+/**
+ * Completes the signup with an invitation. The password is hashed before opening
+ * the transaction: no need to hold a MySQL connection while hashing.
+ */
 router.post('/complete', signupLimiter, async (req, res) => {
-  const { token, username, password, nom, prenom } = req.body || {};
+  const { token, username, password, nom: lastName, prenom: firstName } = req.body || {};
 
-  if (!token || !username || !password || !nom || !prenom) {
+  if (!token || !username || !password || !lastName || !firstName) {
     return res.status(400).json({ error: 'Tous les champs sont requis' });
   }
 
@@ -170,7 +163,6 @@ router.post('/complete', signupLimiter, async (req, res) => {
   }
 
   try {
-    // Vérifier l'invitation
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     const invitation = await db.get(
       'SELECT * FROM invitations WHERE token = ? AND used = 0 AND expires_at > ?',
@@ -181,28 +173,22 @@ router.post('/complete', signupLimiter, async (req, res) => {
       return res.status(404).json({ error: 'Invitation invalide ou expirée' });
     }
 
-    // Vérifier si le username est disponible
     const existingUser = await db.get('SELECT id FROM users WHERE LOWER(username) = LOWER(?)', [username]);
     if (existingUser) {
       return res.status(400).json({ error: 'Ce nom d\'utilisateur est déjà utilisé' });
     }
 
-    // Vérifier si l'email n'est pas déjà utilisé
     const emailUser = await db.get('SELECT id FROM users WHERE email = ?', [invitation.email]);
     if (emailUser) {
       return res.status(400).json({ error: 'Cet email est déjà associé à un compte' });
     }
 
-    // Hasher le mot de passe avant d'ouvrir la transaction : inutile de garder
-    // une connexion MySQL pendant le hachage
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Créer le compte dans une transaction
     const userId = await db.transaction(async (connection) => {
-      // Créer l'utilisateur
       const [result] = await connection.query(
         'INSERT INTO users (username, password, email, nom, prenom, role, classe_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [username, hashedPassword, invitation.email, nom, prenom, invitation.role, invitation.classe_id]
+        [username, hashedPassword, invitation.email, lastName, firstName, invitation.role, invitation.classe_id]
       );
 
       await connection.query('DELETE FROM invitations WHERE id = ?', [invitation.id]);
@@ -221,7 +207,6 @@ router.post('/complete', signupLimiter, async (req, res) => {
   }
 });
 
-// Lister les invitations (Admin/Superadmin)
 router.get('/list', requireAdminOrSuperAdmin, async (req, res) => {
   try {
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -242,13 +227,11 @@ router.get('/list', requireAdminOrSuperAdmin, async (req, res) => {
   }
 });
 
-// Renvoyer une invitation
 router.post('/resend/:id', requireAuth, async (req, res) => {
 
   const { id } = req.params;
 
   try {
-    // Récupérer l'invitation
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     const invitation = await db.get(
       `SELECT i.*, c.nom as classe_nom
@@ -262,7 +245,6 @@ router.post('/resend/:id', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Invitation non trouvée ou déjà utilisée' });
     }
 
-    // Renvoyer l'email
     await sendInvitationEmail(invitation.email, invitation.token, invitation.role, invitation.classe_nom);
 
     res.json({
@@ -275,13 +257,11 @@ router.post('/resend/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Supprimer une invitation
 router.delete('/:id', requireAuth, async (req, res) => {
 
   const { id } = req.params;
 
   try {
-    // Vérifier que l'invitation appartient bien à l'utilisateur
     const invitation = await db.get(
       'SELECT id FROM invitations WHERE id = ? AND created_by = ?',
       [id, req.session.userId]
@@ -291,7 +271,6 @@ router.delete('/:id', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Invitation non trouvée' });
     }
 
-    // Supprimer l'invitation
     await db.run('DELETE FROM invitations WHERE id = ?', [id]);
 
     res.json({ success: true, message: 'Invitation supprimée' });

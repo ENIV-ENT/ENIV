@@ -9,7 +9,6 @@ const router = express.Router();
 
 const ICS_URL_MAX_LENGTH = 2048;
 
-// Créer un élève
 router.post('/eleves', requireAdmin, express.json(), async (req, res) => {
   const { username, password } = req.body || {};
 
@@ -18,15 +17,15 @@ router.post('/eleves', requireAdmin, express.json(), async (req, res) => {
   }
 
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await db.run(
       'INSERT INTO users (username, password, role, classe_id) VALUES (?, ?, ?, ?)',
-      [username, hashedPassword, 'eleve', classeId]
+      [username, hashedPassword, 'eleve', classId]
     );
 
     res.json({
@@ -43,35 +42,34 @@ router.post('/eleves', requireAdmin, express.json(), async (req, res) => {
   }
 });
 
-// Lister tous les élèves
 router.get('/eleves', requireAdmin, async (req, res) => {
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
-    const eleves = await db.all(
+    const students = await db.all(
       'SELECT id, username, created_at, email, nom, prenom, role, last_login_at FROM users WHERE classe_id = ?',
-      [classeId]
+      [classId]
     );
-    res.json(eleves);
+    res.json(students);
   } catch {
     res.status(500).json({ error: 'Erreur lors de la récupération des élèves' });
   }
 });
 
-// Modifier un élève (username et/ou mot de passe)
+/** Updates a student (username, info and optionally the password). */
 router.put('/eleves/:id', requireAdmin, express.json(), async (req, res) => {
-  const { username, email, nom, prenom, password } = req.body || {};
+  const { username, email, nom: lastName, prenom: firstName, password } = req.body || {};
 
   if (!username) {
     return res.status(400).json({ error: 'Nom d\'utilisateur requis' });
   }
 
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
@@ -79,12 +77,12 @@ router.put('/eleves/:id', requireAdmin, express.json(), async (req, res) => {
       const hashedPassword = await bcrypt.hash(password, 10);
       await db.run(
         'UPDATE users SET username = ?, email = ?, nom = ?, prenom = ?, password = ? WHERE id = ? AND role = ? AND classe_id = ?',
-        [username, email, nom, prenom, hashedPassword, req.params.id, 'eleve', classeId]
+        [username, email, lastName, firstName, hashedPassword, req.params.id, 'eleve', classId]
       );
     } else {
       await db.run(
         'UPDATE users SET username = ?, email = ?, nom = ?, prenom = ? WHERE id = ? AND role = ? AND classe_id = ?',
-        [username, email, nom, prenom, req.params.id, 'eleve', classeId]
+        [username, email, lastName, firstName, req.params.id, 'eleve', classId]
       );
     }
     res.json({ success: true, message: 'Élève modifié avec succès' });
@@ -97,7 +95,14 @@ router.put('/eleves/:id', requireAdmin, express.json(), async (req, res) => {
   }
 });
 
-// Activer ou désactiver le statut administrateur d'un membre de la classe
+/**
+ * Grants or removes the admin status of a class member. The class must keep at
+ * least one admin.
+ *
+ * The class admins are locked first: every concurrent request takes this lock
+ * first, which serializes them (otherwise two crossed demotions deadlock) and
+ * freezes the count.
+ */
 router.put('/eleves/:id/admin', requireAdmin, express.json(), async (req, res) => {
   const { admin } = req.body || {};
 
@@ -106,25 +111,22 @@ router.put('/eleves/:id/admin', requireAdmin, express.json(), async (req, res) =
   }
 
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
     const newRole = admin ? 'admin' : 'eleve';
 
     await db.transaction(async (connection) => {
-      // Verrouiller d'abord les administrateurs de la classe : toutes les requêtes
-      // concurrentes prennent ce verrou en premier, ce qui les sérialise (sans quoi
-      // deux rétrogradations croisées s'interbloquent) et fige le comptage.
       const [admins] = await connection.query(
         'SELECT id FROM users WHERE classe_id = ? AND role = ? FOR UPDATE',
-        [classeId, 'admin']
+        [classId, 'admin']
       );
 
       const [targets] = await connection.query(
         'SELECT id, role FROM users WHERE id = ? AND classe_id = ? AND role IN (?, ?) FOR UPDATE',
-        [req.params.id, classeId, 'eleve', 'admin']
+        [req.params.id, classId, 'eleve', 'admin']
       );
       const target = targets[0];
 
@@ -162,17 +164,16 @@ router.put('/eleves/:id/admin', requireAdmin, express.json(), async (req, res) =
   }
 });
 
-// Supprimer un élève
 router.delete('/eleves/:id', requireAdmin, async (req, res) => {
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
     await db.run(
       'DELETE FROM users WHERE id = ? AND role = ? AND classe_id = ?',
-      [req.params.id, 'eleve', classeId]
+      [req.params.id, 'eleve', classId]
     );
     res.json({ success: true, message: 'Élève supprimé' });
   } catch {
@@ -180,70 +181,69 @@ router.delete('/eleves/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// Récupérer la classe de l'admin connecté
+/** Class of the logged-in admin. */
 router.get('/classe', requireAdmin, async (req, res) => {
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
-    const classe = await db.get('SELECT id, nom FROM classes WHERE id = ?', [classeId]);
-    if (!classe) {
+    const schoolClass = await db.get('SELECT id, nom FROM classes WHERE id = ?', [classId]);
+    if (!schoolClass) {
       return res.status(404).json({ error: 'Classe introuvable' });
     }
 
-    res.json(classe);
+    res.json(schoolClass);
   } catch (error) {
-    console.error('Error fetching classe:', error);
+    console.error('Error fetching class:', error);
     res.status(500).json({ error: 'Erreur lors de la récupération de la classe' });
   }
 });
 
-// Renommer la classe de l'admin connecté
+/** Renames the class of the logged-in admin. */
 router.put('/classe', requireAdmin, express.json(), async (req, res) => {
-  const { nom } = req.body || {};
+  const { nom: name } = req.body || {};
 
-  if (!nom || !nom.trim()) {
+  if (!name || !name.trim()) {
     return res.status(400).json({ error: 'Nom de classe requis' });
   }
 
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
-    await db.run('UPDATE classes SET nom = ? WHERE id = ?', [nom.trim(), classeId]);
+    await db.run('UPDATE classes SET nom = ? WHERE id = ?', [name.trim(), classId]);
 
     res.json({ success: true, message: 'Classe renommée avec succès' });
   } catch (error) {
-    console.error('Error renaming classe:', error);
+    console.error('Error renaming class:', error);
     res.status(500).json({ error: 'Erreur lors du renommage de la classe' });
   }
 });
 
-// Créer une matière
 router.post('/matieres', requireAdmin, express.json(), async (req, res) => {
-  const { nom, lien, couleur } = req.body || {};
+  const { nom: name, lien: link, couleur: color } = req.body || {};
 
-  if (!nom) {
+  if (!name) {
     return res.status(400).json({ error: 'Nom de matière requis' });
   }
 
-  if (!couleur || couleur.trim() === '') {
+  if (!color || color.trim() === '') {
     return res.status(400).json({ error: 'Couleur de matière requise' });
   }
 
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
     const result = await db.run(
       'INSERT INTO matieres (nom, lien, couleur, classe_id) VALUES (?, ?, ?, ?)',
-      [nom, lien || null, couleur, classeId]
+      [name, link || null, color, classId]
     );
 
     res.json({
@@ -252,42 +252,41 @@ router.post('/matieres', requireAdmin, express.json(), async (req, res) => {
       message: 'Matière créée avec succès'
     });
   } catch (error) {
-    console.error('Erreur création matière:', error);
+    console.error('Error creating subject:', error);
     res.status(500).json({ error: 'Erreur lors de la création de la matière' });
   }
 });
 
-// Lister toutes les matières (accessible à tous les utilisateurs authentifiés)
+/** Lists the subjects of the class (any authenticated user). */
 router.get('/matieres', requireAuth, async (req, res) => {
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.json([]);
     }
 
-    const matieres = await db.all(
+    const subjects = await db.all(
       'SELECT * FROM matieres WHERE classe_id = ? ORDER BY nom',
-      [classeId]
+      [classId]
     );
-    res.json(matieres);
+    res.json(subjects);
   } catch {
     res.status(500).json({ error: 'Erreur lors de la récupération des matières' });
   }
 });
 
-// Modifier une matière
 router.put('/matieres/:id', requireAdmin, express.json(), async (req, res) => {
-  const { nom, lien, couleur } = req.body || {};
+  const { nom: name, lien: link, couleur: color } = req.body || {};
 
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
     await db.run(
       'UPDATE matieres SET nom = ?, lien = ?, couleur = ? WHERE id = ? AND classe_id = ?',
-      [nom, lien || null, couleur || null, req.params.id, classeId]
+      [name, link || null, color || null, req.params.id, classId]
     );
     res.json({ success: true, message: 'Matière mise à jour' });
   } catch {
@@ -295,17 +294,16 @@ router.put('/matieres/:id', requireAdmin, express.json(), async (req, res) => {
   }
 });
 
-// Supprimer une matière
 router.delete('/matieres/:id', requireAdmin, async (req, res) => {
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
     await db.run(
       'DELETE FROM matieres WHERE id = ? AND classe_id = ?',
-      [req.params.id, classeId]
+      [req.params.id, classId]
     );
     res.json({ success: true, message: 'Matière supprimée' });
   } catch {
@@ -313,20 +311,20 @@ router.delete('/matieres/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// Configurer le lien emploi du temps
+/** Sets the timetable link of the class (external page). */
 router.post('/settings/emploi-temps', requireAdmin, express.json(), async (req, res) => {
-  const { lien } = req.body || {};
+  const { lien: link } = req.body || {};
 
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
-    const key = `emploi_temps_lien_${classeId}`;
+    const key = `emploi_temps_lien_${classId}`;
     await db.run(
       'INSERT INTO settings (`key`, value, classe_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value), classe_id = VALUES(classe_id)',
-      [key, lien || null, classeId]
+      [key, link || null, classId]
     );
     res.json({ success: true, message: 'Lien emploi du temps configuré' });
   } catch {
@@ -334,18 +332,17 @@ router.post('/settings/emploi-temps', requireAdmin, express.json(), async (req, 
   }
 });
 
-// Récupérer le lien emploi du temps
 router.get('/settings/emploi-temps', requireAuth, async (req, res) => {
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.json({ lien: null });
     }
 
-    const key = `emploi_temps_lien_${classeId}`;
+    const key = `emploi_temps_lien_${classId}`;
     const setting = await db.get(
       'SELECT value FROM settings WHERE `key` = ? AND classe_id = ?',
-      [key, classeId]
+      [key, classId]
     );
     res.json({ lien: setting ? setting.value : null });
   } catch {
@@ -353,84 +350,85 @@ router.get('/settings/emploi-temps', requireAuth, async (req, res) => {
   }
 });
 
-// Configurer le lien ICS : l'emploi du temps s'affiche alors dans Eniv
+/**
+ * Sets the ICS link: the timetable is then shown in Eniv. Without a JSON body,
+ * req.body is undefined in Express 5.
+ *
+ * A first fetch runs at once, so the admin knows whether the link works. A source
+ * that cannot be reached at the moment does not prevent saving the link.
+ */
 router.post('/settings/emploi-temps-ics', requireAdmin, express.json(), async (req, res) => {
-  // Sans corps JSON, req.body vaut undefined sous Express 5
-  const { lien: saisi } = req.body || {};
-  const lien = typeof saisi === 'string' ? saisi.trim() : '';
+  const { lien: input } = req.body || {};
+  const link = typeof input === 'string' ? input.trim() : '';
 
-  const classeId = req.user.classe_id;
-  if (!classeId) {
+  const classId = req.user.classe_id;
+  if (!classId) {
     return res.status(400).json({ error: 'Admin non associé à une classe' });
   }
 
-  if (lien) {
-    if (lien.length > ICS_URL_MAX_LENGTH) {
+  if (link) {
+    if (link.length > ICS_URL_MAX_LENGTH) {
       return res.status(400).json({ error: 'Lien ICS trop long' });
     }
 
     try {
-      prepareUrl(lien);
+      prepareUrl(link);
     } catch (error) {
       return res.status(400).json({ error: `Lien ICS invalide : ${error.message}` });
     }
   }
 
   try {
-    await setSource(classeId, lien || null);
+    await setSource(classId, link || null);
 
-    if (!lien) {
+    if (!link) {
       return res.json({ success: true, message: 'Lien ICS supprimé' });
     }
 
-    // Première récupération tout de suite : l'admin sait si le lien fonctionne.
-    // Une source momentanément injoignable n'empêche pas l'enregistrement.
-    let erreur;
+    let failure;
     try {
-      const emploi = await getTimetable(classeId, { force: true });
-      if (!emploi.horsLigne) {
-        return res.json({ success: true, nombreCours: emploi.evenements.length });
+      const timetable = await getTimetable(classId, { force: true });
+      if (!timetable.horsLigne) {
+        return res.json({ success: true, nombreCours: timetable.evenements.length });
       }
-      erreur = emploi.erreur;
+      failure = timetable.erreur;
     } catch (error) {
-      erreur = error.message;
+      failure = error.message;
     }
-    res.json({ success: true, avertissement: `Lien enregistré, mais l'emploi du temps n'a pas pu être récupéré : ${erreur}` });
+    res.json({ success: true, avertissement: `Lien enregistré, mais l'emploi du temps n'a pas pu être récupéré : ${failure}` });
   } catch (error) {
     console.error('Error configuring ICS link:', error);
     res.status(500).json({ error: 'Erreur lors de la configuration' });
   }
 });
 
-// Récupérer le lien ICS
 router.get('/settings/emploi-temps-ics', requireAdmin, async (req, res) => {
   try {
-    const classeId = req.user.classe_id;
-    res.json({ lien: classeId ? await getSource(classeId) : null });
+    const classId = req.user.classe_id;
+    res.json({ lien: classId ? await getSource(classId) : null });
   } catch {
     res.status(500).json({ error: 'Erreur lors de la récupération' });
   }
 });
 
-// Configurer le webhook Discord
+/** Sets the Discord webhook (discord.com and discordapp.com are accepted). */
 router.post('/settings/discord-webhook', requireAdmin, express.json(), async (req, res) => {
   const { webhook } = req.body || {};
 
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
-    // Valider le format du webhook Discord (accepte discord.com et discordapp.com)
     if (webhook && !webhook.match(/^https:\/\/(discord\.com|discordapp\.com)\/api\/webhooks\/.+/)) {
       return res.status(400).json({ error: 'URL de webhook Discord invalide' });
     }
 
-    const key = `discord_webhook_${classeId}`;
+    const key = `discord_webhook_${classId}`;
     await db.run(
       'INSERT INTO settings (`key`, value, classe_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value), classe_id = VALUES(classe_id)',
-      [key, webhook || null, classeId]
+      [key, webhook || null, classId]
     );
     res.json({ success: true, message: 'Webhook Discord configuré' });
   } catch (error) {
@@ -439,18 +437,17 @@ router.post('/settings/discord-webhook', requireAdmin, express.json(), async (re
   }
 });
 
-// Récupérer le webhook Discord
 router.get('/settings/discord-webhook', requireAdmin, async (req, res) => {
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.json({ webhook: null });
     }
 
-    const key = `discord_webhook_${classeId}`;
+    const key = `discord_webhook_${classId}`;
     const setting = await db.get(
       'SELECT value FROM settings WHERE `key` = ? AND classe_id = ?',
-      [key, classeId]
+      [key, classId]
     );
     res.json({ webhook: setting ? setting.value : null });
   } catch (error) {
@@ -459,11 +456,11 @@ router.get('/settings/discord-webhook', requireAdmin, async (req, res) => {
   }
 });
 
-// Récupérer les logs de devoirs (admin uniquement)
+/** Assignment history of the class (admin only), 100 latest entries. */
 router.get('/logs/devoirs', requireAdmin, async (req, res) => {
   try {
-    const classeId = req.user.classe_id;
-    if (!classeId) {
+    const classId = req.user.classe_id;
+    if (!classId) {
       return res.json([]);
     }
 
@@ -483,7 +480,7 @@ router.get('/logs/devoirs', requireAdmin, async (req, res) => {
       WHERE l.classe_id = ?
       ORDER BY l.created_at DESC, l.id DESC
       LIMIT 100`,
-      [classeId]
+      [classId]
     );
 
     res.json(logs);
@@ -493,7 +490,7 @@ router.get('/logs/devoirs', requireAdmin, async (req, res) => {
   }
 });
 
-// Lister les demandes d'adhésion en attente
+/** Pending join requests of the class. */
 router.get('/join-requests', requireAdmin, async (req, res) => {
   try {
     const admin = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
@@ -517,7 +514,7 @@ router.get('/join-requests', requireAdmin, async (req, res) => {
   }
 });
 
-// Traiter une demande d'adhésion (accepter ou rejeter)
+/** Accepts or rejects a join request; an accepted student is told by email. */
 async function handleJoinRequest(req, res, newStatus) {
   try {
     const admin = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
@@ -539,14 +536,14 @@ async function handleJoinRequest(req, res, newStatus) {
     if (newStatus === 'accepted') {
       await db.run('UPDATE users SET classe_id = ? WHERE id = ?', [admin.classe_id, request.user_id]);
 
-      const [student, classe] = await Promise.all([
+      const [student, schoolClass] = await Promise.all([
         db.get('SELECT email, nom, prenom FROM users WHERE id = ?', [request.user_id]),
         db.get('SELECT nom FROM classes WHERE id = ?', [admin.classe_id])
       ]);
 
-      if (student && student.email && classe && classe.nom) {
+      if (student && student.email && schoolClass && schoolClass.nom) {
         const studentName = `${student.prenom || ''} ${student.nom || ''}`.trim() || 'élève';
-        await sendJoinRequestAcceptedEmail(student.email, studentName, classe.nom);
+        await sendJoinRequestAcceptedEmail(student.email, studentName, schoolClass.nom);
       }
     }
 
@@ -559,13 +556,11 @@ async function handleJoinRequest(req, res, newStatus) {
   }
 }
 
-// Accepter une demande d'adhésion
 router.post('/join-requests/:id/accept', requireAdmin, (req, res) => handleJoinRequest(req, res, 'accepted'));
 
-// Rejeter une demande d'adhésion
 router.post('/join-requests/:id/reject', requireAdmin, (req, res) => handleJoinRequest(req, res, 'rejected'));
 
-// Générer/récupérer le lien d'invitation pré-rempli
+/** Prefilled signup link of the class, null if the class has no school. */
 router.get('/invite-link', requireAdmin, async (req, res) => {
   try {
     const admin = await db.get('SELECT classe_id FROM users WHERE id = ?', [req.session.userId]);
@@ -573,13 +568,13 @@ router.get('/invite-link', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Admin non associé à une classe' });
     }
 
-    const classe = await db.get('SELECT id, etablissement_id FROM classes WHERE id = ?', [admin.classe_id]);
-    if (!classe || !classe.etablissement_id) {
+    const schoolClass = await db.get('SELECT id, etablissement_id FROM classes WHERE id = ?', [admin.classe_id]);
+    if (!schoolClass || !schoolClass.etablissement_id) {
       return res.json({ link: null, message: 'Aucun établissement associé à cette classe' });
     }
 
     const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-    const link = `${baseUrl}/register?classe_id=${classe.id}&etab_id=${classe.etablissement_id}`;
+    const link = `${baseUrl}/register?classe_id=${schoolClass.id}&etab_id=${schoolClass.etablissement_id}`;
 
     res.json({ link });
   } catch (error) {

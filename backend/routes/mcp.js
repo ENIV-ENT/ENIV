@@ -5,11 +5,15 @@ const { findUserByToken } = require('../services/mcpTokens');
 const router = express.Router();
 
 /**
- * Point d'accès MCP (Streamable HTTP, sans état) : https://app.eniv.fr/api/mcp
+ * MCP endpoint (Streamable HTTP, stateless): https://app.eniv.fr/api/mcp
  *
- * Le jeton MCP (Paramètres > Assistant IA) se passe dans l'en-tête
- * « Authorization: Bearer <jeton> » ou, pour les clients qui ne permettent pas
- * d'en-tête (connecteurs claude.ai, ChatGPT), dans l'URL : /api/mcp/<jeton>.
+ * The MCP token (Settings > AI assistant) goes in the "Authorization: Bearer
+ * <token>" header or, for clients that do not allow headers (claude.ai and
+ * ChatGPT connectors), in the URL: /api/mcp/<token>.
+ *
+ * Stateless mode: no SSE stream (GET) nor session to close (DELETE), so every
+ * other method gets a 405.
+ * @module
  */
 
 function jsonRpcError(res, status, message) {
@@ -40,14 +44,13 @@ async function handleMcp(req, res) {
     await server.connect(transport);
     await transport.handleRequest(req, res, req.body);
   } catch (error) {
-    console.error('Erreur MCP:', error);
+    console.error('MCP error:', error);
     if (!res.headersSent) jsonRpcError(res, 500, 'Erreur interne du serveur');
   }
 }
 
 router.post(['/', '/:token'], handleMcp);
 
-// Mode sans état : pas de flux SSE (GET) ni de session à fermer (DELETE)
 router.all(['/', '/:token'], (req, res) => {
   res.set('Allow', 'POST');
   jsonRpcError(res, 405, 'Méthode non autorisée');
