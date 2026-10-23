@@ -211,7 +211,8 @@ router.get('/list', requireAdminOrSuperAdmin, async (req, res) => {
   try {
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     const invitations = await db.all(
-      `SELECT i.*, c.nom as classe_nom, u.username as created_by_username
+      `SELECT i.id, i.email, i.role, i.classe_id, i.created_at, i.expires_at,
+              c.nom as classe_nom, u.username as created_by_username
        FROM invitations i
        LEFT JOIN classes c ON i.classe_id = c.id
        LEFT JOIN users u ON i.created_by = u.id
