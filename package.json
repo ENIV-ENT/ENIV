@@ -18,7 +18,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.135.0",
+    "@anthropic-ai/sdk": "^1.2.0",
     "@getbrevo/brevo": "^6.2.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "bcryptjs": "^3.0.3",
