@@ -10,6 +10,8 @@ const { toDateString, snapshotAssignment, diffSnapshots, logAssignmentAction } =
 const push = require('./push');
 const pushMessages = require('./pushMessages');
 const { findClassSubject } = require('./classMembership');
+const { getTimetable } = require('./timetable');
+const { matchSubjects } = require('./timetableSubjects');
 
 /**
  * ENIV MCP server: exposes the assignments of the user's class to an AI
@@ -61,6 +63,24 @@ function formatAssignment(row) {
     fait: Boolean(row.fait),
     cree_par: row.cree_par,
     cree_le: toDateString(row.created_at)
+  };
+}
+
+const PARIS_DATE = new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' });
+const PARIS_TIME = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
+
+/** Timetable event as shown to the assistant: Paris date and times, no UTC. */
+function formatLesson(event) {
+  const start = new Date(event.debut);
+  const end = new Date(event.fin);
+  return {
+    date: PARIS_DATE.format(start),
+    debut: event.journee ? null : PARIS_TIME.format(start),
+    fin: event.journee ? null : PARIS_TIME.format(end),
+    journee: Boolean(event.journee),
+    titre: event.titre,
+    lieu: event.lieu || null,
+    matiere: event.matiere ? event.matiere.nom : null
   };
 }
 
@@ -354,6 +374,41 @@ function createMcpServer(user) {
     notify(id, 'DELETE');
 
     return ok(`Devoir « ${assignment.titre} » supprimé.`);
+  }));
+
+  server.registerTool('emploi_du_temps', {
+    title: 'Emploi du temps',
+    description: 'Cours de la classe (horaires, salle, matière) importés de son emploi du temps. '
+      + 'Par défaut : les cours d\'aujourd\'hui. Heures de Paris.',
+    inputSchema: {
+      du: dateSchema.optional().describe('Premier jour (incluse), aujourd\'hui par défaut'),
+      au: dateSchema.optional().describe('Dernier jour (incluse), égal à « du » par défaut')
+    },
+    annotations: { readOnlyHint: true }
+  }, withClass(async ({ du: from, au: to }) => {
+    const today = todayString();
+    const first = from || today;
+    const last = to || first;
+    if (last < first) return fail('« au » doit être postérieur ou égal à « du ».');
+
+    const timetable = await getTimetable(classId);
+    if (!timetable.configure) return fail("Aucun emploi du temps n'est configuré pour cette classe.");
+
+    const subjects = await db.all('SELECT id, nom, couleur FROM matieres WHERE classe_id = ?', [classId]);
+    const lessons = matchSubjects(timetable.evenements, subjects)
+      .map(formatLesson)
+      .filter(lesson => lesson.date >= first && lesson.date <= last)
+      .sort((a, b) => a.date.localeCompare(b.date) || String(a.debut).localeCompare(String(b.debut)));
+
+    return ok({
+      aujourd_hui: today,
+      du: first,
+      au: last,
+      mis_a_jour: timetable.misAJour,
+      hors_ligne: timetable.horsLigne,
+      nombre: lessons.length,
+      cours: lessons
+    });
   }));
 
   return server;
