@@ -216,7 +216,7 @@ describe('sending', () => {
     fake.setHandler((method, sql) => (method === 'all' && sql.includes('push_subscriptions') ? subs : undefined));
 
     const sent = [];
-    t.mock.method(webpush, 'sendNotification', async (sub, body) => {
+    t.mock.method(push.sender, 'sendNotification', async (sub, body) => {
       sent.push({ endpoint: sub.endpoint, body: JSON.parse(body) });
       if (sub.endpoint.endsWith('/gone')) {
         throw Object.assign(new Error('Gone'), { statusCode: 410 });
@@ -238,7 +238,7 @@ describe('sending', () => {
   });
 
   test('no "devoir modifié" right after the creation', async (t) => {
-    const sendMock = t.mock.method(webpush, 'sendNotification', async () => ({ statusCode: 201 }));
+    const sendMock = t.mock.method(push.sender, 'sendNotification', async () => ({ statusCode: 201 }));
     const subs = [{ id: 1, endpoint: 'https://push.example/ok', p256dh: 'p', auth: 'a' }];
     const assignment = { id: 9, titre: 'T', date: null };
 
@@ -258,7 +258,7 @@ describe('sending', () => {
   });
 
   test('notifyComment: according to everyone\'s choice, participants of the assignment by default', async (t) => {
-    const sendMock = t.mock.method(webpush, 'sendNotification', async () => ({ statusCode: 201 }));
+    const sendMock = t.mock.method(push.sender, 'sendNotification', async () => ({ statusCode: 201 }));
     const subs = [{ id: 1, endpoint: 'https://push.example/ok', p256dh: 'p', auth: 'a' }];
     fake.calls.length = 0;
     fake.setHandler((method) => (method === 'all' ? subs : undefined));
