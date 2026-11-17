@@ -47,6 +47,12 @@ const SEND_TIMEOUT_MS = 10000;
  */
 const MODIFICATION_GRACE_MINUTES = 5;
 
+/**
+ * Sends the requests to the push services. web-push is an ES module whose
+ * exports cannot be replaced, so the tests mock this object instead.
+ */
+const sender = { sendNotification: webpush.sendNotification };
+
 let vapidPromise = null;
 
 /** INSERT IGNORE: if two requests generate keys at the same time, the first one wins. */
@@ -234,7 +240,7 @@ async function sendToSubscriptions(subscriptions, payload) {
 
   await Promise.all(subscriptions.map(async (sub) => {
     try {
-      await webpush.sendNotification(
+      await sender.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         body,
         { TTL: 60 * 60 * 24, urgency: payload.urgency || 'normal', topic: payload.topic, timeout: SEND_TIMEOUT_MS }
@@ -336,6 +342,7 @@ function inBackground(send) {
 
 module.exports = {
   DEFAULT_PREFERENCES,
+  sender,
   getPublicKey,
   parseSubscription,
   saveSubscription,
