@@ -18,13 +18,13 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@anthropic-ai/sdk": "^1.8.0",
+    "@anthropic-ai/sdk": "^1.11.0",
     "@getbrevo/brevo": "^6.2.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.10",
     "express": "^5.3.0",
-    "express-rate-limit": "^8.7.4",
+    "express-rate-limit": "^8.7.5",
     "groq-sdk": "^1.6.0",
     "jsonwebtoken": "^9.0.2",
     "libreoffice-convert": "^1.9.1",
@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.14.0",
+    "eslint": "^10.15.0",
     "globals": "^17.14.0",
     "nodemon": "^3.0.2"
   }
